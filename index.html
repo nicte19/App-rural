@@ -1,34 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
-
-    <script src="./script.js"></script>
-  </body>
-</html>
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>App Rural · Productor/a · Animales · Medicamentos · Insumos · Procedimientos</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>App Rural · Productor/a · Animales · Medicamentos · Vacunas · Insumos · Procedimientos</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
-    <h1>App Rural · 👤 Productor/a · 🐾 Animales · 💊 Medicamentos · 🧰 Insumos · 🩺 Procedimientos</h1>
+    <h1>App Rural · 👤 Productor/a · 🐾 Animales · 💊 Medicamentos · 💉 Vacunas · 🧰 Insumos · 🩺 Procedimientos</h1>
     <p>Guardado local (localStorage). Fotos y evidencias se guardan como base64.</p>
   </header>
 
   <nav class="tabs">
     <button class="tab active" id="tabProducer" type="button">👤 Productor/a</button>
     <button class="tab" id="tabAnimals" type="button">🐾 Animales</button>
-    <button class="tab" id="tabMeds" type="button">💊 Medicamentos</button>
+    <button class="tab" id="tabMeds" type="button">💊 / 💉 Medicamentos y vacunas</button>
     <button class="tab" id="tabSupplies" type="button">🧰 Insumos</button>
     <button class="tab" id="tabProcedures" type="button">🩺 Procedimientos</button>
   </nav>
@@ -1107,9 +1094,9 @@
     <section id="pageMeds" class="page">
       <main style="grid-template-columns:1.1fr .9fr;">
         <section class="card">
-          <h2>💊 Medicamentos (Módulo 4)</h2>
+          <h2>💊 Medicamentos y 💉 vacunas (Módulo 4)</h2>
           <div class="content">
-            <div class="help">Manual o ChatGPT (prompt automático).</div>
+            <div class="help">Medicamentos y vacunas ahora se guardan por separado. El bloque de vacuna es independiente del medicamento.</div>
             <div class="sep"></div>
 
             <div class="row">
@@ -1158,6 +1145,23 @@
                   </div>
                 </div>
 
+                <div id="m_anaRosaWrap" style="display:none;">
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="m_anaRosaCharge">Cobro al productor por unidad/dosis (MXN)</label>
+                      <input id="m_anaRosaCharge" type="number" min="0" step="0.01" placeholder="Ej. 25" />
+                    </div>
+                    <div>
+                      <label for="m_anaRosaRefund">Monto a devolver estimado (auto)</label>
+                      <input id="m_anaRosaRefund" type="text" disabled placeholder="Se calcula con el uso" />
+                    </div>
+                    <div>
+                      <label for="m_anaRosaNotes">Notas de devolución</label>
+                      <input id="m_anaRosaNotes" type="text" placeholder="Ej. Se devuelve a la doctora según lo cobrado" />
+                    </div>
+                  </div>
+                </div>
+
                 <div class="grid cols-3">
                   <div>
                     <label for="m_totalQty">Cantidad total</label>
@@ -1185,8 +1189,9 @@
                 </div>
 
                 <details open>
-                  <summary>💉 Vacunas</summary>
+                  <summary>💉 Vacuna independiente</summary>
                   <div class="inner grid">
+                    <div class="help">Si capturas esta sección, la vacuna se guarda en un inventario aparte y no como medicamento.</div>
                     <div class="grid cols-5">
                       <div>
                         <label for="m_vaxBrand">Marca vacuna</label>
@@ -1208,6 +1213,10 @@
                         <label for="m_vaxDiseases">¿Qué enfermedades cubre?</label>
                         <input id="m_vaxDiseases" type="text" placeholder="Ej. Newcastle, viruela..." />
                       </div>
+                    </div>
+                    <div class="row">
+                      <button class="btn" type="button" id="m_btnSaveVaccine">💉 Guardar vacuna independiente</button>
+                      <button class="btn ghost" type="button" id="m_btnClearVaccine">🧽 Limpiar vacuna</button>
                     </div>
                   </div>
                 </details>
@@ -1357,6 +1366,7 @@
               <button class="btn small ghost" type="button" id="m_btnExport">⬇️ Exportar JSON</button>
               <button class="btn small ghost" type="button" id="m_btnImport">⬆️ Importar JSON</button>
               <button class="btn small ghost" type="button" id="m_btnExportExcel">📊 Exportar Excel</button>
+              <button class="btn small ghost" type="button" id="m_btnExportWord">📄 Exportar Word</button>
               <input id="m_importFile" type="file" accept="application/json" style="display:none;" />
             </div>
 
@@ -1365,7 +1375,11 @@
             </div>
 
             <div class="sep"></div>
+            <h3 style="margin:0 0 10px;font-size:14px;">💊 Medicamentos</h3>
             <div class="list" id="m_list"></div>
+            <div class="sep"></div>
+            <h3 style="margin:0 0 10px;font-size:14px;">💉 Vacunas</h3>
+            <div class="list" id="m_vaccineList"></div>
           </div>
         </aside>
       </main>
@@ -1480,7 +1494,7 @@
                           <input id="s_costAcq" type="number" min="0" step="0.01" placeholder="Ej. 1200" />
                         </div>
                         <div>
-                          <label for="s_lifeMonths">Vida útil (meses) *</label>
+                          <label for="s_lifeMonths">Vida útil (años) *</label>
                           <input id="s_lifeMonths" type="number" min="1" step="1" placeholder="Ej. 24" />
                         </div>
                       </div>
@@ -1491,8 +1505,8 @@
                           <input id="s_estimatedUses" type="number" min="0" step="1" placeholder="Ej. 300" />
                         </div>
                         <div>
-                          <label for="s_costMonth">Costo por mes (auto)</label>
-                          <input id="s_costMonth" disabled placeholder="$ / mes" />
+                          <label for="s_costMonth">Costo por año (auto)</label>
+                          <input id="s_costMonth" disabled placeholder="$ / año" />
                         </div>
                       </div>
 
