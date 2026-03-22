@@ -1,762 +1,75 @@
-:root{
-  --bg:#0f172a;
-  --panel:#111827;
-  --panel-2:#1f2937;
-  --muted:#94a3b8;
-  --text:#e5e7eb;
-  --line:#334155;
-  --primary:#22c55e;
-  --primary-2:#16a34a;
-  --danger:#ef4444;
-  --warn:#f59e0b;
-  --info:#38bdf8;
-  --chip:#0b1220;
-  --shadow:0 10px 30px rgba(0,0,0,.25);
-  --radius:18px;
-  --radius-sm:12px;
-}
-
-*{
-  box-sizing:border-box;
-}
-
-html,body{
-  margin:0;
-  padding:0;
-  background:linear-gradient(180deg,#0b1020 0%, #0f172a 100%);
-  color:var(--text);
-  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-}
-
-body{
-  min-height:100vh;
-}
-
-header{
-  max-width:1400px;
-  margin:0 auto;
-  padding:22px 18px 10px;
-}
-
-header h1{
-  margin:0 0 6px;
-  font-size:clamp(1.2rem, 2vw, 2rem);
-  line-height:1.2;
-}
-
-header p{
-  margin:0;
-  color:var(--muted);
-  font-size:.95rem;
-}
-
-.tabs{
-  max-width:1400px;
-  margin:8px auto 0;
-  padding:0 18px 10px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.tab{
-  appearance:none;
-  border:1px solid var(--line);
-  background:rgba(255,255,255,.03);
-  color:var(--text);
-  padding:12px 16px;
-  border-radius:999px;
-  cursor:pointer;
-  transition:.2s ease;
-  font-weight:600;
-}
-
-.tab:hover{
-  transform:translateY(-1px);
-  border-color:#475569;
-}
-
-.tab.active{
-  background:rgba(34,197,94,.18);
-  border-color:rgba(34,197,94,.55);
-  color:#dcfce7;
-}
-
-.pages{
-  max-width:1400px;
-  margin:0 auto;
-  padding:0 18px 24px;
-}
-
-.page{
-  display:none;
-}
-
-.page.active{
-  display:block;
-}
-
-main{
-  display:grid;
-  grid-template-columns:1.15fr .85fr;
-  gap:18px;
-}
-
-.card{
-  background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02));
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:var(--radius);
-  box-shadow:var(--shadow);
-  overflow:hidden;
-}
-
-.card h2{
-  margin:0;
-  padding:18px 18px 0;
-  font-size:1.05rem;
-}
-
-.content{
-  padding:18px;
-}
-
-.sep{
-  height:1px;
-  background:linear-gradient(90deg, transparent, rgba(148,163,184,.25), transparent);
-  margin:16px 0;
-}
-
-.grid{
-  display:grid;
-  gap:14px;
-}
-
-.grid.cols-2{
-  grid-template-columns:repeat(2,minmax(0,1fr));
-}
-
-.grid.cols-3{
-  grid-template-columns:repeat(3,minmax(0,1fr));
-}
-
-.grid.cols-4{
-  grid-template-columns:repeat(4,minmax(0,1fr));
-}
-
-.grid.cols-5{
-  grid-template-columns:repeat(5,minmax(0,1fr));
-}
-
-.row{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-
-label{
-  display:block;
-  margin:0 0 6px;
-  font-size:.92rem;
-  color:#f3f4f6;
-  font-weight:600;
-}
-
-input,
-select,
-textarea,
-button{
-  font:inherit;
-}
-
-input,
-select,
-textarea{
-  width:100%;
-  padding:12px 14px;
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(15,23,42,.72);
-  color:var(--text);
-  outline:none;
-  transition:border-color .2s ease, box-shadow .2s ease, transform .06s ease;
-}
-
-input::placeholder,
-textarea::placeholder{
-  color:#7c8aa0;
-}
-
-input:focus,
-select:focus,
-textarea:focus{
-  border-color:rgba(56,189,248,.55);
-  box-shadow:0 0 0 3px rgba(56,189,248,.15);
-}
-
-textarea{
-  min-height:96px;
-  resize:vertical;
-}
-
-select[multiple]{
-  min-height:120px;
-}
-
-button{
-  border:none;
-  border-radius:14px;
-  padding:12px 16px;
-  cursor:pointer;
-  transition:transform .08s ease, opacity .2s ease, background .2s ease, border-color .2s ease;
-}
-
-button:active{
-  transform:translateY(1px);
-}
-
-.btn{
-  background:#334155;
-  color:#fff;
-  border:1px solid transparent;
-}
-
-.btn:hover{
-  opacity:.96;
-}
-
-.btn.primary{
-  background:linear-gradient(180deg,var(--primary),var(--primary-2));
-  color:#08130c;
-  font-weight:800;
-}
-
-.btn.bad{
-  background:linear-gradient(180deg,#ef4444,#dc2626);
-  color:#fff;
-}
-
-.btn.ghost{
-  background:transparent;
-  color:#dbeafe;
-  border:1px solid rgba(148,163,184,.28);
-}
-
-.btn.small{
-  padding:9px 12px;
-  border-radius:12px;
-  font-size:.92rem;
-}
-
-.help{
-  color:var(--muted);
-  font-size:.9rem;
-  line-height:1.4;
-}
-
-.error,
-.success{
-  margin-top:8px;
-  padding:10px 12px;
-  border-radius:12px;
-  font-size:.92rem;
-}
-
-.error{
-  background:rgba(239,68,68,.12);
-  color:#fecaca;
-  border:1px solid rgba(239,68,68,.28);
-}
-
-.success{
-  background:rgba(34,197,94,.12);
-  color:#dcfce7;
-  border:1px solid rgba(34,197,94,.28);
-}
-
-details{
-  border:1px solid rgba(148,163,184,.16);
-  border-radius:16px;
-  overflow:hidden;
-  background:rgba(255,255,255,.02);
-}
-
-details summary{
-  list-style:none;
-  cursor:pointer;
-  padding:14px 16px;
-  font-weight:800;
-  background:rgba(255,255,255,.03);
-  border-bottom:1px solid rgba(148,163,184,.12);
-}
-
-details summary::-webkit-details-marker{
-  display:none;
-}
-
-details .inner{
-  padding:14px;
-}
-
-.list{
-  display:grid;
-  gap:12px;
-}
-
-.item{
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(255,255,255,.025);
-  border-radius:16px;
-  padding:14px;
-}
-
-.item h3{
-  margin:0 0 8px;
-  font-size:1rem;
-}
-
-.item .meta{
-  color:var(--muted);
-  font-size:.9rem;
-  margin-bottom:10px;
-}
-
-.item .actions{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-}
-
-.family-table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  min-width:720px;
-}
-
-.family-table th,
-.family-table td{
-  padding:10px;
-  text-align:left;
-  border-bottom:1px solid rgba(148,163,184,.14);
-}
-
-.family-table th{
-  color:#cbd5e1;
-  font-size:.9rem;
-  background:rgba(255,255,255,.03);
-  position:sticky;
-  top:0;
-}
-
-table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  min-width:720px;
-}
-
-th,
-td{
-  padding:10px;
-  text-align:left;
-  border-bottom:1px solid rgba(148,163,184,.14);
-  vertical-align:top;
-}
-
-th{
-  color:#cbd5e1;
-  font-size:.9rem;
-  background:rgba(255,255,255,.03);
-}
-
-.thumb{
-  width:120px;
-  height:120px;
-  border-radius:18px;
-  border:1px dashed rgba(148,163,184,.35);
-  background:rgba(255,255,255,.02);
-  overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  color:var(--muted);
-  font-size:.88rem;
-  flex:0 0 auto;
-}
-
-.thumb img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  display:block;
-}
-
-.preview-mini{
-  width:88px;
-  height:88px;
-  border-radius:14px;
-  overflow:hidden;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(255,255,255,.03);
-  position:relative;
-  flex:0 0 auto;
-}
-
-.preview-mini img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  display:block;
-}
-
-.preview-mini .mini-remove{
-  position:absolute;
-  right:6px;
-  top:6px;
-  width:24px;
-  height:24px;
-  border-radius:999px;
-  padding:0;
-  background:rgba(15,23,42,.85);
-  color:#fff;
-  border:1px solid rgba(255,255,255,.15);
-  font-size:.8rem;
-}
-
-.chips{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.chip{
-  padding:10px 14px;
-  border-radius:999px;
-  background:var(--chip);
-  border:1px solid rgba(148,163,184,.2);
-  cursor:pointer;
-  user-select:none;
-  transition:.2s ease;
-  font-weight:700;
-}
-
-.chip:hover{
-  transform:translateY(-1px);
-}
-
-.chip[data-active="true"]{
-  outline:2px solid rgba(255,255,255,.08);
-}
-
-.chip.good[data-active="true"]{
-  background:rgba(34,197,94,.14);
-  border-color:rgba(34,197,94,.4);
-  color:#dcfce7;
-}
-
-.chip.warn[data-active="true"]{
-  background:rgba(245,158,11,.14);
-  border-color:rgba(245,158,11,.42);
-  color:#fef3c7;
-}
-
-.chip.bad[data-active="true"]{
-  background:rgba(239,68,68,.14);
-  border-color:rgba(239,68,68,.42);
-  color:#fee2e2;
-}
-
-.radio{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding:10px 12px;
-  border-radius:12px;
-  border:1px solid rgba(148,163,184,.2);
-  background:rgba(255,255,255,.025);
-  cursor:pointer;
-}
-
-.radio input{
-  width:auto;
-  margin:0;
-}
-
-.kv{
-  display:grid;
-  gap:8px;
-}
-
-.kv .line{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  color:#cbd5e1;
-  font-size:.94rem;
-}
-
-.kv .line b{
-  color:#fff;
-}
-
-.mono{
-  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-}
-
-.badge{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 10px;
-  border-radius:999px;
-  font-size:.82rem;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(255,255,255,.04);
-  color:#e2e8f0;
-}
-
-.badge.ok{
-  background:rgba(34,197,94,.12);
-  border-color:rgba(34,197,94,.3);
-  color:#dcfce7;
-}
-
-.badge.warn{
-  background:rgba(245,158,11,.12);
-  border-color:rgba(245,158,11,.3);
-  color:#fef3c7;
-}
-
-.badge.bad{
-  background:rgba(239,68,68,.12);
-  border-color:rgba(239,68,68,.3);
-  color:#fee2e2;
-}
-
-input[disabled],
-textarea[disabled]{
-  opacity:.78;
-  cursor:not-allowed;
-}
-
-.hidden{
-  display:none !important;
-}
-
-.empty-state{
-  color:var(--muted);
-  font-size:.95rem;
-  padding:10px 4px;
-}
-
-#pageProcedures textarea{
-  min-height:110px;
-}
-
-#pageProcedures .thumb{
-  width:130px;
-  height:130px;
-}
-
-#pageProcedures .list .item{
-  border-left:4px solid rgba(56,189,248,.35);
-}
-
-@media (max-width: 1180px){
-  main{
-    grid-template-columns:1fr;
-  }
-}
-
-@media (max-width: 980px){
-  .grid.cols-5{
-    grid-template-columns:repeat(2,minmax(0,1fr));
-  }
-}
-
-@media (max-width: 900px){
-  .grid.cols-4{
-    grid-template-columns:repeat(2,minmax(0,1fr));
-  }
-}
-
-@media (max-width: 700px){
-  .grid.cols-2,
-  .grid.cols-3,
-  .grid.cols-4,
-  .grid.cols-5{
-    grid-template-columns:1fr;
-  }
-
-  .tabs{
-    gap:8px;
-  }
-
-  .tab{
-    width:100%;
-    text-align:center;
-  }
-
-  .content{
-    padding:14px;
-  }
-
-  header{
-    padding:18px 14px 8px;
-  }
-
-  .pages{
-    padding:0 14px 20px;
-  }
-
-  .thumb{
-    width:100px;
-    height:100px;
-  }
-
-  #pageProcedures .thumb{
-    width:100px;
-    height:100px;
-  }
-}
-/* =========================================================
-   APP RURAL FUSIONADA · SCRIPT COMPLETO
-========================================================= */
-
-const STORAGE_KEY = "app_rural_fusion_full_v4";
-
+const STORAGE_KEY = "app_rural_consolidada_v1";
 const state = {
   producers: [],
   meds: [],
+  vaccines: [],
   supplies: [],
   procedures: [],
+  labTests: [],
   selectedProducerId: null,
-
-  ui: {
-    medMode: "MANUAL",
-    supplyMode: "DISPOSABLE"
-  },
-
   editing: {
     producerId: null,
+    animalId: null,
     medId: null,
     supplyId: null,
-    procedureId: null
+    procedureId: null,
   },
-
-  media: {
-    producerPhoto: null,
-    animalTempPhotos: [],
+  ui: { medMode: "MANUAL", supplyMode: "DISPOSABLE" },
+  draft: {
+    animalPhotos: [],
     medRxPhoto: null,
     medTicketPhoto: null,
     supplyTicketPhoto: null,
     procedureCasePhotos: [],
     procedureNecropsyPhotos: [],
-    procedureChargePhoto: null
-  }
+    procedureChargePhoto: null,
+    procedureMedUses: [],
+    procedureVaccineUses: [],
+    procedureSupplyUses: [],
+    procedureLabIds: [],
+  },
 };
 
-/* =========================================================
-   HELPERS
-========================================================= */
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-
-function uid() {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function nowText() {
-  return new Date().toLocaleString("es-MX", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function safeText(v) {
-  return v == null ? "" : String(v);
-}
-
-function escapeHtml(str) {
-  return String(str ?? "")
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const uid = (p = "id") =>
+  `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const money = (v) =>
+  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
+    Number(v || 0),
+  );
+const safe = (v) => (v == null ? "" : String(v));
+const esc = (v) =>
+  safe(v)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function ownerLabel(owner) {
-  if (owner === "DRA_ANA_ROSA") return "Dra. Ana Rosa";
-  if (owner === "SERVICIOS") return "Servicios";
-  if (owner === "OTRO") return "Otro";
-  return "";
-}
-
-function procedureTypeLabel(v) {
-  if (v === "PREVENTIVA") return "Medicina preventiva";
-  if (v === "ZOOTECNIA") return "Asesoría zootécnica";
-  if (v === "CASO_CLINICO") return "Caso clínico";
-  if (v === "NECROPSIA") return "Necropsia";
-  return "";
-}
-
-function classificationLabel(v) {
-  if (v === "TRABAJAR") return "Sí trabajar";
-  if (v === "PENDIENTE") return "Aún no sé";
-  if (v === "NO_TRABAJAR") return "No trabajar";
-  return "";
-}
-
-function money(v) {
-  const n = Number(v || 0);
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN"
-  }).format(n);
-}
+    .replaceAll('"', "&quot;");
+const byId = (arr, id) => arr.find((x) => x.id === id);
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
-
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return;
-
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
     const parsed = JSON.parse(raw);
-
-    state.producers = Array.isArray(parsed.producers) ? parsed.producers : [];
-    state.meds = Array.isArray(parsed.meds) ? parsed.meds : [];
-    state.supplies = Array.isArray(parsed.supplies) ? parsed.supplies : [];
-    state.procedures = Array.isArray(parsed.procedures) ? parsed.procedures : [];
-    state.selectedProducerId = parsed.selectedProducerId || null;
-
-    if (parsed.ui) {
-      state.ui.medMode = parsed.ui.medMode || "MANUAL";
-      state.ui.supplyMode = parsed.ui.supplyMode || "DISPOSABLE";
-    }
+    Object.assign(state, {
+      producers: Array.isArray(parsed.producers) ? parsed.producers : [],
+      meds: Array.isArray(parsed.meds) ? parsed.meds : [],
+      vaccines: Array.isArray(parsed.vaccines) ? parsed.vaccines : [],
+      supplies: Array.isArray(parsed.supplies) ? parsed.supplies : [],
+      procedures: Array.isArray(parsed.procedures) ? parsed.procedures : [],
+      labTests: Array.isArray(parsed.labTests) ? parsed.labTests : [],
+      selectedProducerId: parsed.selectedProducerId || null,
+      editing: { ...state.editing, ...(parsed.editing || {}) },
+      ui: { ...state.ui, ...(parsed.ui || {}) },
+      draft: { ...state.draft, ...(parsed.draft || {}) },
+    });
   } catch (err) {
-    console.error("Error cargando state:", err);
+    console.error(err);
   }
-}
-
-function showMessage(id, text, kind = "help") {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = text || "";
-  el.className = kind;
-  el.style.display = text ? "block" : "none";
-}
-
-function resetMessages(ids = []) {
-  ids.forEach(id => showMessage(id, "", "help"));
 }
 
 function fileToBase64(file) {
@@ -767,1552 +80,1064 @@ function fileToBase64(file) {
     fr.readAsDataURL(file);
   });
 }
-
-function setThumb(id, dataUrl, emptyHtml = "Sin<br/>foto") {
+function show(id, msg, type = "help") {
   const el = document.getElementById(id);
   if (!el) return;
-  if (!dataUrl) {
-    el.innerHTML = `<span>${emptyHtml}</span>`;
-    return;
-  }
-  el.innerHTML = `<img src="${dataUrl}" alt="preview" />`;
+  el.textContent = msg || "";
+  el.className = type;
+  el.style.display = msg ? "block" : "none";
 }
-
-function openUrl(url) {
-  if (!url) return;
-  let finalUrl = String(url).trim();
-  if (!finalUrl) return;
-  if (!/^https?:\/\//i.test(finalUrl)) {
-    finalUrl = "https://" + finalUrl;
-  }
-  window.open(finalUrl, "_blank", "noopener,noreferrer");
-}
-
-function getCheckedRadio(name) {
-  return document.querySelector(`input[name="${name}"]:checked`)?.value || "";
-}
-
-function setCheckedRadio(name, value) {
-  $$(`input[name="${name}"]`).forEach(r => {
-    r.checked = r.value === value;
-  });
-}
-
-function getSelectedOptions(selectEl) {
-  return Array.from(selectEl?.selectedOptions || []).map(o => o.value);
-}
-
-function setSelectedOptions(selectEl, values = []) {
-  Array.from(selectEl?.options || []).forEach(opt => {
-    opt.selected = values.includes(opt.value);
-  });
-}
-
-function resetMultiSelect(selectEl) {
-  Array.from(selectEl?.options || []).forEach(opt => opt.selected = false);
-}
-
-function downloadFile(filename, content, mime) {
+function download(name, content, mime) {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
+  a.download = name;
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+function setThumb(id, src, empty = "Sin<br/>imagen") {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = src
+    ? `<img src="${src}" alt="preview">`
+    : `<span>${empty}</span>`;
+}
+function checked(name) {
+  return document.querySelector(`input[name="${name}"]:checked`)?.value || "";
+}
+function setChecked(name, value) {
+  document
+    .querySelectorAll(`input[name="${name}"]`)
+    .forEach((i) => (i.checked = i.value === value));
+}
+function multiValues(sel) {
+  return Array.from(sel?.selectedOptions || [])
+    .map((o) => o.value)
+    .filter(Boolean);
+}
+function setMulti(sel, values = []) {
+  if (!sel) return;
+  Array.from(sel.options).forEach(
+    (o) => (o.selected = values.includes(o.value)),
+  );
 }
 
-function csvEscape(value) {
-  const str = String(value ?? "");
-  if (str.includes('"') || str.includes(",") || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
+function getProducer() {
+  return byId(state.producers, state.selectedProducerId);
+}
+function producerName(id) {
+  return byId(state.producers, id)?.basic?.name || "Sin productor/a";
+}
+function currentAnimals() {
+  return getProducer()?.animals || [];
+}
+function animalLabel(an) {
+  return [
+    an.species,
+    an.breed,
+    an.quantity ? `(${an.quantity})` : "",
+    an.functionOther,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
-function downloadCSV(filename, rows) {
-  const csv = rows.map(r => r.map(csvEscape).join(",")).join("\n");
-  downloadFile(filename, "\ufeff" + csv, "text/csv;charset=utf-8;");
-}
-
-function getSelectedProducer() {
-  return state.producers.find(p => p.id === state.selectedProducerId) || null;
-}
-
-function getProducerById(id) {
-  return state.producers.find(p => p.id === id) || null;
-}
-
-function ensureQuestionnaire(prod) {
-  if (!prod.animalQuestionnaire) {
-    prod.animalQuestionnaire = {
-      diseases: [],
-      vaccines: [],
-      dewormings: [],
-      traditional: [],
-      genderAnimals: [],
-      genderActivities: [],
-      importantAnimals: [],
-      importantAnimalsWhy: "",
-      hasMilpa: "",
-      whatSows: "",
-      forageShortage: "",
-      whereAnimalsStay: "",
-      vaccinatesAny: "",
-      dewormsAny: "",
-      changesDewormer: "",
-      recommendedBy: "",
-      curadorExiste: "",
-      curadorQuien: "",
-      curadorEdad: "",
-      curadorEspecies: "",
-      curadorTiempo: "",
-      curadorServicios: "",
-      practicesAny: "",
-      practicesWho: "",
-      practicesAdvice: "",
-      programRegistered: "",
-      programName: "",
-      hasFolio: "",
-      folio: "",
-      futureCalls: "",
-      huntingCommon: "",
-      huntingTime: "",
-      huntedAnimals: "",
-      huntingPlaces: "",
-      huntingSeason: "",
-      huntingReasons: "",
-      wildProblems: "",
-      wildProblemsDetail: "",
-      riverUse: "",
-      riverUseFor: "",
-      riverMeaning: "",
-      riverProblems: "",
-      localKnowledgeExists: "",
-      localKnowledgeWho: "",
-      localKnowledgeUseful: "",
-      rumiantInterest: "",
-      rumiantInterestWhy: "",
-      hadRumiantsBefore: "",
-      noRumiantsReason: "",
-      rumiantAdvice: "",
-      rumiantOthers: "",
-      rumiantWomen: "",
-      rumiantNeed: "",
-      birdsInterestYes: "",
-      birdsInterestNo: ""
-    };
-  }
-  return prod.animalQuestionnaire;
-}
-
-function producerPeopleOptions(prod, includeVet = false) {
-  if (!prod) return [];
-  const arr = [];
-  const mainName = (prod.basic?.name || "").trim();
-  arr.push(mainName ? `Productor(a): ${mainName}` : "Productor(a)");
-
-  (prod.family || []).forEach(f => {
-    const label = [f.name, f.relation].filter(Boolean).join(" - ").trim();
-    if (label) arr.push(label);
-  });
-
-  if (includeVet) arr.push("Veterinario(a)");
-  arr.push("Otro");
-  return [...new Set(arr)];
-}
-
-function animalGroupLabel(a) {
-  return `${a.species || ""}${a.race ? " - " + a.race : ""}${a.quantity ? " (" + a.quantity + ")" : ""}`;
-}
-
-function producerHasBirds(prod) {
-  return (prod?.animals || []).some(a => {
-    const t = (a.species || "").toLowerCase();
-    return (
-      t.includes("gallina") ||
-      t.includes("gallo") ||
-      t.includes("guajolote") ||
-      t.includes("pollo") ||
-      t.includes("ave") ||
-      t.includes("pato") ||
-      t.includes("codorniz")
+function inventoryUsage() {
+  const meds = {},
+    vaccines = {},
+    supplies = {};
+  state.procedures.forEach((p) => {
+    (p.inventory?.meds || []).forEach(
+      (i) => (meds[i.itemId] = (meds[i.itemId] || 0) + Number(i.qty || 0)),
+    );
+    (p.inventory?.vaccines || []).forEach(
+      (i) =>
+        (vaccines[i.itemId] =
+          (vaccines[i.itemId] || 0) + Number(i.animalsApplied || 0)),
+    );
+    (p.inventory?.supplies || []).forEach(
+      (i) =>
+        (supplies[i.itemId] = (supplies[i.itemId] || 0) + Number(i.qty || 0)),
     );
   });
+  return { meds, vaccines, supplies };
+}
+function medRemaining(med) {
+  return Math.max(
+    0,
+    Number(med.totalQty || 0) - (inventoryUsage().meds[med.id] || 0),
+  );
+}
+function vaccineRemaining(vax) {
+  return Math.max(
+    0,
+    Number(vax.coverageAnimals || 0) - (inventoryUsage().vaccines[vax.id] || 0),
+  );
+}
+function supplyRemaining(s) {
+  return s.type === "NON_DISPOSABLE"
+    ? "No aplica"
+    : Math.max(0, Number(s.qty || 0) - (inventoryUsage().supplies[s.id] || 0));
 }
 
-/* =========================================================
-   TABS
-========================================================= */
 function activateTab(name) {
   const map = {
-    producer: ["#tabProducer", "#pageProducer"],
-    animals: ["#tabAnimals", "#pageAnimals"],
-    meds: ["#tabMeds", "#pageMeds"],
-    supplies: ["#tabSupplies", "#pageSupplies"],
-    procedures: ["#tabProcedures", "#pageProcedures"]
+    Producer: "pageProducer",
+    Animals: "pageAnimals",
+    Meds: "pageMeds",
+    Supplies: "pageSupplies",
+    Procedures: "pageProcedures",
   };
-
-  Object.values(map).forEach(([b, p]) => {
-    $(b)?.classList.remove("active");
-    $(p)?.classList.remove("active");
+  Object.entries(map).forEach(([tab, page]) => {
+    document
+      .getElementById(`tab${tab}`)
+      ?.classList.toggle("active", tab === name);
+    document.getElementById(page)?.classList.toggle("active", tab === name);
   });
-
-  $(map[name][0])?.classList.add("active");
-  $(map[name][1])?.classList.add("active");
 }
 
 function bindTabs() {
-  $("#tabProducer")?.addEventListener("click", () => activateTab("producer"));
-  $("#tabAnimals")?.addEventListener("click", () => activateTab("animals"));
-  $("#tabMeds")?.addEventListener("click", () => activateTab("meds"));
-  $("#tabSupplies")?.addEventListener("click", () => activateTab("supplies"));
-  $("#tabProcedures")?.addEventListener("click", () => activateTab("procedures"));
-  $("#btnGoProducerFromAnimals")?.addEventListener("click", () => activateTab("producer"));
+  ["Producer", "Animals", "Meds", "Supplies", "Procedures"].forEach((tab) =>
+    $(`#tab${tab}`)?.addEventListener("click", () => activateTab(tab)),
+  );
 }
 
-/* =========================================================
-   PRODUCTOR/A
-========================================================= */
-function updateProducerConditionalFields() {
-  const pertenencia = $("#pertenenciaIndigena")?.value || "";
-  $("#grupoIndigenaYoWrap").style.display = pertenencia === "YO" ? "block" : "none";
-  $("#grupoIndigenaFamiliarWrap").style.display = pertenencia === "FAMILIAR" ? "grid" : "none";
-
-  const lengua = $("#lenguaIndigenaTipo")?.value || "";
-  $("#lenguaYoWrap").style.display = lengua === "YO" ? "block" : "none";
-  $("#lenguaFamiliarWrap").style.display = lengua === "FAMILIAR" ? "grid" : "none";
-
-  $("#alertaWrap").style.display = getProducerClassification() === "NO_TRABAJAR" ? "block" : "none";
+function collectWeeklySchedule() {
+  const days = [
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+    "domingo",
+  ];
+  return Object.fromEntries(
+    days.map((d) => [
+      d,
+      {
+        start: $(`#horario_${d}`)?.value || "",
+        end: $(`#horario_${d}_fin`)?.value || "",
+      },
+    ]),
+  );
 }
-
-function getProducerClassification() {
-  return $("#chipsClasificacion .chip[data-active='true']")?.dataset.value || "TRABAJAR";
-}
-
-function setProducerClassification(value) {
-  $$("#chipsClasificacion .chip").forEach(chip => {
-    chip.dataset.active = chip.dataset.value === value ? "true" : "false";
+function fillWeeklySchedule(data = {}) {
+  Object.entries(data).forEach(([d, v]) => {
+    if ($(`#horario_${d}`)) $(`#horario_${d}`).value = v.start || "";
+    if ($(`#horario_${d}_fin`)) $(`#horario_${d}_fin`).value = v.end || "";
   });
+}
+
+function collectProducerForm() {
+  return {
+    id: state.editing.producerId || uid("prod"),
+    basic: {
+      name: $("#nombre").value.trim(),
+      age: $("#edad").value,
+      sex: $("#sexo").value,
+      estadoCivil: $("#estadoCivil").value,
+      celular: $("#celular").value.trim(),
+      personasEnCasa: $("#personasEnCasa").value,
+      localidad: $("#localidad").value.trim(),
+      municipio: $("#municipio").value.trim(),
+      estado: $("#estado").value.trim(),
+      escolaridad: $("#escolaridad").value,
+      escolaridadOtro: $("#escolaridadOtro").value.trim(),
+      horario: $("#horario").value.trim(),
+      weeklySchedule: collectWeeklySchedule(),
+      sabeLeer: checked("sabeLeer"),
+      sabeEscribir: checked("sabeEscribir"),
+      pertenenciaIndigena: $("#pertenenciaIndigena").value,
+      grupoIndigenaYo: $("#grupoIndigenaYo").value.trim(),
+      grupoIndigenaFamiliarQuien: $("#grupoIndigenaFamiliarQuien").value.trim(),
+      grupoIndigenaFamiliarCual: $("#grupoIndigenaFamiliarCual").value.trim(),
+      lenguaIndigenaTipo: $("#lenguaIndigenaTipo").value,
+      lenguaYo: $("#lenguaYo").value.trim(),
+      lenguaFamiliarQuien: $("#lenguaFamiliarQuien").value.trim(),
+      lenguaFamiliarCual: $("#lenguaFamiliarCual").value.trim(),
+    },
+    location: {
+      lat: $("#lat").value.trim(),
+      lng: $("#lng").value.trim(),
+      mapsUrl: $("#mapsUrl").value.trim(),
+    },
+    photo: state.draft.producerPhoto || null,
+    classification: {
+      value: document.querySelector(".chip.active")?.dataset.value || "",
+      alerta: $("#alerta").value.trim(),
+      notaExtraPersona: $("#notaExtraPersona").value.trim(),
+    },
+    family: collectFamilyRows(),
+    notes: $("#notas").value.trim(),
+    questionnaire: getProducerQuestionnaireSkeleton(getProducer()),
+    animals: getProducer()?.animals || [],
+  };
+}
+function getProducerQuestionnaireSkeleton(prod) {
+  return (
+    prod?.questionnaire || {
+      diseases: [],
+      vaccines: [],
+      deworming: [],
+      traditional: [],
+      genderAnimals: [],
+      genderActivities: [],
+    }
+  );
+}
+function collectFamilyRows() {
+  return $$("#familyTbody tr").map((tr) => ({
+    id: tr.dataset.id || uid("fam"),
+    name: tr.querySelector('[data-k="name"]')?.value || "",
+    relation: tr.querySelector('[data-k="relation"]')?.value || "",
+    age: tr.querySelector('[data-k="age"]')?.value || "",
+    occupation: tr.querySelector('[data-k="occupation"]')?.value || "",
+  }));
+}
+function addFamilyRow(item = {}) {
+  const tr = document.createElement("tr");
+  tr.dataset.id = item.id || uid("fam");
+  tr.innerHTML = `<td><input data-k="name" value="${esc(item.name)}"></td><td><input data-k="relation" value="${esc(item.relation)}"></td><td><input data-k="age" value="${esc(item.age)}"></td><td><input data-k="occupation" value="${esc(item.occupation)}"></td><td><button class="btn small bad" type="button">Quitar</button></td>`;
+  tr.querySelector("button").addEventListener("click", () => tr.remove());
+  $("#familyTbody")?.appendChild(tr);
+}
+function resetProducerForm() {
+  $("#producerForm").reset();
+  $("#formTitle").textContent = "Nuevo productor(a)";
+  state.editing.producerId = null;
+  state.draft.producerPhoto = null;
+  setThumb("photoPreview", null, "Sin<br/>foto");
+  $("#familyTbody").innerHTML = "";
+  document
+    .querySelectorAll(".chip")
+    .forEach((ch) => ch.classList.remove("active"));
+  fillWeeklySchedule({});
+}
+function fillProducerForm(prod) {
+  resetProducerForm();
+  state.editing.producerId = prod.id;
+  $("#formTitle").textContent = `Editar productor(a): ${prod.basic.name}`;
+  const b = prod.basic || {};
+  Object.entries({
+    nombre: b.name,
+    edad: b.age,
+    sexo: b.sex,
+    estadoCivil: b.estadoCivil,
+    celular: b.celular,
+    personasEnCasa: b.personasEnCasa,
+    localidad: b.localidad,
+    municipio: b.municipio,
+    estado: b.estado,
+    escolaridad: b.escolaridad,
+    escolaridadOtro: b.escolaridadOtro,
+    horario: b.horario,
+    pertenenciaIndigena: b.pertenenciaIndigena,
+    grupoIndigenaYo: b.grupoIndigenaYo,
+    grupoIndigenaFamiliarQuien: b.grupoIndigenaFamiliarQuien,
+    grupoIndigenaFamiliarCual: b.grupoIndigenaFamiliarCual,
+    lenguaIndigenaTipo: b.lenguaIndigenaTipo,
+    lenguaYo: b.lenguaYo,
+    lenguaFamiliarQuien: b.lenguaFamiliarQuien,
+    lenguaFamiliarCual: b.lenguaFamiliarCual,
+    lat: prod.location?.lat,
+    lng: prod.location?.lng,
+    mapsUrl: prod.location?.mapsUrl,
+    alerta: prod.classification?.alerta,
+    notaExtraPersona: prod.classification?.notaExtraPersona,
+    notas: prod.notes,
+  }).forEach(([k, v]) => {
+    if (document.getElementById(k)) document.getElementById(k).value = safe(v);
+  });
+  setChecked("sabeLeer", b.sabeLeer || "SI");
+  setChecked("sabeEscribir", b.sabeEscribir || "SI");
+  fillWeeklySchedule(b.weeklySchedule || {});
+  state.draft.producerPhoto = prod.photo || null;
+  setThumb("photoPreview", prod.photo, "Sin<br/>foto");
+  (prod.family || []).forEach(addFamilyRow);
+  document
+    .querySelectorAll(".chip")
+    .forEach((ch) =>
+      ch.classList.toggle(
+        "active",
+        ch.dataset.value === (prod.classification?.value || ""),
+      ),
+    );
   updateProducerConditionalFields();
 }
-
-function bindProducerClassification() {
-  $$("#chipsClasificacion .chip").forEach(chip => {
-    chip.addEventListener("click", () => setProducerClassification(chip.dataset.value));
-  });
-}
-
-function familyRowTemplate(item = {}) {
-  return `
-    <tr>
-      <td><input type="text" class="fam-name" value="${escapeHtml(item.name || "")}" placeholder="Nombre" /></td>
-      <td><input type="text" class="fam-relation" value="${escapeHtml(item.relation || "")}" placeholder="Relación" /></td>
-      <td><input type="text" class="fam-occupation" value="${escapeHtml(item.occupation || item.job || "")}" placeholder="Ocupación" /></td>
-      <td><input type="number" min="0" step="1" class="fam-age" value="${escapeHtml(item.age || "")}" placeholder="Edad" /></td>
-      <td><button class="btn small bad fam-remove" type="button">✖</button></td>
-    </tr>
-  `;
-}
-
-function addFamilyRow(item = {}) {
-  const tbody = $("#familyTbody");
-  if (!tbody) return;
-  tbody.insertAdjacentHTML("beforeend", familyRowTemplate(item));
-  const row = tbody.lastElementChild;
-  row.querySelector(".fam-remove")?.addEventListener("click", () => row.remove());
-}
-
-function setFamilyRows(items = []) {
-  const tbody = $("#familyTbody");
-  tbody.innerHTML = "";
-  if (!items.length) {
-    addFamilyRow();
+function saveProducer(e) {
+  e?.preventDefault?.();
+  const prod = collectProducerForm();
+  if (!prod.basic.name) {
+    show("err", "El nombre del productor(a) es obligatorio.", "error");
     return;
   }
-  items.forEach(addFamilyRow);
+  const idx = state.producers.findIndex((x) => x.id === prod.id);
+  if (idx >= 0) state.producers[idx] = prod;
+  else state.producers.unshift(prod);
+  state.selectedProducerId = prod.id;
+  saveState();
+  renderAll();
+  resetProducerForm();
+  show("ok", "Productor(a) guardado correctamente.", "success");
 }
-
-function collectFamilyRows() {
-  return Array.from($("#familyTbody")?.querySelectorAll("tr") || [])
-    .map(row => ({
-      name: row.querySelector(".fam-name")?.value.trim() || "",
-      relation: row.querySelector(".fam-relation")?.value.trim() || "",
-      occupation: row.querySelector(".fam-occupation")?.value.trim() || "",
-      age: row.querySelector(".fam-age")?.value.trim() || ""
-    }))
-    .filter(x => x.name || x.relation || x.occupation || x.age);
-}
-
-async function onProducerPhotoSelected(file) {
-  if (!file) return;
-  state.media.producerPhoto = await fileToBase64(file);
-  setThumb("photoPreview", state.media.producerPhoto, "Sin<br/>foto");
-}
-
-function bindProducerPhoto() {
-  $("#btnTakePhoto")?.addEventListener("click", () => $("#fotoTomar")?.click());
-  $("#btnPickPhoto")?.addEventListener("click", () => $("#fotoElegir")?.click());
-
-  $("#fotoTomar")?.addEventListener("change", async (e) => {
-    await onProducerPhotoSelected(e.target.files?.[0]);
-    e.target.value = "";
+function renderProducerList() {
+  const list = $("#producerList");
+  if (!list) return;
+  list.innerHTML = "";
+  $("#count").textContent = state.producers.length;
+  state.producers.forEach((prod) => {
+    const animals = (prod.animals || []).length;
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<h3>${esc(prod.basic.name)}</h3><div class="line"><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</div><div class="line"><b>Animales registrados:</b> ${animals}</div><div class="line"><b>Clasificación:</b> ${esc(prod.classification?.value || "Sin definir")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Seleccionar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, select, w, e, del] = item.querySelectorAll("button");
+    edit.onclick = () => fillProducerForm(prod);
+    select.onclick = () => {
+      state.selectedProducerId = prod.id;
+      saveState();
+      renderAll();
+      activateTab("Animals");
+    };
+    w.onclick = () =>
+      exportWord(
+        `productor_${slug(prod.basic.name)}.doc`,
+        producerWordHtml(prod),
+      );
+    e.onclick = () =>
+      exportExcel(
+        `productor_${slug(prod.basic.name)}.xls`,
+        producerExcelSheets([prod], [], [], [], []),
+      );
+    del.onclick = () => {
+      if (confirm("¿Eliminar productor(a) y sus animales relacionados?")) {
+        state.producers = state.producers.filter((x) => x.id !== prod.id);
+        if (state.selectedProducerId === prod.id)
+          state.selectedProducerId = state.producers[0]?.id || null;
+        saveState();
+        renderAll();
+      }
+    };
+    list.appendChild(item);
   });
-
-  $("#fotoElegir")?.addEventListener("change", async (e) => {
-    await onProducerPhotoSelected(e.target.files?.[0]);
-    e.target.value = "";
-  });
-
+}
+function updateProducerConditionalFields() {
+  $("#grupoIndigenaYoWrap").style.display =
+    $("#pertenenciaIndigena").value === "YO" ? "block" : "none";
+  $("#grupoIndigenaFamiliarWrap").style.display =
+    $("#pertenenciaIndigena").value === "FAMILIAR" ? "grid" : "none";
+  $("#lenguaYoWrap").style.display =
+    $("#lenguaIndigenaTipo").value === "YO" ? "block" : "none";
+  $("#lenguaFamiliarWrap").style.display =
+    $("#lenguaIndigenaTipo").value === "FAMILIAR" ? "grid" : "none";
+}
+function bindProducer() {
+  $("#producerForm")?.addEventListener("submit", saveProducer);
+  $("#btnSave")?.addEventListener("click", saveProducer);
+  $("#btnReset")?.addEventListener("click", resetProducerForm);
+  $("#btnCancelEdit")?.addEventListener("click", resetProducerForm);
+  $("#btnAddFamily")?.addEventListener("click", () => addFamilyRow());
+  $("#pertenenciaIndigena")?.addEventListener(
+    "change",
+    updateProducerConditionalFields,
+  );
+  $("#lenguaIndigenaTipo")?.addEventListener(
+    "change",
+    updateProducerConditionalFields,
+  );
+  document.querySelectorAll(".chip").forEach((ch) =>
+    ch.addEventListener("click", () => {
+      document
+        .querySelectorAll(".chip")
+        .forEach((x) => x.classList.remove("active"));
+      ch.classList.add("active");
+    }),
+  );
+  ["fotoTomar", "fotoElegir"].forEach((id) =>
+    document.getElementById(id)?.addEventListener("change", async (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      state.draft.producerPhoto = await fileToBase64(f);
+      setThumb("photoPreview", state.draft.producerPhoto, "Sin<br/>foto");
+      e.target.value = "";
+    }),
+  );
+  $("#btnTakePhoto")?.addEventListener("click", () => $("#fotoTomar").click());
+  $("#btnPickPhoto")?.addEventListener("click", () => $("#fotoElegir").click());
   $("#btnRemovePhoto")?.addEventListener("click", () => {
-    state.media.producerPhoto = null;
+    state.draft.producerPhoto = null;
     setThumb("photoPreview", null, "Sin<br/>foto");
   });
-}
-
-function bindProducerLocation() {
   $("#btnGeo")?.addEventListener("click", () => {
     if (!navigator.geolocation) {
-      showMessage("err", "Tu navegador no soporta geolocalización.", "error");
+      show("msg", "Geolocalización no disponible.", "warning");
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        $("#lat").value = pos.coords.latitude.toFixed(7);
-        $("#lng").value = pos.coords.longitude.toFixed(7);
-        showMessage("ok", "Ubicación cargada.", "success");
+        $("#lat").value = pos.coords.latitude.toFixed(6);
+        $("#lng").value = pos.coords.longitude.toFixed(6);
+        const url = `https://www.google.com/maps?q=${$("#lat").value},${$("#lng").value}`;
+        $("#mapsUrl").value = url;
+        window.open(url, "_blank", "noopener");
       },
-      () => showMessage("err", "No se pudo obtener la ubicación.", "error"),
-      { enableHighAccuracy: true, timeout: 10000 }
+      (err) =>
+        show(
+          "msg",
+          `No fue posible obtener ubicación: ${err.message}`,
+          "error",
+        ),
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   });
-
   $("#btnGenMaps")?.addEventListener("click", () => {
-    const lat = $("#lat").value.trim();
-    const lng = $("#lng").value.trim();
-    if (!lat || !lng) {
-      showMessage("err", "Primero captura latitud y longitud.", "error");
-      return;
-    }
-    $("#mapsUrl").value = `https://maps.google.com/?q=${lat},${lng}`;
-    showMessage("ok", "Link de Maps generado.", "success");
+    const lat = $("#lat").value.trim(),
+      lng = $("#lng").value.trim();
+    const url = lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : "";
+    $("#mapsUrl").value = url;
+    if (url) window.open(url, "_blank", "noopener");
   });
-
   $("#btnOpenMaps")?.addEventListener("click", () => {
     const url = $("#mapsUrl").value.trim();
-    if (!url) {
-      showMessage("err", "No hay link de Maps.", "error");
-      return;
-    }
-    openUrl(url);
+    if (url) window.open(url, "_blank", "noopener");
   });
-
   $("#btnClearLocation")?.addEventListener("click", () => {
-    $("#lat").value = "";
-    $("#lng").value = "";
-    $("#mapsUrl").value = "";
+    ["lat", "lng", "mapsUrl"].forEach((id) => ($("#" + id).value = ""));
   });
 }
 
-function resetProducerForm() {
-  $("#producerForm")?.reset();
-  state.editing.producerId = null;
-  state.media.producerPhoto = null;
-
-  setCheckedRadio("sabeLeer", "SI");
-  setCheckedRadio("sabeEscribir", "SI");
-  setProducerClassification("TRABAJAR");
-  setFamilyRows([]);
-
-  $("#formTitle").textContent = "Nuevo productor(a)";
-  $("#btnCancelEdit").style.display = "none";
-  setThumb("photoPreview", null, "Sin<br/>foto");
-  resetMessages(["msg", "err", "ok"]);
-  updateProducerConditionalFields();
-}
-
-function collectProducerForm() {
-  const old = state.editing.producerId ? getProducerById(state.editing.producerId) : null;
-
-  return {
-    id: state.editing.producerId || uid(),
-    createdAt: old?.createdAt || nowText(),
-    updatedAt: nowText(),
-
-    basic: {
-      name: $("#nombre").value.trim(),
-      age: $("#edad").value.trim(),
-      sex: $("#sexo").value,
-      maritalStatus: $("#estadoCivil").value,
-      phone: $("#celular").value.trim(),
-      locality: $("#localidad").value.trim(),
-      municipality: $("#municipio").value.trim(),
-      stateName: $("#estado").value.trim(),
-      schooling: $("#escolaridad").value,
-      schoolingOther: $("#escolaridadOtro").value.trim(),
-      canRead: getCheckedRadio("sabeLeer"),
-      canWrite: getCheckedRadio("sabeEscribir"),
-      indigenousType: $("#pertenenciaIndigena").value,
-      indigenousSelf: $("#grupoIndigenaYo").value.trim(),
-      indigenousFamilyWho: $("#grupoIndigenaFamiliarQuien").value.trim(),
-      indigenousFamilyGroup: $("#grupoIndigenaFamiliarCual").value.trim(),
-      languageType: $("#lenguaIndigenaTipo").value,
-      languageSelf: $("#lenguaYo").value.trim(),
-      languageFamilyWho: $("#lenguaFamiliarQuien").value.trim(),
-      languageFamilyWhich: $("#lenguaFamiliarCual").value.trim(),
-      schedule: $("#horario").value.trim(),
-      peopleAtHome: $("#personasEnCasa").value.trim()
-    },
-
-    location: {
-      lat: $("#lat").value.trim(),
-      lng: $("#lng").value.trim(),
-      mapsUrl: $("#mapsUrl").value.trim()
-    },
-
-    classification: {
-      status: getProducerClassification(),
-      noReason: $("#alerta").value.trim(),
-      extraNote: $("#notaExtraPersona").value.trim()
-    },
-
-    family: collectFamilyRows(),
-    notes: $("#notas").value.trim(),
-    photo: state.media.producerPhoto || null,
-    animals: old?.animals || [],
-    animalQuestionnaire: old?.animalQuestionnaire || null
-  };
-}
-
-function saveProducer(e) {
-  e.preventDefault();
-  resetMessages(["msg", "err", "ok"]);
-
-  const prod = collectProducerForm();
-  if (!prod.basic.name) {
-    showMessage("err", "El nombre es obligatorio.", "error");
-    return;
-  }
-
-  const idx = state.producers.findIndex(p => p.id === prod.id);
-  if (idx >= 0) {
-    state.producers[idx] = prod;
-    showMessage("ok", "Productor(a) actualizado.", "success");
-  } else {
-    state.producers.unshift(prod);
-    showMessage("ok", "Productor(a) guardado.", "success");
-  }
-
-  state.selectedProducerId = prod.id;
-  saveState();
-  renderProducerList();
-  renderAnimalsProducerSelect();
-  renderProcedureProducerSelect();
-  resetProducerForm();
-}
-
-function fillProducerForm(prod) {
-  state.editing.producerId = prod.id;
-
-  $("#formTitle").textContent = "Editar productor(a)";
-  $("#btnCancelEdit").style.display = "inline-flex";
-
-  $("#nombre").value = prod.basic?.name || "";
-  $("#edad").value = prod.basic?.age || "";
-  $("#sexo").value = prod.basic?.sex || "";
-  $("#estadoCivil").value = prod.basic?.maritalStatus || "";
-  $("#celular").value = prod.basic?.phone || "";
-  $("#localidad").value = prod.basic?.locality || "";
-  $("#municipio").value = prod.basic?.municipality || "";
-  $("#estado").value = prod.basic?.stateName || "";
-  $("#escolaridad").value = prod.basic?.schooling || "";
-  $("#escolaridadOtro").value = prod.basic?.schoolingOther || "";
-  setCheckedRadio("sabeLeer", prod.basic?.canRead || "SI");
-  setCheckedRadio("sabeEscribir", prod.basic?.canWrite || "SI");
-  $("#pertenenciaIndigena").value = prod.basic?.indigenousType || "";
-  $("#grupoIndigenaYo").value = prod.basic?.indigenousSelf || "";
-  $("#grupoIndigenaFamiliarQuien").value = prod.basic?.indigenousFamilyWho || "";
-  $("#grupoIndigenaFamiliarCual").value = prod.basic?.indigenousFamilyGroup || "";
-  $("#lenguaIndigenaTipo").value = prod.basic?.languageType || "";
-  $("#lenguaYo").value = prod.basic?.languageSelf || "";
-  $("#lenguaFamiliarQuien").value = prod.basic?.languageFamilyWho || "";
-  $("#lenguaFamiliarCual").value = prod.basic?.languageFamilyWhich || "";
-  $("#horario").value = prod.basic?.schedule || "";
-  $("#personasEnCasa").value = prod.basic?.peopleAtHome || "";
-
-  $("#lat").value = prod.location?.lat || "";
-  $("#lng").value = prod.location?.lng || "";
-  $("#mapsUrl").value = prod.location?.mapsUrl || "";
-
-  setProducerClassification(prod.classification?.status || "TRABAJAR");
-  $("#alerta").value = prod.classification?.noReason || "";
-  $("#notaExtraPersona").value = prod.classification?.extraNote || "";
-  $("#notas").value = prod.notes || "";
-
-  state.media.producerPhoto = prod.photo || null;
-  setThumb("photoPreview", state.media.producerPhoto, "Sin<br/>foto");
-  setFamilyRows(prod.family || []);
-  updateProducerConditionalFields();
-}
-
-function deleteProducer(id) {
-  const prod = getProducerById(id);
-  if (!prod) return;
-  if (!confirm(`¿Eliminar a "${prod.basic?.name || "este productor(a)"}"?`)) return;
-
-  state.producers = state.producers.filter(p => p.id !== id);
-  if (state.selectedProducerId === id) {
-    state.selectedProducerId = state.producers[0]?.id || null;
-  }
-  if (state.editing.producerId === id) resetProducerForm();
-
-  saveState();
-  renderProducerList();
-  renderAnimalsProducerSelect();
-  renderProcedureProducerSelect();
-}
-
-function producerWordHtml(prod) {
-  const animals = prod.animals || [];
-  const fam = prod.family || [];
-  const q = ensureQuestionnaire(prod);
-
-  const famRows = fam.map((f, i) => `
-    <tr><td>${i + 1}</td><td>${escapeHtml(f.name)}</td><td>${escapeHtml(f.relation)}</td><td>${escapeHtml(f.occupation)}</td><td>${escapeHtml(f.age)}</td></tr>
-  `).join("");
-
-  const animalRows = animals.map((a, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${escapeHtml(a.species)}</td>
-      <td>${escapeHtml(a.race)}</td>
-      <td>${escapeHtml(a.quantity)}</td>
-      <td>${escapeHtml((a.owners || []).join(", "))}</td>
-      <td>${escapeHtml((a.sellDecision || []).join(", "))}</td>
-      <td>${escapeHtml((a.cleanFeedBy || []).join(", "))}</td>
-      <td>${escapeHtml((a.function || []).join(", "))}</td>
-      <td>${escapeHtml(a.installations)}</td>
-      <td>${escapeHtml(a.feed)}</td>
-    </tr>
-  `).join("");
-
-  return `
-  <html><head><meta charset="utf-8">
-  <style>
-  body{font-family:Arial,sans-serif;font-size:11pt;color:#111}
-  h1,h2{color:#111827}
-  table{border-collapse:collapse;width:100%;margin-bottom:14px}
-  th,td{border:1px solid #999;padding:6px;vertical-align:top}
-  th{background:#eee}
-  img{max-width:180px}
-  </style></head><body>
-    <h1>Expediente de productor(a)</h1>
-    <h2>Datos básicos</h2>
-    <p><b>Nombre:</b> ${escapeHtml(prod.basic?.name || "")}</p>
-    <p><b>Edad:</b> ${escapeHtml(prod.basic?.age || "")}</p>
-    <p><b>Sexo:</b> ${escapeHtml(prod.basic?.sex || "")}</p>
-    <p><b>Estado civil:</b> ${escapeHtml(prod.basic?.maritalStatus || "")}</p>
-    <p><b>Celular:</b> ${escapeHtml(prod.basic?.phone || "")}</p>
-    <p><b>Localidad:</b> ${escapeHtml(prod.basic?.locality || "")}</p>
-    <p><b>Municipio:</b> ${escapeHtml(prod.basic?.municipality || "")}</p>
-    <p><b>Estado:</b> ${escapeHtml(prod.basic?.stateName || "")}</p>
-    <p><b>Horario:</b> ${escapeHtml(prod.basic?.schedule || "")}</p>
-    <p><b>Personas en casa:</b> ${escapeHtml(prod.basic?.peopleAtHome || "")}</p>
-    <p><b>Clasificación:</b> ${escapeHtml(classificationLabel(prod.classification?.status))}</p>
-    <p><b>Razón si no:</b> ${escapeHtml(prod.classification?.noReason || "")}</p>
-    <p><b>Nota extra:</b> ${escapeHtml(prod.classification?.extraNote || "")}</p>
-    <p><b>Notas generales:</b> ${escapeHtml(prod.notes || "")}</p>
-
-    <h2>Ubicación</h2>
-    <p><b>Latitud:</b> ${escapeHtml(prod.location?.lat || "")}</p>
-    <p><b>Longitud:</b> ${escapeHtml(prod.location?.lng || "")}</p>
-    <p><b>Maps:</b> ${escapeHtml(prod.location?.mapsUrl || "")}</p>
-
-    <h2>Familia</h2>
-    <table>
-      <tr><th>#</th><th>Nombre</th><th>Relación</th><th>Ocupación</th><th>Edad</th></tr>
-      ${famRows || `<tr><td colspan="5">Sin registros</td></tr>`}
-    </table>
-
-    <h2>Animales</h2>
-    <table>
-      <tr><th>#</th><th>Especie</th><th>Raza</th><th>Cantidad</th><th>Dueño/a</th><th>Decide venta</th><th>Limpia/alimenta</th><th>Función</th><th>Instalaciones</th><th>Alimentación</th></tr>
-      ${animalRows || `<tr><td colspan="10">Sin registros</td></tr>`}
-    </table>
-
-    <h2>Cuestionario</h2>
-    <p><b>Animales importantes:</b> ${escapeHtml((q.importantAnimals || []).join(", "))}</p>
-    <p><b>¿Por qué son importantes?:</b> ${escapeHtml(q.importantAnimalsWhy || "")}</p>
-    <p><b>¿Tiene milpa?:</b> ${escapeHtml(q.hasMilpa || "")}</p>
-    <p><b>¿Qué siembra?:</b> ${escapeHtml(q.whatSows || "")}</p>
-    <p><b>Escasez de forraje:</b> ${escapeHtml(q.forageShortage || "")}</p>
-
-    ${prod.photo ? `<h2>Foto de la casa</h2><img src="${prod.photo}" />` : ""}
-  </body></html>`;
-}
-
-function exportProducerWord(id) {
-  const prod = getProducerById(id);
-  if (!prod) return;
-  const html = producerWordHtml(prod);
-  downloadFile(`${(prod.basic?.name || "productor").replace(/[^\wáéíóúÁÉÍÓÚñÑ\- ]/g, "").trim() || "productor"}.doc`, "\ufeff" + html, "application/msword");
-}
-
-function exportProducersJSON() {
-  downloadFile("productores.json", JSON.stringify(state.producers, null, 2), "application/json");
-}
-
-function importProducersJSON(file) {
-  if (!file) return;
-  const fr = new FileReader();
-  fr.onload = () => {
-    try {
-      const parsed = JSON.parse(fr.result);
-      if (!Array.isArray(parsed)) throw new Error();
-      state.producers = parsed;
-      state.selectedProducerId = state.producers[0]?.id || null;
-      saveState();
-      renderProducerList();
-      renderAnimalsProducerSelect();
-      renderProcedureProducerSelect();
-      showMessage("ok", "Productores importados.", "success");
-    } catch {
-      showMessage("err", "No se pudo importar el JSON.", "error");
-    }
-  };
-  fr.readAsText(file);
-}
-
-function renderProducerList() {
-  const list = $("#producerList");
-  const count = $("#count");
-  list.innerHTML = "";
-  count.textContent = String(state.producers.length);
-
-  if (!state.producers.length) {
-    list.innerHTML = `<div class="empty-state">No hay productores registrados todavía.</div>`;
-    return;
-  }
-
-  state.producers.forEach(prod => {
-    const item = document.createElement("div");
-    item.className = "item";
-    item.innerHTML = `
-      <div class="row" style="justify-content:space-between; align-items:flex-start;">
-        <div>
-          <h3>${escapeHtml(prod.basic?.name || "Sin nombre")}</h3>
-          <div class="meta">📍 ${escapeHtml(prod.basic?.locality || "")}, ${escapeHtml(prod.basic?.municipality || "")}, ${escapeHtml(prod.basic?.stateName || "")}</div>
-          <div class="row">
-            <span class="badge">${escapeHtml(classificationLabel(prod.classification?.status))}</span>
-            <span class="badge">👨‍👩‍👧‍👦 ${(prod.family || []).length} familiares</span>
-            <span class="badge">🐾 ${(prod.animals || []).length} grupos</span>
-          </div>
-        </div>
-        ${prod.photo ? `<div class="preview-mini"><img src="${prod.photo}" alt="foto"/></div>` : ""}
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small" type="button" data-action="select">✅ Seleccionar</button>
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small ghost" type="button" data-action="animals">🐾 Animales</button>
-        <button class="btn small ghost" type="button" data-action="word">📄 Word</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-
-    item.querySelector('[data-action="select"]').addEventListener("click", () => {
-      state.selectedProducerId = prod.id;
-      saveState();
-      renderProducerList();
-      renderAnimalsProducerSelect();
-      renderProcedureProducerSelect();
-    });
-    item.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      fillProducerForm(prod);
-      activateTab("producer");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-    item.querySelector('[data-action="animals"]').addEventListener("click", () => {
-      state.selectedProducerId = prod.id;
-      saveState();
-      renderAnimalsProducerSelect();
-      activateTab("animals");
-    });
-    item.querySelector('[data-action="word"]').addEventListener("click", () => exportProducerWord(prod.id));
-    item.querySelector('[data-action="delete"]').addEventListener("click", () => deleteProducer(prod.id));
-    list.appendChild(item);
-  });
-}
-
-function wipeAll() {
-  if (!confirm("Esto borrará TODO lo guardado localmente. ¿Continuar?")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  location.reload();
-}
-
-function bindProducerSection() {
-  bindProducerClassification();
-  bindProducerPhoto();
-  bindProducerLocation();
-
-  $("#producerForm")?.addEventListener("submit", saveProducer);
-  $("#btnReset")?.addEventListener("click", resetProducerForm);
-  $("#btnCancelEdit")?.addEventListener("click", resetProducerForm);
-  $("#btnAddFamily")?.addEventListener("click", () => addFamilyRow());
-  $("#pertenenciaIndigena")?.addEventListener("change", updateProducerConditionalFields);
-  $("#lenguaIndigenaTipo")?.addEventListener("change", updateProducerConditionalFields);
-
-  $("#btnExport")?.addEventListener("click", exportProducersJSON);
-  $("#btnImport")?.addEventListener("click", () => $("#importFile")?.click());
-  $("#importFile")?.addEventListener("change", (e) => {
-    importProducersJSON(e.target.files?.[0]);
-    e.target.value = "";
-  });
-  $("#btnExportWordProducer")?.addEventListener("click", () => {
-    if (!state.selectedProducerId) {
-      showMessage("err", "Primero selecciona un productor(a).", "error");
-      return;
-    }
-    exportProducerWord(state.selectedProducerId);
-  });
-  $("#btnWipe")?.addEventListener("click", wipeAll);
-}
-
-/* =========================================================
-   ANIMALES
-========================================================= */
 function renderAnimalsProducerSelect() {
   const sel = $("#animalsProducerSelect");
-  const hint = $("#animalsProducerHint");
-  sel.innerHTML = `<option value="">— Selecciona productor/a —</option>`;
-
-  state.producers.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.basic?.name || "Sin nombre";
-    sel.appendChild(opt);
-  });
-
-  if (state.selectedProducerId) sel.value = state.selectedProducerId;
-  const prod = getSelectedProducer();
-  hint.textContent = prod ? `Trabajando con: ${prod.basic?.name || ""}` : "Primero selecciona un productor/a";
-
-  renderAnimalPeopleSelects();
-  renderAnimalBasedSelects();
-  renderAnimalGroups();
-  fillAnimalQuestionnaireFields();
+  if (!sel) return;
+  const prev = state.selectedProducerId || sel.value;
+  sel.innerHTML =
+    '<option value="">— Selecciona productor(a) —</option>' +
+    state.producers
+      .map((p) => `<option value="${p.id}">${esc(p.basic.name)}</option>`)
+      .join("");
+  sel.value = prev || "";
+  state.selectedProducerId = sel.value || state.selectedProducerId;
+  const prod = getProducer();
+  $("#animalsProducerHint").textContent = prod
+    ? `Trabajando con ${prod.basic.name}. Animales registrados: ${(prod.animals || []).length}.`
+    : "Selecciona un productor(a) para registrar y editar animales.";
 }
-
-function renderAnimalPeopleSelects() {
-  const prod = getSelectedProducer();
-  const normalPeople = producerPeopleOptions(prod, false);
-  const withVet = producerPeopleOptions(prod, true);
-
-  const currentOwners = getSelectedOptions($("#a_dueno"));
-  const currentSell = getSelectedOptions($("#a_decideVenta"));
-  const currentFeed = getSelectedOptions($("#a_limpiaAlimenta"));
-  const currentVaxWho = $("#a_vaxWho")?.value || "";
-  const currentDewormWho = $("#a_dewormWho")?.value || "";
-
-  [["#a_dueno", normalPeople, currentOwners], ["#a_decideVenta", normalPeople, currentSell], ["#a_limpiaAlimenta", normalPeople, currentFeed]].forEach(([id, opts, vals]) => {
-    const s = $(id);
-    s.innerHTML = "";
-    opts.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      s.appendChild(opt);
-    });
-    setSelectedOptions(s, vals);
-  });
-
-  [["#a_vaxWho", withVet, currentVaxWho], ["#a_dewormWho", withVet, currentDewormWho]].forEach(([id, opts, val]) => {
-    const s = $(id);
-    s.innerHTML = `<option value="">— Selecciona —</option>`;
-    opts.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      s.appendChild(opt);
-    });
-    s.value = val || "";
-  });
-}
-
-function renderAnimalBasedSelects() {
-  const prod = getSelectedProducer();
-  const labels = (prod?.animals || []).map(animalGroupLabel);
-
-  [["#a_enfAnimal", false], ["#a_vaxAnimal", false], ["#a_dewormAnimal", false]].forEach(([id]) => {
-    const s = $(id);
-    const prev = s.value || "";
-    s.innerHTML = `<option value="">— Selecciona —</option>`;
-    labels.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      s.appendChild(opt);
-    });
-    s.value = prev;
-  });
-
-  const imp = $("#a_animalesImportantes");
-  const prevImp = getSelectedOptions(imp);
-  imp.innerHTML = "";
-  labels.forEach(v => {
-    const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    imp.appendChild(opt);
-  });
-  setSelectedOptions(imp, prevImp);
-
-  $("#a_interestBirdsYesWrap").style.display = producerHasBirds(prod) ? "block" : "none";
-  $("#a_interestBirdsNoWrap").style.display = producerHasBirds(prod) ? "none" : "block";
-}
-
-async function bindAnimalPhotos() {
-  $("#a_btnInstTake")?.addEventListener("click", () => $("#a_instTake")?.click());
-  $("#a_btnInstPick")?.addEventListener("click", () => $("#a_instPick")?.click());
-  $("#a_btnInstClear")?.addEventListener("click", () => {
-    state.media.animalTempPhotos = [];
-    renderAnimalTempPhotos();
-  });
-
-  $("#a_instTake")?.addEventListener("change", async (e) => {
-    for (const f of Array.from(e.target.files || [])) {
-      state.media.animalTempPhotos.push(await fileToBase64(f));
-    }
-    renderAnimalTempPhotos();
-    e.target.value = "";
-  });
-
-  $("#a_instPick")?.addEventListener("change", async (e) => {
-    for (const f of Array.from(e.target.files || [])) {
-      state.media.animalTempPhotos.push(await fileToBase64(f));
-    }
-    renderAnimalTempPhotos();
-    e.target.value = "";
-  });
-}
-
-function renderAnimalTempPhotos() {
-  const box = $("#a_instPreview");
-  const hint = $("#a_instHint");
-  box.innerHTML = "";
-  if (!state.media.animalTempPhotos.length) {
-    hint.textContent = "Sin fotos todavía.";
-    return;
-  }
-  hint.textContent = `${state.media.animalTempPhotos.length} foto(s) cargada(s).`;
-
-  state.media.animalTempPhotos.forEach((src, i) => {
-    const div = document.createElement("div");
-    div.className = "preview-mini";
-    div.innerHTML = `<img src="${src}" alt="animal"><button class="mini-remove" type="button">✖</button>`;
-    div.querySelector("button").addEventListener("click", () => {
-      state.media.animalTempPhotos.splice(i, 1);
-      renderAnimalTempPhotos();
-    });
-    box.appendChild(div);
-  });
-}
-
-function collectAnimalGroupForm() {
+function serializeAnimal() {
   return {
-    id: uid(),
+    id: state.editing.animalId || uid("animal"),
     species: $("#a_especie").value.trim(),
-    race: $("#a_raza").value.trim(),
-    quantity: $("#a_cantidad").value.trim(),
-    owners: getSelectedOptions($("#a_dueno")),
-    sellDecision: getSelectedOptions($("#a_decideVenta")),
-    cleanFeedBy: getSelectedOptions($("#a_limpiaAlimenta")),
-    function: getSelectedOptions($("#a_funcion")),
-    installations: $("#a_viven").value.trim(),
-    feed: $("#a_feedType").value.trim(),
-    photos: [...state.media.animalTempPhotos]
+    breed: $("#a_raza").value.trim(),
+    quantity: $("#a_cantidad").value,
+    owner: multiValues($("#a_dueno")),
+    decideSale: multiValues($("#a_decideVenta")),
+    feedClean: multiValues($("#a_limpiaAlimenta")),
+    function: multiValues($("#a_funcion")),
+    functionOther: $("#a_funcionOtro").value.trim(),
+    housing: $("#a_viven").value.trim(),
+    feedType: $("#a_feedType").value.trim(),
+    photos: [...state.draft.animalPhotos],
   };
 }
-
-function resetAnimalGroupForm() {
-  $("#a_especie").value = "";
-  $("#a_raza").value = "";
-  $("#a_cantidad").value = "";
-  $("#a_viven").value = "";
-  $("#a_feedType").value = "";
-  resetMultiSelect($("#a_dueno"));
-  resetMultiSelect($("#a_decideVenta"));
-  resetMultiSelect($("#a_limpiaAlimenta"));
-  resetMultiSelect($("#a_funcion"));
-  state.media.animalTempPhotos = [];
-  renderAnimalTempPhotos();
+function resetAnimalEntry() {
+  state.editing.animalId = null;
+  [
+    "a_especie",
+    "a_raza",
+    "a_cantidad",
+    "a_viven",
+    "a_feedType",
+    "a_funcionOtro",
+  ].forEach((id) => ($("#" + id).value = ""));
+  ["#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta", "#a_funcion"].forEach(
+    (sel) => setMulti($(sel), []),
+  );
+  state.draft.animalPhotos = [];
+  renderAnimalPhotos();
 }
-
+function fillAnimalEntry(an) {
+  resetAnimalEntry();
+  state.editing.animalId = an.id;
+  Object.entries({
+    a_especie: an.species,
+    a_raza: an.breed,
+    a_cantidad: an.quantity,
+    a_viven: an.housing,
+    a_feedType: an.feedType,
+    a_funcionOtro: an.functionOther,
+  }).forEach(([k, v]) => ($("#" + k).value = safe(v)));
+  setMulti($("#a_dueno"), an.owner || []);
+  setMulti($("#a_decideVenta"), an.decideSale || []);
+  setMulti($("#a_limpiaAlimenta"), an.feedClean || []);
+  setMulti($("#a_funcion"), an.function || []);
+  state.draft.animalPhotos = [...(an.photos || [])];
+  renderAnimalPhotos();
+}
 function saveAnimalGroup() {
-  const prod = getSelectedProducer();
+  const prod = getProducer();
   if (!prod) {
-    showMessage("a_msg", "Selecciona primero un productor/a.", "error");
+    show("a_msg", "Primero selecciona un productor(a).", "warning");
     return;
   }
-
-  const item = collectAnimalGroupForm();
-  if (!item.species || !item.quantity) {
-    showMessage("a_msg", "Especie y cantidad son obligatorias.", "error");
+  const animal = serializeAnimal();
+  if (!animal.species || !animal.quantity) {
+    show("a_msg", "Especie y cantidad son obligatorias.", "error");
     return;
   }
-
-  prod.animals = prod.animals || [];
-  prod.animals.push(item);
+  prod.animals = Array.isArray(prod.animals) ? prod.animals : [];
+  const idx = prod.animals.findIndex((x) => x.id === animal.id);
+  if (idx >= 0) prod.animals[idx] = animal;
+  else prod.animals.unshift(animal);
   saveState();
-  renderAnimalGroups();
-  renderAnimalBasedSelects();
-  renderProcedureProducerSelect();
-  resetAnimalGroupForm();
-  showMessage("a_msg", "Grupo de animales guardado.", "success");
+  renderAll();
+  resetAnimalEntry();
+  show(
+    "a_msg",
+    "Grupo/animal guardado y vinculado al productor(a).",
+    "success",
+  );
 }
-
+function renderAnimalPeopleSelects() {
+  const prod = getProducer();
+  const options = [
+    { v: "PRODUCTOR", t: "Productor(a)" },
+    ...(prod?.family || []).map((f) => ({
+      v: f.name,
+      t: `${f.name} (${f.relation || "familia"})`,
+    })),
+    { v: "VETERINARIO", t: "Veterinario(a)" },
+    { v: "OTRO", t: "Otro" },
+  ];
+  ["#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta"].forEach((sel) => {
+    const el = $(sel);
+    const prev = multiValues(el);
+    el.innerHTML = options
+      .map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`)
+      .join("");
+    setMulti(el, prev);
+  });
+  ["#a_vaxWho", "#a_dewormWho"].forEach((sel) => {
+    const el = $(sel);
+    if (!el) return;
+    const prev = el.value;
+    el.innerHTML =
+      '<option value="">— Selecciona —</option>' +
+      options
+        .map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`)
+        .join("");
+    el.value = prev;
+  });
+}
+function renderAnimalBasedSelects() {
+  const prod = getProducer();
+  const animals = prod?.animals || [];
+  [
+    "#a_animalesImportantes",
+    "#a_vaxAnimal",
+    "#a_dewormAnimal",
+    "#a_genderAnimal",
+  ].forEach((sel) => {
+    const el = $(sel);
+    if (!el) return;
+    const prev = el.multiple ? multiValues(el) : el.value;
+    el.innerHTML =
+      (el.multiple ? "" : '<option value="">— Selecciona —</option>') +
+      animals
+        .map(
+          (a) =>
+            `<option value="${esc(animalLabel(a))}">${esc(animalLabel(a))}</option>`,
+        )
+        .join("");
+    if (el.multiple) setMulti(el, prev);
+    else el.value = prev;
+  });
+  const hasBirds = animals.some((a) =>
+    /ave|pollo|gallina|guajolote|pato|codorniz/i.test(a.species || ""),
+  );
+  $("#a_interestBirdsYesWrap").style.display = hasBirds ? "block" : "none";
+  $("#a_interestBirdsNoWrap").style.display = hasBirds ? "none" : "block";
+  const hasRumiants = animals.some((a) =>
+    /borrego|oveja|cabra|chivo/i.test(a.species || ""),
+  );
+  $("#a_interestRumiants").closest("div").style.display = hasRumiants
+    ? "none"
+    : "block";
+}
+async function bindAnimalPhotos() {
+  ["a_instTake", "a_instPick"].forEach((id) =>
+    document.getElementById(id)?.addEventListener("change", async (e) => {
+      for (const file of Array.from(e.target.files || [])) {
+        state.draft.animalPhotos.push(await fileToBase64(file));
+      }
+      renderAnimalPhotos();
+      e.target.value = "";
+    }),
+  );
+  $("#a_btnInstTake")?.addEventListener("click", () =>
+    $("#a_instTake").click(),
+  );
+  $("#a_btnInstPick")?.addEventListener("click", () =>
+    $("#a_instPick").click(),
+  );
+  $("#a_btnInstClear")?.addEventListener("click", () => {
+    state.draft.animalPhotos = [];
+    renderAnimalPhotos();
+  });
+}
+function renderAnimalPhotos() {
+  const box = $("#a_instPreview");
+  if (!box) return;
+  box.innerHTML = state.draft.animalPhotos.length
+    ? state.draft.animalPhotos
+        .map(
+          (src, i) =>
+            `<div class="preview-mini"><img src="${src}" alt="animal ${i + 1}"></div>`,
+        )
+        .join("")
+    : '<div class="preview-box"><span>Sin<br/>fotos</span></div>';
+  $("#a_instHint").textContent =
+    `${state.draft.animalPhotos.length} foto(s) en borrador.`;
+}
 function renderAnimalGroups() {
-  const prod = getSelectedProducer();
   const list = $("#a_list");
+  if (!list) return;
   list.innerHTML = "";
-
-  if (!prod) {
-    list.innerHTML = `<div class="empty-state">Selecciona un productor/a.</div>`;
-    return;
-  }
-
-  if (!(prod.animals || []).length) {
-    list.innerHTML = `<div class="empty-state">No hay grupos de animales registrados.</div>`;
-    return;
-  }
-
-  prod.animals.forEach(animal => {
-    const photos = (animal.photos || []).slice(0, 4).map(src => `<div class="preview-mini"><img src="${src}" alt="animal"></div>`).join("");
+  currentAnimals().forEach((an) => {
     const div = document.createElement("div");
     div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(animal.species || "")} ${animal.race ? `· ${escapeHtml(animal.race)}` : ""}</h3>
-      <div class="meta">Cantidad: ${escapeHtml(animal.quantity || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Dueño/a:</b> ${escapeHtml((animal.owners || []).join(", "))}</div>
-        <div class="line"><b>Decide venta:</b> ${escapeHtml((animal.sellDecision || []).join(", "))}</div>
-        <div class="line"><b>Limpia/alimenta:</b> ${escapeHtml((animal.cleanFeedBy || []).join(", "))}</div>
-        <div class="line"><b>Función:</b> ${escapeHtml((animal.function || []).join(", "))}</div>
-        <div class="line"><b>Instalaciones:</b> ${escapeHtml(animal.installations || "")}</div>
-        <div class="line"><b>Alimentación:</b> ${escapeHtml(animal.feed || "")}</div>
-      </div>
-      ${photos ? `<div class="row" style="margin-top:10px;">${photos}</div>` : ""}
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_especie").value = animal.species || "";
-      $("#a_raza").value = animal.race || "";
-      $("#a_cantidad").value = animal.quantity || "";
-      $("#a_viven").value = animal.installations || "";
-      $("#a_feedType").value = animal.feed || "";
-      renderAnimalPeopleSelects();
-      setSelectedOptions($("#a_dueno"), animal.owners || []);
-      setSelectedOptions($("#a_decideVenta"), animal.sellDecision || []);
-      setSelectedOptions($("#a_limpiaAlimenta"), animal.cleanFeedBy || []);
-      setSelectedOptions($("#a_funcion"), animal.function || []);
-      state.media.animalTempPhotos = [...(animal.photos || [])];
-      renderAnimalTempPhotos();
-
-      prod.animals = prod.animals.filter(a => a.id !== animal.id);
+    div.innerHTML = `<h4>${esc(animalLabel(an))}</h4><div class="line"><b>Función:</b> ${esc((an.function || []).concat(an.functionOther ? [an.functionOther] : []).join(", "))}</div><div class="line"><b>Instalaciones:</b> ${esc(an.housing)}</div><div class="line"><b>Relación productor(a):</b> ${esc(producerName(state.selectedProducerId))}</div><div class="preview-grid">${(
+      an.photos || []
+    )
+      .slice(0, 4)
+      .map((p) => `<div class="preview-mini"><img src="${p}" alt="foto"></div>`)
+      .join(
+        "",
+      )}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, del] = div.querySelectorAll("button");
+    edit.onclick = () => fillAnimalEntry(an);
+    del.onclick = () => {
+      const prod = getProducer();
+      prod.animals = prod.animals.filter((x) => x.id !== an.id);
+      state.procedures = state.procedures.filter((p) => p.animalId !== an.id);
       saveState();
-      renderAnimalGroups();
-      renderAnimalBasedSelects();
-      renderProcedureProducerSelect();
-    });
-
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      prod.animals = prod.animals.filter(a => a.id !== animal.id);
-      saveState();
-      renderAnimalGroups();
-      renderAnimalBasedSelects();
-      renderProcedureProducerSelect();
-    });
-
+      renderAll();
+    };
     list.appendChild(div);
   });
 }
-
-function addDisease() {
-  const prod = getSelectedProducer();
+function addQuestionnaireItem(key, item) {
+  const prod = getProducer();
   if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    date: $("#a_lastSick").value,
-    animal: $("#a_enfAnimal").value,
-    name: $("#a_commonDis").value.trim(),
-    signs: $("#a_signs").value.trim(),
-    treatment: $("#a_whenSickDo").value.trim()
-  };
-
-  if (!item.signs) {
-    showMessage("a_msg", "Los signos clínicos son obligatorios.", "error");
-    return;
-  }
-
-  q.diseases.push(item);
+  prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+  prod.questionnaire[key].push(item);
   saveState();
-  renderDiseaseList();
-
-  $("#a_lastSick").value = "";
-  $("#a_enfAnimal").value = "";
-  $("#a_commonDis").value = "";
-  $("#a_signs").value = "";
-  $("#a_whenSickDo").value = "";
+  renderAll();
 }
-
-function renderDiseaseList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_diseaseList");
+function renderSimpleList(listId, arr, titleFn) {
+  const list = $(listId);
+  if (!list) return;
   list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.diseases.length) {
-    list.innerHTML = `<div class="empty-state">No hay enfermedades registradas.</div>`;
-    return;
-  }
-
-  q.diseases.forEach(item => {
+  arr.forEach((item) => {
     const div = document.createElement("div");
     div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")} ${item.name ? `· ${escapeHtml(item.name)}` : ""}</h3>
-      <div class="meta">📅 ${escapeHtml(item.date || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Signos:</b> ${escapeHtml(item.signs || "")}</div>
-        <div class="line"><b>Tratamiento:</b> ${escapeHtml(item.treatment || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_lastSick").value = item.date || "";
-      $("#a_enfAnimal").value = item.animal || "";
-      $("#a_commonDis").value = item.name || "";
-      $("#a_signs").value = item.signs || "";
-      $("#a_whenSickDo").value = item.treatment || "";
-      q.diseases = q.diseases.filter(x => x.id !== item.id);
-      saveState();
-      renderDiseaseList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.diseases = q.diseases.filter(x => x.id !== item.id);
-      saveState();
-      renderDiseaseList();
-    });
+    div.innerHTML = `<div class="line">${esc(titleFn(item))}</div>`;
     list.appendChild(div);
   });
 }
-
-function addVaccineRecord() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  q.vaccines.push({
-    id: uid(),
-    animal: $("#a_vaxAnimal").value,
-    name: $("#a_vaxName").value.trim(),
-    date: $("#a_vaxDate").value,
-    who: $("#a_vaxWho").value
-  });
-
-  saveState();
-  renderVaccineList();
-
-  $("#a_vaxAnimal").value = "";
-  $("#a_vaxName").value = "";
-  $("#a_vaxDate").value = "";
-  $("#a_vaxWho").value = "";
-}
-
-function renderVaccineList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_vaxList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.vaccines.length) {
-    list.innerHTML = `<div class="empty-state">No hay vacunaciones registradas.</div>`;
-    return;
-  }
-
-  q.vaccines.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")} ${item.name ? `· ${escapeHtml(item.name)}` : ""}</h3>
-      <div class="meta">📅 ${escapeHtml(item.date || "")} · 👤 ${escapeHtml(item.who || "")}</div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_vaxAnimal").value = item.animal || "";
-      $("#a_vaxName").value = item.name || "";
-      $("#a_vaxDate").value = item.date || "";
-      $("#a_vaxWho").value = item.who || "";
-      q.vaccines = q.vaccines.filter(x => x.id !== item.id);
-      saveState();
-      renderVaccineList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.vaccines = q.vaccines.filter(x => x.id !== item.id);
-      saveState();
-      renderVaccineList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addDeworming() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  q.dewormings.push({
-    id: uid(),
-    animal: $("#a_dewormAnimal").value,
-    product: $("#a_dewormProd").value.trim(),
-    date: $("#a_dewormDate").value,
-    who: $("#a_dewormWho").value
-  });
-
-  saveState();
-  renderDewormList();
-
-  $("#a_dewormAnimal").value = "";
-  $("#a_dewormProd").value = "";
-  $("#a_dewormDate").value = "";
-  $("#a_dewormWho").value = "";
-}
-
-function renderDewormList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_dewormList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.dewormings.length) {
-    list.innerHTML = `<div class="empty-state">No hay desparasitaciones registradas.</div>`;
-    return;
-  }
-
-  q.dewormings.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")} ${item.product ? `· ${escapeHtml(item.product)}` : ""}</h3>
-      <div class="meta">📅 ${escapeHtml(item.date || "")} · 👤 ${escapeHtml(item.who || "")}</div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_dewormAnimal").value = item.animal || "";
-      $("#a_dewormProd").value = item.product || "";
-      $("#a_dewormDate").value = item.date || "";
-      $("#a_dewormWho").value = item.who || "";
-      q.dewormings = q.dewormings.filter(x => x.id !== item.id);
-      saveState();
-      renderDewormList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.dewormings = q.dewormings.filter(x => x.id !== item.id);
-      saveState();
-      renderDewormList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addTraditional() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    name: $("#a_tradNombre").value.trim(),
-    type: $("#a_tradTipo").value,
-    use: $("#a_tradUso").value.trim(),
-    part: $("#a_tradParte").value.trim()
-  };
-
-  if (!item.name) {
-    showMessage("a_msg", "Pon nombre del producto/remedio.", "error");
-    return;
-  }
-
-  q.traditional.push(item);
-  saveState();
-  renderTraditionalList();
-
-  $("#a_tradNombre").value = "";
-  $("#a_tradTipo").value = "";
-  $("#a_tradUso").value = "";
-  $("#a_tradParte").value = "";
-}
-
-function renderTraditionalList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_tradList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.traditional.length) {
-    list.innerHTML = `<div class="empty-state">No hay productos/remedios tradicionales.</div>`;
-    return;
-  }
-
-  q.traditional.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.name || "")}</h3>
-      <div class="meta">${escapeHtml(item.type || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Uso:</b> ${escapeHtml(item.use || "")}</div>
-        <div class="line"><b>Parte:</b> ${escapeHtml(item.part || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_tradNombre").value = item.name || "";
-      $("#a_tradTipo").value = item.type || "";
-      $("#a_tradUso").value = item.use || "";
-      $("#a_tradParte").value = item.part || "";
-      q.traditional = q.traditional.filter(x => x.id !== item.id);
-      saveState();
-      renderTraditionalList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.traditional = q.traditional.filter(x => x.id !== item.id);
-      saveState();
-      renderTraditionalList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addGenderAnimal() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    animal: $("#a_genderAnimal").value,
-    sex: $("#a_genderAnimalWho").value,
-    why: $("#a_genderAnimalWhy").value.trim()
-  };
-
-  if (!item.sex) {
-    showMessage("a_msg", "Selecciona quién cuida más ese animal.", "error");
-    return;
-  }
-
-  q.genderAnimals.push(item);
-  saveState();
-  renderGenderAnimalList();
-
-  $("#a_genderAnimalWho").value = "";
-  $("#a_genderAnimalWhy").value = "";
-}
-
-function renderGenderAnimalList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_genderAnimalList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.genderAnimals.length) {
-    list.innerHTML = `<div class="empty-state">No hay registros de animales por género.</div>`;
-    return;
-  }
-
-  q.genderAnimals.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")}</h3>
-      <div class="meta">👤 ${escapeHtml(item.sex || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Por qué:</b> ${escapeHtml(item.why || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_genderAnimal").value = item.animal || "";
-      $("#a_genderAnimalWho").value = item.sex || "";
-      $("#a_genderAnimalWhy").value = item.why || "";
-      q.genderAnimals = q.genderAnimals.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderAnimalList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.genderAnimals = q.genderAnimals.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderAnimalList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addGenderActivity() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    activity: $("#a_actividadGenero").value.trim(),
-    sex: $("#a_actividadGeneroSexo").value,
-    why: $("#a_actividadGeneroRazon").value.trim()
-  };
-
-  if (!item.activity || !item.sex) {
-    showMessage("a_msg", "Actividad y sexo son obligatorios.", "error");
-    return;
-  }
-
-  q.genderActivities.push(item);
-  saveState();
-  renderGenderActivityList();
-
-  $("#a_actividadGenero").value = "";
-  $("#a_actividadGeneroSexo").value = "";
-  $("#a_actividadGeneroRazon").value = "";
-}
-
-function renderGenderActivityList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_generoActividadList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.genderActivities.length) {
-    list.innerHTML = `<div class="empty-state">No hay actividades por género.</div>`;
-    return;
-  }
-
-  q.genderActivities.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.activity || "")}</h3>
-      <div class="meta">👤 ${escapeHtml(item.sex || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Por qué:</b> ${escapeHtml(item.why || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_actividadGenero").value = item.activity || "";
-      $("#a_actividadGeneroSexo").value = item.sex || "";
-      $("#a_actividadGeneroRazon").value = item.why || "";
-      q.genderActivities = q.genderActivities.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderActivityList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.genderActivities = q.genderActivities.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderActivityList();
-    });
-    list.appendChild(div);
-  });
-}
-
 function saveAnimalQuestionnaireFull() {
-  const prod = getSelectedProducer();
+  const prod = getProducer();
   if (!prod) {
-    showMessage("a_msg", "Primero selecciona un productor/a.", "error");
+    show("a_msg", "Selecciona un productor(a).", "warning");
     return;
   }
-
-  const q = ensureQuestionnaire(prod);
-  q.importantAnimals = getSelectedOptions($("#a_animalesImportantes"));
-  q.importantAnimalsWhy = $("#a_importanciaDetalle").value.trim();
-  q.hasMilpa = $("#a_tieneMilpa").value;
-  q.whatSows = $("#a_queSiembra").value.trim();
-  q.forageShortage = $("#a_escasezForraje").value.trim();
-  q.whereAnimalsStay = $("#a_dondeEstanMayorTiempo").value.trim();
-  q.vaccinatesAny = $("#a_vaxAny").value;
-  q.dewormsAny = $("#a_dewormAny").value;
-  q.changesDewormer = $("#a_changeDewormProduct").value;
-  q.recommendedBy = $("#a_recommendWho").value.trim();
-  q.curadorExiste = $("#a_curadorExiste").value;
-  q.curadorQuien = $("#a_curadorQuien").value.trim();
-  q.curadorEdad = $("#a_curadorEdad").value.trim();
-  q.curadorEspecies = $("#a_curadorEspecies").value.trim();
-  q.curadorTiempo = $("#a_curadorTiempo").value.trim();
-  q.curadorServicios = $("#a_curadorServicios").value.trim();
-  q.practicesAny = $("#a_practicas").value;
-  q.practicesWho = $("#a_practicasQuien").value.trim();
-  q.practicesAdvice = $("#a_practicasAsesoria").value;
-  q.programRegistered = $("#a_programaRegistro").value;
-  q.programName = $("#a_programaNombre").value.trim();
-  q.hasFolio = $("#a_programaFolioTiene").value;
-  q.folio = $("#a_programaFolio").value.trim();
-  q.futureCalls = $("#a_programaConvocatorias").value.trim();
-  q.huntingCommon = $("#a_cazaComunidad").value;
-  q.huntingTime = $("#a_cazaTiempo").value.trim();
-  q.huntedAnimals = $("#a_cazaAnimales").value.trim();
-  q.huntingPlaces = $("#a_cazaLugares").value.trim();
-  q.huntingSeason = $("#a_cazaEpoca").value.trim();
-  q.huntingReasons = $("#a_cazaMotivos").value.trim();
-  q.wildProblems = $("#a_silvestresProblemas").value;
-  q.wildProblemsDetail = $("#a_silvestresQuePaso").value.trim();
-  q.riverUse = $("#a_rioUso").value;
-  q.riverUseFor = $("#a_rioParaQue").value.trim();
-  q.riverMeaning = $("#a_rioSignificado").value.trim();
-  q.riverProblems = $("#a_rioProblemas").value.trim();
-  q.localKnowledgeExists = $("#a_saberesLocales").value;
-  q.localKnowledgeWho = $("#a_saberesQuien").value.trim();
-  q.localKnowledgeUseful = $("#a_saberesUtilidad").value;
-  q.rumiantInterest = $("#a_interestRumiants").value;
-  q.rumiantInterestWhy = $("#a_interestRumiantsWhy").value.trim();
-  q.hadRumiantsBefore = $("#a_hadRumiantsBefore").value;
-  q.noRumiantsReason = $("#a_noRumiantsWhy").value.trim();
-  q.rumiantAdvice = $("#a_rumiantsAdvice").value;
-  q.rumiantOthers = $("#a_rumiantsOthers").value;
-  q.rumiantWomen = $("#a_rumiantsWomen").value;
-  q.rumiantNeed = $("#a_rumiantsNeed").value.trim();
-  q.birdsInterestYes = $("#a_interestBirdsYes").value;
-  q.birdsInterestNo = $("#a_interestBirdsNo").value;
-
+  prod.questionnaire = {
+    ...getProducerQuestionnaireSkeleton(prod),
+    importantAnimals: multiValues($("#a_animalesImportantes")),
+    importanceDetail: $("#a_importanciaDetalle").value.trim(),
+    tieneMilpa: $("#a_tieneMilpa").value,
+    queSiembra: $("#a_queSiembra").value.trim(),
+    escasezForraje: $("#a_escasezForraje").value.trim(),
+    lastSick: $("#a_lastSick").value,
+    recommendWho: $("#a_recommendWho").value.trim(),
+    curadorExiste: $("#a_curadorExiste").value,
+    curadorQuien: $("#a_curadorQuien").value.trim(),
+    curadorEdad: $("#a_curadorEdad").value.trim(),
+    curadorEspecies: $("#a_curadorEspecies").value.trim(),
+    curadorTiempo: $("#a_curadorTiempo").value.trim(),
+    curadorServicios: $("#a_curadorServicios").value.trim(),
+    practicas: $("#a_practicas").value,
+    practicasQuien: $("#a_practicasQuien").value.trim(),
+    practicasAsesoria: $("#a_practicasAsesoria").value,
+    programaRegistro: $("#a_programaRegistro").value,
+    programaNombre: $("#a_programaNombre").value,
+    programaFolioTiene: $("#a_programaFolioTiene").value,
+    folio: $("#a_programaFolio").value.trim(),
+    futureCalls: $("#a_programaConvocatorias").value.trim(),
+    huntingCommon: $("#a_cazaComunidad").value,
+    huntingTime: $("#a_cazaTiempo").value.trim(),
+    huntedAnimals: $("#a_cazaAnimales").value.trim(),
+    huntingPlaces: $("#a_cazaLugares").value.trim(),
+    huntingSeason: $("#a_cazaEpoca").value.trim(),
+    huntingReasons: $("#a_cazaMotivos").value.trim(),
+    wildProblems: $("#a_silvestresProblemas").value,
+    wildProblemsDetail: $("#a_silvestresQuePaso").value.trim(),
+    riverUse: $("#a_rioUso").value,
+    riverUseFor: $("#a_rioParaQue").value.trim(),
+    riverMeaning: $("#a_rioSignificado").value.trim(),
+    riverProblems: $("#a_rioProblemas").value.trim(),
+    localKnowledgeExists: $("#a_saberesLocales").value,
+    localKnowledgeWho: $("#a_saberesQuien").value.trim(),
+    localKnowledgeUseful: $("#a_saberesUtilidad").value.trim(),
+    rumiantInterest: $("#a_interestRumiants").value,
+    rumiantInterestWhy: $("#a_interestRumiantsWhy").value.trim(),
+    hadRumiantsBefore: $("#a_hadRumiantsBefore").value,
+    noRumiantsReason: $("#a_noRumiantsWhy").value.trim(),
+    rumiantAdvice: $("#a_rumiantsAdvice").value,
+    rumiantOthers: $("#a_rumiantsOthers").value,
+    rumiantWomen: $("#a_rumiantsWomen").value,
+    rumiantNeed: $("#a_rumiantsNeed").value.trim(),
+    birdsInterestYes: $("#a_interestBirdsYes").value,
+    birdsInterestNo: $("#a_interestBirdsNo").value,
+    diseases: getProducerQuestionnaireSkeleton(prod).diseases,
+    vaccines: getProducerQuestionnaireSkeleton(prod).vaccines,
+    deworming: getProducerQuestionnaireSkeleton(prod).deworming,
+    traditional: getProducerQuestionnaireSkeleton(prod).traditional,
+    genderAnimals: getProducerQuestionnaireSkeleton(prod).genderAnimals,
+    genderActivities: getProducerQuestionnaireSkeleton(prod).genderActivities,
+  };
   saveState();
-  renderProducerList();
-  showMessage("a_msg", "Sección de animales y cuestionario guardada.", "success");
+  renderAll();
+  show("a_msg", "Cuestionario de animales guardado.", "success");
 }
-
-function fillAnimalQuestionnaireFields() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  setSelectedOptions($("#a_animalesImportantes"), q.importantAnimals || []);
-  $("#a_importanciaDetalle").value = q.importantAnimalsWhy || "";
-  $("#a_tieneMilpa").value = q.hasMilpa || "";
-  $("#a_queSiembra").value = q.whatSows || "";
-  $("#a_escasezForraje").value = q.forageShortage || "";
-  $("#a_dondeEstanMayorTiempo").value = q.whereAnimalsStay || "";
-  $("#a_vaxAny").value = q.vaccinatesAny || "";
-  $("#a_dewormAny").value = q.dewormsAny || "";
-  $("#a_changeDewormProduct").value = q.changesDewormer || "";
-  $("#a_recommendWho").value = q.recommendedBy || "";
-  $("#a_curadorExiste").value = q.curadorExiste || "";
-  $("#a_curadorQuien").value = q.curadorQuien || "";
-  $("#a_curadorEdad").value = q.curadorEdad || "";
-  $("#a_curadorEspecies").value = q.curadorEspecies || "";
-  $("#a_curadorTiempo").value = q.curadorTiempo || "";
-  $("#a_curadorServicios").value = q.curadorServicios || "";
-  $("#a_practicas").value = q.practicesAny || "";
-  $("#a_practicasQuien").value = q.practicesWho || "";
-  $("#a_practicasAsesoria").value = q.practicesAdvice || "";
-  $("#a_programaRegistro").value = q.programRegistered || "";
-  $("#a_programaNombre").value = q.programName || "";
-  $("#a_programaFolioTiene").value = q.hasFolio || "";
-  $("#a_programaFolio").value = q.folio || "";
-  $("#a_programaConvocatorias").value = q.futureCalls || "";
-  $("#a_cazaComunidad").value = q.huntingCommon || "";
-  $("#a_cazaTiempo").value = q.huntingTime || "";
-  $("#a_cazaAnimales").value = q.huntedAnimals || "";
-  $("#a_cazaLugares").value = q.huntingPlaces || "";
-  $("#a_cazaEpoca").value = q.huntingSeason || "";
-  $("#a_cazaMotivos").value = q.huntingReasons || "";
-  $("#a_silvestresProblemas").value = q.wildProblems || "";
-  $("#a_silvestresQuePaso").value = q.wildProblemsDetail || "";
-  $("#a_rioUso").value = q.riverUse || "";
-  $("#a_rioParaQue").value = q.riverUseFor || "";
-  $("#a_rioSignificado").value = q.riverMeaning || "";
-  $("#a_rioProblemas").value = q.riverProblems || "";
-  $("#a_saberesLocales").value = q.localKnowledgeExists || "";
-  $("#a_saberesQuien").value = q.localKnowledgeWho || "";
-  $("#a_saberesUtilidad").value = q.localKnowledgeUseful || "";
-  $("#a_interestRumiants").value = q.rumiantInterest || "";
-  $("#a_interestRumiantsWhy").value = q.rumiantInterestWhy || "";
-  $("#a_hadRumiantsBefore").value = q.hadRumiantsBefore || "";
-  $("#a_noRumiantsWhy").value = q.noRumiantsReason || "";
-  $("#a_rumiantsAdvice").value = q.rumiantAdvice || "";
-  $("#a_rumiantsOthers").value = q.rumiantOthers || "";
-  $("#a_rumiantsWomen").value = q.rumiantWomen || "";
-  $("#a_rumiantsNeed").value = q.rumiantNeed || "";
-  $("#a_interestBirdsYes").value = q.birdsInterestYes || "";
-  $("#a_interestBirdsNo").value = q.birdsInterestNo || "";
-
-  renderDiseaseList();
-  renderVaccineList();
-  renderDewormList();
-  renderTraditionalList();
-  renderGenderAnimalList();
-  renderGenderActivityList();
+function fillAnimalQuestionnaire() {
+  const q = getProducer()?.questionnaire;
+  if (!q) return;
+  const map = {
+    a_importanciaDetalle: q.importanceDetail,
+    a_tieneMilpa: q.tieneMilpa,
+    a_queSiembra: q.queSiembra,
+    a_escasezForraje: q.escasezForraje,
+    a_lastSick: q.lastSick,
+    a_recommendWho: q.recommendWho,
+    a_curadorExiste: q.curadorExiste,
+    a_curadorQuien: q.curadorQuien,
+    a_curadorEdad: q.curadorEdad,
+    a_curadorEspecies: q.curadorEspecies,
+    a_curadorTiempo: q.curadorTiempo,
+    a_curadorServicios: q.curadorServicios,
+    a_practicas: q.practicas,
+    a_practicasQuien: q.practicasQuien,
+    a_practicasAsesoria: q.practicasAsesoria,
+    a_programaRegistro: q.programaRegistro,
+    a_programaNombre: q.programaNombre,
+    a_programaFolioTiene: q.programaFolioTiene,
+    a_programaFolio: q.folio,
+    a_programaConvocatorias: q.futureCalls,
+    a_cazaComunidad: q.huntingCommon,
+    a_cazaTiempo: q.huntingTime,
+    a_cazaAnimales: q.huntedAnimals,
+    a_cazaLugares: q.huntingPlaces,
+    a_cazaEpoca: q.huntingSeason,
+    a_cazaMotivos: q.huntingReasons,
+    a_silvestresProblemas: q.wildProblems,
+    a_silvestresQuePaso: q.wildProblemsDetail,
+    a_rioUso: q.riverUse,
+    a_rioParaQue: q.riverUseFor,
+    a_rioSignificado: q.riverMeaning,
+    a_rioProblemas: q.riverProblems,
+    a_saberesLocales: q.localKnowledgeExists,
+    a_saberesQuien: q.localKnowledgeWho,
+    a_saberesUtilidad: q.localKnowledgeUseful,
+    a_interestRumiants: q.rumiantInterest,
+    a_interestRumiantsWhy: q.rumiantInterestWhy,
+    a_hadRumiantsBefore: q.hadRumiantsBefore,
+    a_noRumiantsWhy: q.noRumiantsReason,
+    a_rumiantsAdvice: q.rumiantAdvice,
+    a_rumiantsOthers: q.rumiantOthers,
+    a_rumiantsWomen: q.rumiantWomen,
+    a_rumiantsNeed: q.rumiantNeed,
+    a_interestBirdsYes: q.birdsInterestYes,
+    a_interestBirdsNo: q.birdsInterestNo,
+  };
+  Object.entries(map).forEach(([k, v]) => {
+    if ($("#" + k)) $("#" + k).value = safe(v);
+  });
+  setMulti($("#a_animalesImportantes"), q.importantAnimals || []);
+  renderSimpleList(
+    "#a_diseaseList",
+    q.diseases || [],
+    (x) => `${x.date || ""} · ${x.animal || ""} · ${x.problem || ""}`,
+  );
+  renderSimpleList(
+    "#a_vaxList",
+    q.vaccines || [],
+    (x) => `${x.date || ""} · ${x.animal || ""} · ${x.name || ""}`,
+  );
+  renderSimpleList(
+    "#a_dewormList",
+    q.deworming || [],
+    (x) => `${x.date || ""} · ${x.animal || ""} · ${x.product || ""}`,
+  );
+  renderSimpleList(
+    "#a_tradList",
+    q.traditional || [],
+    (x) => `${x.name || ""} · ${x.use || ""}`,
+  );
+  renderSimpleList(
+    "#a_genderAnimalList",
+    q.genderAnimals || [],
+    (x) => `${x.animal || ""} · ${x.who || ""}`,
+  );
+  renderSimpleList(
+    "#a_generoActividadList",
+    q.genderActivities || [],
+    (x) => `${x.activity || ""} · ${x.sex || ""}`,
+  );
 }
-
-function bindAnimalsSection() {
+function bindAnimals() {
   bindAnimalPhotos();
-
   $("#animalsProducerSelect")?.addEventListener("change", () => {
     state.selectedProducerId = $("#animalsProducerSelect").value || null;
     saveState();
-    renderAnimalsProducerSelect();
-    renderProcedureProducerSelect();
+    renderAll();
   });
-
+  $("#btnAnimalsSyncProducer")?.addEventListener("click", () => renderAll());
   $("#a_save")?.addEventListener("click", saveAnimalGroup);
-  $("#a_clear")?.addEventListener("click", resetAnimalGroupForm);
-
-  $("#a_addDisease")?.addEventListener("click", addDisease);
-  $("#a_addVax")?.addEventListener("click", addVaccineRecord);
-  $("#a_addDeworm")?.addEventListener("click", addDeworming);
-  $("#a_addTrad")?.addEventListener("click", addTraditional);
-  $("#a_addGenderAnimal")?.addEventListener("click", addGenderAnimal);
-  $("#a_addGeneroActividad")?.addEventListener("click", addGenderActivity);
-  $("#btnSaveAnimalsFull")?.addEventListener("click", saveAnimalQuestionnaireFull);
+  $("#a_clear")?.addEventListener("click", resetAnimalEntry);
+  $("#btnSaveAnimalsFull")?.addEventListener(
+    "click",
+    saveAnimalQuestionnaireFull,
+  );
+  $("#a_addDisease")?.addEventListener("click", () =>
+    addQuestionnaireItem("diseases", {
+      id: uid("dis"),
+      date: $("#a_lastSick").value,
+      animal: $("#a_enfAnimal").value,
+      problem: $("#a_commonDis").value,
+      signs: $("#a_signs").value,
+      treatment: $("#a_whenSickDo").value,
+    }),
+  );
+  $("#a_addVax")?.addEventListener("click", () =>
+    addQuestionnaireItem("vaccines", {
+      id: uid("vaxr"),
+      animal: $("#a_vaxAnimal").value,
+      name: $("#a_vaxName").value,
+      date: $("#a_vaxDate").value,
+      who: $("#a_vaxWho").value,
+    }),
+  );
+  $("#a_addDeworm")?.addEventListener("click", () =>
+    addQuestionnaireItem("deworming", {
+      id: uid("dwr"),
+      animal: $("#a_dewormAnimal").value,
+      product: $("#a_dewormProd").value,
+      date: $("#a_dewormDate").value,
+      who: $("#a_dewormWho").value,
+    }),
+  );
+  $("#a_addTrad")?.addEventListener("click", () =>
+    addQuestionnaireItem("traditional", {
+      id: uid("trad"),
+      name: $("#a_tradNombre").value,
+      type: $("#a_tradTipo").value,
+      use: $("#a_tradUso").value,
+      part: $("#a_tradParte").value,
+    }),
+  );
+  $("#a_addGenderAnimal")?.addEventListener("click", () =>
+    addQuestionnaireItem("genderAnimals", {
+      id: uid("ga"),
+      animal: $("#a_genderAnimal").value,
+      who: $("#a_genderAnimalWho").value,
+      why: $("#a_genderAnimalWhy").value,
+    }),
+  );
+  $("#a_addGeneroActividad")?.addEventListener("click", () =>
+    addQuestionnaireItem("genderActivities", {
+      id: uid("act"),
+      activity: $("#a_actividadGenero").value,
+      sex: $("#a_actividadGeneroSexo").value,
+      reason: $("#a_actividadGeneroRazon").value,
+    }),
+  );
 }
 
-/* =========================================================
-   MEDICAMENTOS
-========================================================= */
 function renderMedMode() {
   const isChat = state.ui.medMode === "CHATGPT";
   $("#chatgptBlock").style.display = isChat ? "block" : "none";
-  $("#m_modeHint").textContent = `Modo actual: ${isChat ? "🪄 ChatGPT" : "✍️ Manual"}`;
+  $("#m_modeHint").textContent =
+    `Modo actual: ${isChat ? "🪄 ChatGPT" : "✍️ Manual"}`;
   $("#m_modeManual").classList.toggle("ghost", isChat);
   $("#m_modeChatGPT").classList.toggle("ghost", !isChat);
 }
-
-function bindMedMode() {
+function medOwnerLabel(v) {
+  return v === "DRA_ANA_ROSA"
+    ? "Dra. Ana Rosa"
+    : v === "SERVICIOS"
+      ? "Servicios"
+      : v || "";
+}
+function collectMed() {
+  const id = state.editing.medId || uid("med");
+  const totalQty = Number($("#m_totalQty").value || 0);
+  const cost = Number($("#m_cost").value || 0);
+  return {
+    id,
+    brand: $("#m_brand").value.trim(),
+    active: $("#m_active").value.trim(),
+    owner: $("#m_owner").value,
+    presentation: $("#m_presentation").value.trim(),
+    cost,
+    expiry: $("#m_expiry").value,
+    totalQty,
+    unit: $("#m_unit").value.trim(),
+    unitCost: totalQty ? cost / totalQty : 0,
+    anaRosaCharge: Number($("#m_anaRosaCharge").value || 0),
+    photos: { rx: state.draft.medRxPhoto, ticket: state.draft.medTicketPhoto },
+    clinical: {
+      use: $("#m_use").value.trim(),
+      mech: $("#m_mech").value.trim(),
+      adverse: $("#m_adverse").value.trim(),
+      preg: $("#m_preg").value.trim(),
+      pk: $("#m_pk").value.trim(),
+      overdose: $("#m_overdose").value.trim(),
+      interactions: $("#m_interactions").value.trim(),
+      dosing: $("#m_dosing").value.trim(),
+    },
+    vaccineDraft: {
+      brand: $("#m_vaxBrand").value.trim(),
+      expiry: $("#m_vaxExpiry").value,
+      price: Number($("#m_vaxPrice").value || 0),
+      coverageAnimals: Number($("#m_vaxCoverageAnimals").value || 0),
+      diseases: $("#m_vaxDiseases").value.trim(),
+    },
+  };
+}
+function saveMed() {
+  const med = collectMed();
+  if (!med.brand || !med.active) {
+    show(
+      "m_err",
+      "Nombre comercial y sustancia activa son obligatorios.",
+      "error",
+    );
+    return;
+  }
+  const idx = state.meds.findIndex((x) => x.id === med.id);
+  if (idx >= 0) state.meds[idx] = med;
+  else state.meds.unshift(med);
+  if (med.vaccineDraft.brand || med.vaccineDraft.coverageAnimals) {
+    const existing = state.vaccines.find((v) => v.medId === med.id);
+    const vaccine = {
+      id: existing?.id || uid("vax"),
+      medId: med.id,
+      brand: med.vaccineDraft.brand || med.brand,
+      expiry: med.vaccineDraft.expiry,
+      price: med.vaccineDraft.price,
+      coverageAnimals: med.vaccineDraft.coverageAnimals,
+      diseases: med.vaccineDraft.diseases,
+      owner: med.owner,
+    };
+    const vidx = state.vaccines.findIndex((v) => v.id === vaccine.id);
+    if (vidx >= 0) state.vaccines[vidx] = vaccine;
+    else state.vaccines.unshift(vaccine);
+  }
+  saveState();
+  renderAll();
+  resetMed();
+  show("m_ok", "Medicamento guardado correctamente.", "success");
+}
+function resetMed() {
+  state.editing.medId = null;
+  $("#medForm").reset();
+  state.draft.medRxPhoto = null;
+  state.draft.medTicketPhoto = null;
+  setThumb("m_rx_preview", null, "Sin<br/>receta");
+  setThumb("m_tk_preview", null, "Sin<br/>ticket");
+  renderMedMode();
+}
+function fillMed(m) {
+  resetMed();
+  state.editing.medId = m.id;
+  Object.entries({
+    m_brand: m.brand,
+    m_active: m.active,
+    m_owner: m.owner,
+    m_presentation: m.presentation,
+    m_cost: m.cost,
+    m_expiry: m.expiry,
+    m_totalQty: m.totalQty,
+    m_unit: m.unit,
+    m_unitCost: m.unitCost,
+    m_anaRosaCharge: m.anaRosaCharge,
+    m_use: m.clinical?.use,
+    m_mech: m.clinical?.mech,
+    m_adverse: m.clinical?.adverse,
+    m_preg: m.clinical?.preg,
+    m_pk: m.clinical?.pk,
+    m_overdose: m.clinical?.overdose,
+    m_interactions: m.clinical?.interactions,
+    m_dosing: m.clinical?.dosing,
+    m_vaxBrand: m.vaccineDraft?.brand,
+    m_vaxExpiry: m.vaccineDraft?.expiry,
+    m_vaxPrice: m.vaccineDraft?.price,
+    m_vaxCoverageAnimals: m.vaccineDraft?.coverageAnimals,
+    m_vaxDiseases: m.vaccineDraft?.diseases,
+  }).forEach(([k, v]) => {
+    if ($("#" + k)) $("#" + k).value = safe(v);
+  });
+  state.draft.medRxPhoto = m.photos?.rx || null;
+  state.draft.medTicketPhoto = m.photos?.ticket || null;
+  setThumb("m_rx_preview", state.draft.medRxPhoto, "Sin<br/>receta");
+  setThumb("m_tk_preview", state.draft.medTicketPhoto, "Sin<br/>ticket");
+}
+function renderMedList() {
+  const list = $("#m_list");
+  if (!list) return;
+  list.innerHTML = "";
+  const usage = inventoryUsage();
+  const anaRosaDue = state.meds
+    .filter((m) => m.owner === "DRA_ANA_ROSA")
+    .reduce((acc, m) => acc + (m.anaRosaCharge || 0), 0);
+  const head = document.createElement("div");
+  head.className = "item";
+  head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${state.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div><div class="stat"><b>Reintegrar a Dra. Ana Rosa</b><div>${money(anaRosaDue)}</div></div></div>`;
+  list.appendChild(head);
+  state.meds.forEach((m) => {
+    const v = state.vaccines.find((x) => x.medId === m.id);
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Cobrado por medicamento Ana Rosa:</b> ${money(m.anaRosaCharge)}</div>${v ? `<div class="line"><b>Vacuna independiente:</b> ${esc(v.brand)} · cobertura restante ${vaccineRemaining(v)}</div>` : ""}<div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, w, e, del] = item.querySelectorAll("button");
+    edit.onclick = () => fillMed(m);
+    w.onclick = () =>
+      exportWord(
+        `med_${slug(m.brand)}.doc`,
+        `<h1>${esc(m.brand)}</h1><p><b>Sustancia activa:</b> ${esc(m.active)}</p><p><b>Stock:</b> ${medRemaining(m)} ${esc(m.unit)}</p>`,
+      );
+    e.onclick = () =>
+      exportExcel(
+        `med_${slug(m.brand)}.xls`,
+        producerExcelSheets(
+          [],
+          [],
+          [m],
+          state.vaccines.filter((x) => x.medId === m.id),
+          [],
+        ),
+      );
+    del.onclick = () => {
+      state.meds = state.meds.filter((x) => x.id !== m.id);
+      state.vaccines = state.vaccines.filter((x) => x.medId !== m.id);
+      saveState();
+      renderAll();
+    };
+    list.appendChild(item);
+  });
+}
+function bindMeds() {
+  renderMedMode();
   $("#m_modeManual")?.addEventListener("click", () => {
     state.ui.medMode = "MANUAL";
     renderMedMode();
@@ -2323,1785 +1148,1130 @@ function bindMedMode() {
     renderMedMode();
     saveState();
   });
-}
-
-function calcMedUnitCost() {
-  const total = parseFloat($("#m_totalQty").value || "0");
-  const cost = parseFloat($("#m_cost").value || "0");
-  $("#m_unitCost").value = total > 0 && cost > 0 ? (cost / total).toFixed(2) : "";
-}
-
-function bindMedCalc() {
-  $("#m_totalQty")?.addEventListener("input", calcMedUnitCost);
-  $("#m_cost")?.addEventListener("input", calcMedUnitCost);
-}
-
-function renderMedPhotos() {
-  setThumb("m_rx_preview", state.media.medRxPhoto, "Sin<br/>receta");
-  setThumb("m_tk_preview", state.media.medTicketPhoto, "Sin<br/>ticket");
-}
-
-function bindMedPhotos() {
-  $("#m_btnRxTake")?.addEventListener("click", () => $("#m_rx_take")?.click());
-  $("#m_btnRxPick")?.addEventListener("click", () => $("#m_rx_pick")?.click());
-  $("#m_btnTkTake")?.addEventListener("click", () => $("#m_tk_take")?.click());
-  $("#m_btnTkPick")?.addEventListener("click", () => $("#m_tk_pick")?.click());
-
-  $("#m_rx_take")?.addEventListener("change", async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    state.media.medRxPhoto = await fileToBase64(f);
-    renderMedPhotos();
-    e.target.value = "";
+  ["m_totalQty", "m_cost"].forEach((id) =>
+    $("#" + id)?.addEventListener("input", () => {
+      const total = Number($("#m_totalQty").value || 0),
+        cost = Number($("#m_cost").value || 0);
+      $("#m_unitCost").value = total ? (cost / total).toFixed(2) : "";
+    }),
+  );
+  $("#ai_makePrompt")?.addEventListener("click", () => {
+    const source = $("#ai_english").value.trim();
+    const prompt = `Traduce y estructura este texto farmacológico a JSON veterinario en español con las llaves use, mech, adverse, preg, pk, overdose, interactions, dosing. Texto fuente: ${source}`;
+    $("#ai_prompt").value = prompt;
   });
-  $("#m_rx_pick")?.addEventListener("change", async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    state.media.medRxPhoto = await fileToBase64(f);
-    renderMedPhotos();
-    e.target.value = "";
-  });
-  $("#m_tk_take")?.addEventListener("change", async (e) => {
-    const f = e.target.files
-    /* =========================================================
-   APP RURAL FUSIONADA · SCRIPT COMPLETO
-========================================================= */
-
-const STORAGE_KEY = "app_rural_fusion_full_v4";
-
-const state = {
-  producers: [],
-  meds: [],
-  supplies: [],
-  procedures: [],
-  selectedProducerId: null,
-
-  ui: {
-    medMode: "MANUAL",
-    supplyMode: "DISPOSABLE"
-  },
-
-  editing: {
-    producerId: null,
-    medId: null,
-    supplyId: null,
-    procedureId: null
-  },
-
-  media: {
-    producerPhoto: null,
-    animalTempPhotos: [],
-    medRxPhoto: null,
-    medTicketPhoto: null,
-    supplyTicketPhoto: null,
-    procedureCasePhotos: [],
-    procedureNecropsyPhotos: [],
-    procedureChargePhoto: null
-  }
-};
-
-/* =========================================================
-   HELPERS
-========================================================= */
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-
-function uid() {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function nowText() {
-  return new Date().toLocaleString("es-MX", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function safeText(v) {
-  return v == null ? "" : String(v);
-}
-
-function escapeHtml(str) {
-  return String(str ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function ownerLabel(owner) {
-  if (owner === "DRA_ANA_ROSA") return "Dra. Ana Rosa";
-  if (owner === "SERVICIOS") return "Servicios";
-  if (owner === "OTRO") return "Otro";
-  return "";
-}
-
-function procedureTypeLabel(v) {
-  if (v === "PREVENTIVA") return "Medicina preventiva";
-  if (v === "ZOOTECNIA") return "Asesoría zootécnica";
-  if (v === "CASO_CLINICO") return "Caso clínico";
-  if (v === "NECROPSIA") return "Necropsia";
-  return "";
-}
-
-function classificationLabel(v) {
-  if (v === "TRABAJAR") return "Sí trabajar";
-  if (v === "PENDIENTE") return "Aún no sé";
-  if (v === "NO_TRABAJAR") return "No trabajar";
-  return "";
-}
-
-function money(v) {
-  const n = Number(v || 0);
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN"
-  }).format(n);
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return;
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    state.producers = Array.isArray(parsed.producers) ? parsed.producers : [];
-    state.meds = Array.isArray(parsed.meds) ? parsed.meds : [];
-    state.supplies = Array.isArray(parsed.supplies) ? parsed.supplies : [];
-    state.procedures = Array.isArray(parsed.procedures) ? parsed.procedures : [];
-    state.selectedProducerId = parsed.selectedProducerId || null;
-
-    if (parsed.ui) {
-      state.ui.medMode = parsed.ui.medMode || "MANUAL";
-      state.ui.supplyMode = parsed.ui.supplyMode || "DISPOSABLE";
+  $("#ai_copyPrompt")?.addEventListener("click", () =>
+    navigator.clipboard.writeText($("#ai_prompt").value),
+  );
+  $("#ai_openChatGPT")?.addEventListener("click", () =>
+    window.open("https://chatgpt.com/", "_blank", "noopener"),
+  );
+  $("#ai_fillFromJson")?.addEventListener("click", () => {
+    try {
+      const j = JSON.parse($("#ai_result").value);
+      Object.entries({
+        m_use: j.use,
+        m_mech: j.mech,
+        m_adverse: j.adverse,
+        m_preg: j.preg,
+        m_pk: j.pk,
+        m_overdose: j.overdose,
+        m_interactions: j.interactions,
+        m_dosing: j.dosing,
+      }).forEach(([k, v]) => ($("#" + k).value = safe(v)));
+      show("ai_status", "JSON aplicado correctamente.", "success");
+    } catch (err) {
+      show("ai_status", "JSON inválido.", "error");
     }
-  } catch (err) {
-    console.error("Error cargando state:", err);
+  });
+  $("#ai_clearAll")?.addEventListener("click", () => {
+    ["ai_english", "ai_prompt", "ai_result"].forEach(
+      (id) => ($("#" + id).value = ""),
+    );
+    show("ai_status", "", "help");
+  });
+  ["m_rx_take", "m_rx_pick", "m_tk_take", "m_tk_pick"].forEach((id) =>
+    $("#" + id)?.addEventListener("change", async (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      const data = await fileToBase64(f);
+      if (id.startsWith("m_rx")) state.draft.medRxPhoto = data;
+      else state.draft.medTicketPhoto = data;
+      setThumb("m_rx_preview", state.draft.medRxPhoto, "Sin<br/>receta");
+      setThumb("m_tk_preview", state.draft.medTicketPhoto, "Sin<br/>ticket");
+      e.target.value = "";
+    }),
+  );
+  $("#m_btnRxTake")?.addEventListener("click", () => $("#m_rx_take").click());
+  $("#m_btnRxPick")?.addEventListener("click", () => $("#m_rx_pick").click());
+  $("#m_btnRxRemove")?.addEventListener("click", () => {
+    state.draft.medRxPhoto = null;
+    setThumb("m_rx_preview", null, "Sin<br/>receta");
+  });
+  $("#m_btnTkTake")?.addEventListener("click", () => $("#m_tk_take").click());
+  $("#m_btnTkPick")?.addEventListener("click", () => $("#m_tk_pick").click());
+  $("#m_btnTkRemove")?.addEventListener("click", () => {
+    state.draft.medTicketPhoto = null;
+    setThumb("m_tk_preview", null, "Sin<br/>ticket");
+  });
+  $("#m_btnClear")?.addEventListener("click", resetMed);
+  $("#medForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveMed();
+  });
+  $("#btnMedWord")?.addEventListener("click", () =>
+    exportWord("medicamentos_vacunas.doc", medSummaryHtml()),
+  );
+  $("#btnMedExcel")?.addEventListener("click", () =>
+    exportExcel(
+      "medicamentos_vacunas.xls",
+      producerExcelSheets([], [], state.meds, state.vaccines, []),
+    ),
+  );
+}
+
+function renderSupplyMode() {
+  const disposable = state.ui.supplyMode === "DISPOSABLE";
+  $("#blockDisposable").style.display = disposable ? "block" : "none";
+  $("#blockNonDisposable").style.display = disposable ? "none" : "block";
+  $("#s_modeHint").textContent =
+    `Modo actual: ${disposable ? "🧴 Desechables" : "🔧 No desechables"}`;
+  $("#s_modeDisposable").classList.toggle("ghost", !disposable);
+  $("#s_modeNonDisposable").classList.toggle("ghost", disposable);
+}
+function collectSupply() {
+  const type =
+    state.ui.supplyMode === "DISPOSABLE" ? "DISPOSABLE" : "NON_DISPOSABLE";
+  const qty = Number($("#s_qty").value || 0),
+    price = Number($("#s_price").value || 0),
+    lifeYears = Number($("#s_lifeYears").value || 0),
+    costAcq = Number($("#s_costAcq").value || 0),
+    estimatedUses = Number($("#s_estimatedUses").value || 0);
+  return {
+    id: state.editing.supplyId || uid("sup"),
+    type,
+    name: $("#s_name").value.trim(),
+    acquired: $("#s_acquired").value,
+    donated: checked("s_donated"),
+    presentation: $("#s_presentation").value.trim(),
+    qty,
+    price,
+    unitCost: qty ? price / qty : 0,
+    costAcq,
+    lifeYears,
+    estimatedUses,
+    yearlyCost: lifeYears ? costAcq / lifeYears : 0,
+    costUse: estimatedUses ? costAcq / estimatedUses : 0,
+    notes: $("#s_notes").value.trim(),
+    ticket: state.draft.supplyTicketPhoto || null,
+  };
+}
+function saveSupply() {
+  const s = collectSupply();
+  if (!s.name || !s.acquired) {
+    show("s_err", "Nombre y fecha de adquisición son obligatorios.", "error");
+    return;
+  }
+  const idx = state.supplies.findIndex((x) => x.id === s.id);
+  if (idx >= 0) state.supplies[idx] = s;
+  else state.supplies.unshift(s);
+  saveState();
+  renderAll();
+  resetSupply();
+  show("s_ok", "Insumo guardado.", "success");
+}
+function resetSupply() {
+  state.editing.supplyId = null;
+  $("#supplyForm").reset();
+  state.draft.supplyTicketPhoto = null;
+  setThumb("s_tk_preview", null, "Sin<br/>ticket");
+  renderSupplyMode();
+}
+function fillSupply(s) {
+  resetSupply();
+  state.editing.supplyId = s.id;
+  state.ui.supplyMode =
+    s.type === "NON_DISPOSABLE" ? "NON_DISPOSABLE" : "DISPOSABLE";
+  renderSupplyMode();
+  Object.entries({
+    s_name: s.name,
+    s_acquired: s.acquired,
+    s_presentation: s.presentation,
+    s_qty: s.qty,
+    s_price: s.price,
+    s_unitCost: s.unitCost,
+    s_costAcq: s.costAcq,
+    s_lifeYears: s.lifeYears,
+    s_estimatedUses: s.estimatedUses,
+    s_costMonth: s.yearlyCost,
+    s_costUse: s.costUse,
+    s_notes: s.notes,
+  }).forEach(([k, v]) => {
+    if ($("#" + k)) $("#" + k).value = safe(v);
+  });
+  setChecked("s_donated", s.donated || "NO");
+  state.draft.supplyTicketPhoto = s.ticket || null;
+  setThumb("s_tk_preview", s.ticket, "Sin<br/>ticket");
+}
+function renderSupplyList() {
+  const list = $("#s_list");
+  if (!list) return;
+  list.innerHTML = "";
+  state.supplies.forEach((s) => {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<h4>${esc(s.name)}</h4><div class="line"><b>Tipo:</b> ${s.type === "NON_DISPOSABLE" ? "No desechable" : "Desechable"}</div><div class="line"><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</div><div class="line"><b>Costo por uso:</b> ${money(s.costUse)}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, w, e, del] = item.querySelectorAll("button");
+    edit.onclick = () => fillSupply(s);
+    w.onclick = () =>
+      exportWord(
+        `insumo_${slug(s.name)}.doc`,
+        `<h1>${esc(s.name)}</h1><p><b>Tipo:</b> ${esc(s.type)}</p>`,
+      );
+    e.onclick = () =>
+      exportExcel(
+        `insumo_${slug(s.name)}.xls`,
+        producerExcelSheets([], [], [], [], [s]),
+      );
+    del.onclick = () => {
+      state.supplies = state.supplies.filter((x) => x.id !== s.id);
+      saveState();
+      renderAll();
+    };
+    list.appendChild(item);
+  });
+}
+function bindSupplies() {
+  renderSupplyMode();
+  $("#s_modeDisposable")?.addEventListener("click", () => {
+    state.ui.supplyMode = "DISPOSABLE";
+    renderSupplyMode();
+    saveState();
+  });
+  $("#s_modeNonDisposable")?.addEventListener("click", () => {
+    state.ui.supplyMode = "NON_DISPOSABLE";
+    renderSupplyMode();
+    saveState();
+  });
+  ["s_qty", "s_price"].forEach((id) =>
+    $("#" + id)?.addEventListener("input", () => {
+      const q = Number($("#s_qty").value || 0),
+        p = Number($("#s_price").value || 0);
+      $("#s_unitCost").value = q ? (p / q).toFixed(2) : "";
+    }),
+  );
+  ["s_costAcq", "s_lifeYears", "s_estimatedUses"].forEach((id) =>
+    $("#" + id)?.addEventListener("input", () => {
+      const acq = Number($("#s_costAcq").value || 0),
+        life = Number($("#s_lifeYears").value || 0),
+        uses = Number($("#s_estimatedUses").value || 0);
+      $("#s_costMonth").value = life ? (acq / life).toFixed(2) : "";
+      $("#s_costUse").value = uses ? (acq / uses).toFixed(2) : "";
+    }),
+  );
+  $("#s_tk_take")?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    state.draft.supplyTicketPhoto = await fileToBase64(f);
+    setThumb("s_tk_preview", state.draft.supplyTicketPhoto, "Sin<br/>ticket");
+    e.target.value = "";
+  });
+  $("#s_tk_pick")?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    state.draft.supplyTicketPhoto = await fileToBase64(f);
+    setThumb("s_tk_preview", state.draft.supplyTicketPhoto, "Sin<br/>ticket");
+    e.target.value = "";
+  });
+  $("#s_btnTkTake")?.addEventListener("click", () => $("#s_tk_take").click());
+  $("#s_btnTkPick")?.addEventListener("click", () => $("#s_tk_pick").click());
+  $("#s_btnTkRemove")?.addEventListener("click", () => {
+    state.draft.supplyTicketPhoto = null;
+    setThumb("s_tk_preview", null, "Sin<br/>ticket");
+  });
+  $("#s_btnClear")?.addEventListener("click", resetSupply);
+  $("#supplyForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveSupply();
+  });
+  $("#btnSupplyWord")?.addEventListener("click", () =>
+    exportWord("insumos.doc", supplySummaryHtml()),
+  );
+  $("#btnSupplyExcel")?.addEventListener("click", () =>
+    exportExcel(
+      "insumos.xls",
+      producerExcelSheets([], [], [], [], state.supplies),
+    ),
+  );
+}
+
+function renderProcedureProducerSelect() {
+  const sel = $("#p_producer");
+  if (!sel) return;
+  const prev = state.selectedProducerId || sel.value;
+  sel.innerHTML =
+    '<option value="">— Selecciona —</option>' +
+    state.producers
+      .map((p) => `<option value="${p.id}">${esc(p.basic.name)}</option>`)
+      .join("");
+  sel.value = prev || "";
+}
+function renderProcedureAnimalSelect() {
+  const prod = byId(
+    state.producers,
+    $("#p_producer").value || state.selectedProducerId,
+  );
+  const sel = $("#p_animalGroup");
+  const animals = prod?.animals || [];
+  const prev = sel.value;
+  sel.innerHTML =
+    '<option value="">— Selecciona —</option>' +
+    animals
+      .map((a) => `<option value="${a.id}">${esc(animalLabel(a))}</option>`)
+      .join("");
+  sel.value = prev;
+}
+function populateInventorySelects() {
+  const medSel = $("#p_medSelect"),
+    vaxSel = $("#p_vaccineSelect"),
+    supSel = $("#p_supplySelect");
+  medSel.innerHTML =
+    '<option value="">— Selecciona —</option>' +
+    state.meds
+      .map(
+        (m) =>
+          `<option value="${m.id}">${esc(m.brand)} (${medRemaining(m)} ${esc(m.unit)})</option>`,
+      )
+      .join("");
+  vaxSel.innerHTML =
+    '<option value="">— Selecciona —</option>' +
+    state.vaccines
+      .map(
+        (v) =>
+          `<option value="${v.id}">${esc(v.brand)} (${vaccineRemaining(v)} animales)</option>`,
+      )
+      .join("");
+  supSel.innerHTML =
+    '<option value="">— Selecciona —</option>' +
+    state.supplies
+      .map(
+        (s) =>
+          `<option value="${s.id}">${esc(s.name)} (${esc(supplyRemaining(s))})</option>`,
+      )
+      .join("");
+}
+function renderProcedureType() {
+  const type = $("#p_type").value;
+  const scope = $("#p_scope").value;
+  [
+    ["3. Caso clínico", "#p_cc_reason"],
+    ["4. Necropsia", "#p_nec_idAnimal"],
+    ["5. Atención clínica / zootécnica", "#p_zoo_evaluation"],
+    ["6. Cirugía", "#p_sx_preop"],
+  ].forEach(() => {});
+  const details = $$("#procedureForm details");
+  details.forEach((d, idx) => {
+    const sum = d.querySelector("summary")?.textContent || "";
+    if (sum.includes("Caso clínico"))
+      d.style.display = type === "CASO_CLINICO" ? "block" : "none";
+    if (sum.includes("Necropsia"))
+      d.style.display = type === "NECROPSIA" ? "block" : "none";
+    if (sum.includes("Atención clínica"))
+      d.style.display = type === "ZOOTECNIA" ? "block" : "none";
+    if (sum.includes("Cirugía"))
+      d.style.display = type === "CIRUGIA" ? "block" : "none";
+  });
+  $("#p_scope").disabled = ["CIRUGIA", "CASO_CLINICO", "NECROPSIA"].includes(
+    type,
+  );
+  if (["CIRUGIA", "CASO_CLINICO", "NECROPSIA"].includes(type)) {
+    $("#p_scope").value = "INDIVIDUAL";
   }
 }
-
-function showMessage(id, text, kind = "help") {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = text || "";
-  el.className = kind;
-  el.style.display = text ? "block" : "none";
+function addProcedureMedUse() {
+  const med = byId(state.meds, $("#p_medSelect").value);
+  const qty = Number($("#p_medDoseKg").value || 0);
+  if (!med || !qty) {
+    show("p_msg", "Selecciona medicamento y cantidad/dosis.", "warning");
+    return;
+  }
+  if (qty > medRemaining(med)) {
+    show("p_msg", "No hay stock suficiente del medicamento.", "error");
+    return;
+  }
+  state.draft.procedureMedUses.push({
+    id: uid("pmed"),
+    itemId: med.id,
+    name: med.brand,
+    qty,
+    unit: $("#p_medUnitUsed").value || med.unit,
+    unitCost: med.unitCost,
+    owner: med.owner,
+  });
+  renderProcedureDraftLists();
+}
+function addProcedureVaccineUse() {
+  const v = byId(state.vaccines, $("#p_vaccineSelect").value);
+  const animalsApplied = Number($("#p_vaccineAnimalsApplied").value || 0);
+  if (!v || !animalsApplied) {
+    show(
+      "p_msg",
+      "Selecciona vacuna y cantidad de animales aplicada.",
+      "warning",
+    );
+    return;
+  }
+  if (animalsApplied > vaccineRemaining(v)) {
+    show("p_msg", "La vacuna no alcanza para ese número de animales.", "error");
+    return;
+  }
+  state.draft.procedureVaccineUses.push({
+    id: uid("pvax"),
+    itemId: v.id,
+    name: v.brand,
+    animalsApplied,
+    price: v.price,
+    notes: $("#p_vaccineNotes").value.trim(),
+  });
+  renderProcedureDraftLists();
+}
+function addProcedureSupplyUse() {
+  const s = byId(state.supplies, $("#p_supplySelect").value);
+  const qty = Number($("#p_supplyQtyUsed").value || 0);
+  if (!s || !qty) {
+    show("p_msg", "Selecciona insumo y cantidad.", "warning");
+    return;
+  }
+  if (s.type === "DISPOSABLE" && qty > supplyRemaining(s)) {
+    show(
+      "p_msg",
+      "No hay disponibilidad suficiente del insumo desechable.",
+      "error",
+    );
+    return;
+  }
+  state.draft.procedureSupplyUses.push({
+    id: uid("psup"),
+    itemId: s.id,
+    name: s.name,
+    qty,
+    notes: $("#p_supplyNotes").value.trim(),
+    type: s.type,
+    unitCost: s.type === "NON_DISPOSABLE" ? s.costUse : s.unitCost,
+  });
+  renderProcedureDraftLists();
+}
+function renderProcedureDraftLists() {
+  renderSimpleList(
+    "#p_medUseList",
+    state.draft.procedureMedUses,
+    (x) => `${x.name} · ${x.qty} ${x.unit || ""}`,
+  );
+  renderSimpleList(
+    "#p_vaccineUseList",
+    state.draft.procedureVaccineUses,
+    (x) => `${x.name} · ${x.animalsApplied} animales`,
+  );
+  renderSimpleList(
+    "#p_supplyUseList",
+    state.draft.procedureSupplyUses,
+    (x) =>
+      `${x.name} · ${x.qty} ${x.type === "NON_DISPOSABLE" ? "usos" : "pzas"}`,
+  );
+  renderSimpleList(
+    "#lab_list",
+    state.labTests.filter((l) => state.draft.procedureLabIds.includes(l.id)),
+    (x) => `${x.date} · ${x.type} · ${x.result}`,
+  );
+  const box1 = $("#p_cc_preview"),
+    box2 = $("#p_nec_preview");
+  if (box1)
+    box1.innerHTML = state.draft.procedureCasePhotos.length
+      ? state.draft.procedureCasePhotos
+          .map((p) => `<div class="preview-mini"><img src="${p}"></div>`)
+          .join("")
+      : '<div class="preview-box"><span>Sin<br/>fotos</span></div>';
+  if (box2)
+    box2.innerHTML = state.draft.procedureNecropsyPhotos.length
+      ? state.draft.procedureNecropsyPhotos
+          .map((p) => `<div class="preview-mini"><img src="${p}"></div>`)
+          .join("")
+      : '<div class="preview-box"><span>Sin<br/>fotos</span></div>';
+  setThumb(
+    "p_charge_preview",
+    state.draft.procedureChargePhoto,
+    "Sin<br/>evidencia",
+  );
+  $("#p_chargeCalculated").value = calculateProcedureCharge().toFixed(2);
+}
+function calculateProcedureCharge() {
+  const base = Number($("#p_costTotal").value || 0);
+  const meds = state.draft.procedureMedUses.reduce(
+    (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
+    0,
+  );
+  const vaccines = state.draft.procedureVaccineUses.reduce(
+    (a, x) => a + Number(x.price || 0),
+    0,
+  );
+  const supplies = state.draft.procedureSupplyUses.reduce(
+    (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
+    0,
+  );
+  return base + meds + vaccines + supplies;
+}
+async function addLab() {
+  const file = $("#lab_file").files?.[0];
+  const lab = {
+    id: uid("lab"),
+    type: $("#lab_type").value.trim(),
+    date: $("#lab_date").value,
+    animal: $("#lab_animal").value.trim(),
+    result: $("#lab_result").value.trim(),
+    interpretation: $("#lab_interpretation").value.trim(),
+    notes: $("#lab_notes").value.trim(),
+    file: file ? await fileToBase64(file) : null,
+    linkedProcedureId: state.editing.procedureId || null,
+  };
+  if (!lab.type || !lab.date) {
+    show("p_msg", "Tipo y fecha de prueba son obligatorios.", "warning");
+    return;
+  }
+  state.labTests.unshift(lab);
+  state.draft.procedureLabIds.push(lab.id);
+  saveState();
+  renderProcedureDraftLists();
+  [
+    "lab_type",
+    "lab_date",
+    "lab_animal",
+    "lab_result",
+    "lab_interpretation",
+    "lab_notes",
+  ].forEach((id) => ($("#" + id).value = ""));
+  $("#lab_file").value = "";
+}
+function collectProcedure() {
+  return {
+    id: state.editing.procedureId || uid("proc"),
+    date: $("#p_date").value,
+    type: $("#p_type").value,
+    scope: $("#p_scope").value,
+    place: $("#p_place").value.trim(),
+    producerId: $("#p_producer").value,
+    animalId: $("#p_animalGroup").value,
+    animalsQtyUsed: Number($("#p_animalsQtyUsed").value || 0),
+    species: $("#p_species").value.trim(),
+    identification: $("#p_identification").value.trim(),
+    weight: $("#p_weight").value,
+    temperature: $("#p_temperature").value,
+    generalState: $("#p_generalState").value,
+    notes: $("#p_notes").value.trim(),
+    chargeStatus: $("#p_chargeStatus").value,
+    chargeNotes: $("#p_chargeNotes").value.trim(),
+    inventory: {
+      meds: [...state.draft.procedureMedUses],
+      vaccines: [...state.draft.procedureVaccineUses],
+      supplies: [...state.draft.procedureSupplyUses],
+    },
+    caseClinical: {
+      reason: $("#p_cc_reason").value.trim(),
+      anamnesis: $("#p_cc_anamnesis").value.trim(),
+      bodyCondition: $("#p_cc_bodyCondition").value.trim(),
+      mucosa: $("#p_cc_mucosa").value.trim(),
+      tllc: $("#p_cc_tllc").value.trim(),
+      hydration: $("#p_cc_hydration").value.trim(),
+      fc: $("#p_cc_fc").value.trim(),
+      fr: $("#p_cc_fr").value.trim(),
+      temp: $("#p_cc_temp").value.trim(),
+      weight: $("#p_cc_weight2").value.trim(),
+      exam: $("#p_cc_exam").value.trim(),
+      presumptiveDx: $("#p_cc_presumptiveDx").value.trim(),
+      treatment: $("#p_cc_treatment").value.trim(),
+      recommendations: $("#p_cc_recommendations").value.trim(),
+      followup: $("#p_cc_followup").value.trim(),
+      photos: [...state.draft.procedureCasePhotos],
+    },
+    necropsy: {
+      idAnimal: $("#p_nec_idAnimal").value.trim(),
+      species: $("#p_nec_species").value.trim(),
+      breed: $("#p_nec_breed").value.trim(),
+      sex: $("#p_nec_sex").value.trim(),
+      age: $("#p_nec_age").value.trim(),
+      sterilized: $("#p_nec_sterilized").value.trim(),
+      color: $("#p_nec_color").value.trim(),
+      weight: $("#p_nec_weight").value.trim(),
+      birthDate: $("#p_nec_birthDate").value,
+      deathDate: $("#p_nec_deathDate").value,
+      timeDeathNec: $("#p_nec_timeDeathNec").value.trim(),
+      sender: $("#p_nec_sender").value.trim(),
+      caseNumber: $("#p_nec_caseNumber").value.trim(),
+      clinicalDx: $("#p_nec_clinicalDx").value.trim(),
+      additionalData: $("#p_nec_additionalData").value.trim(),
+      externalInspection: $("#p_nec_externalInspection").value.trim(),
+      primaryIncision: $("#p_nec_primaryIncision").value.trim(),
+      secondaryIncision: $("#p_nec_secondaryIncision").value.trim(),
+      organExtraction: $("#p_nec_organExtraction").value.trim(),
+      respiratory: $("#p_nec_respiratory").value.trim(),
+      heart: $("#p_nec_heart").value.trim(),
+      spleen: $("#p_nec_spleen").value.trim(),
+      kidneys: $("#p_nec_kidneys").value.trim(),
+      stomach: $("#p_nec_stomach").value.trim(),
+      preliminaryReport: $("#p_nec_preliminaryReport").value.trim(),
+      morphDx: $("#p_nec_morphDx").value.trim(),
+      finalDx: $("#p_nec_finalDx").value.trim(),
+      comments: $("#p_nec_comments").value.trim(),
+      biblioSummary: $("#p_nec_biblioSummary").value.trim(),
+      bibliography: $("#p_nec_bibliography").value.trim(),
+      photos: [...state.draft.procedureNecropsyPhotos],
+    },
+    zootecnia: {
+      evaluation: $("#p_zoo_evaluation").value.trim(),
+      intervention: $("#p_zoo_intervention").value.trim(),
+      plan: $("#p_zoo_plan").value.trim(),
+      followup: $("#p_zoo_followup").value.trim(),
+    },
+    surgery: {
+      preop: $("#p_sx_preop").value.trim(),
+      procedure: $("#p_sx_procedure").value.trim(),
+      anesthesia: $("#p_sx_anesthesia").value.trim(),
+      findings: $("#p_sx_findings").value.trim(),
+      postop: $("#p_sx_postop").value.trim(),
+      prognosis: $("#p_sx_prognosis").value.trim(),
+    },
+    charge: {
+      calculated: calculateProcedureCharge(),
+      manual: Number($("#p_chargeManual").value || 0),
+      reason: $("#p_chargeReason").value.trim(),
+      photo: state.draft.procedureChargePhoto,
+    },
+    labIds: [...state.draft.procedureLabIds],
+  };
+}
+function saveProcedure() {
+  const p = collectProcedure();
+  if (!p.date || !p.type || !p.producerId) {
+    show("p_err", "Fecha, tipo y productor(a) son obligatorios.", "error");
+    return;
+  }
+  const animal = byId(currentAnimals(), p.animalId);
+  if (
+    ["CIRUGIA", "CASO_CLINICO", "NECROPSIA"].includes(p.type) &&
+    p.scope !== "INDIVIDUAL"
+  )
+    p.scope = "INDIVIDUAL";
+  if (
+    ["CIRUGIA", "CASO_CLINICO", "NECROPSIA"].includes(p.type) &&
+    !p.animalId
+  ) {
+    show("p_err", "Este procedimiento requiere un animal individual.", "error");
+    return;
+  }
+  if (
+    p.animalsQtyUsed &&
+    animal &&
+    p.animalsQtyUsed > Number(animal.quantity || 0)
+  ) {
+    show(
+      "p_err",
+      "La cantidad de animales excede los disponibles para ese registro.",
+      "error",
+    );
+    return;
+  }
+  const idx = state.procedures.findIndex((x) => x.id === p.id);
+  if (idx >= 0) state.procedures[idx] = p;
+  else state.procedures.unshift(p);
+  saveState();
+  renderAll();
+  resetProcedure();
+  show("p_ok", "Procedimiento guardado.", "success");
+}
+function resetProcedure() {
+  state.editing.procedureId = null;
+  $("#procedureForm").reset();
+  state.draft.procedureMedUses = [];
+  state.draft.procedureVaccineUses = [];
+  state.draft.procedureSupplyUses = [];
+  state.draft.procedureLabIds = [];
+  state.draft.procedureCasePhotos = [];
+  state.draft.procedureNecropsyPhotos = [];
+  state.draft.procedureChargePhoto = null;
+  renderProcedureType();
+  renderProcedureDraftLists();
+  renderProcedureAnimalSelect();
+}
+function fillProcedure(p) {
+  resetProcedure();
+  state.editing.procedureId = p.id;
+  Object.entries({
+    p_date: p.date,
+    p_type: p.type,
+    p_scope: p.scope,
+    p_place: p.place,
+    p_costTotal: p.charge?.calculated || "",
+    p_producer: p.producerId,
+    p_animalGroup: p.animalId,
+    p_animalsQtyUsed: p.animalsQtyUsed,
+    p_species: p.species,
+    p_identification: p.identification,
+    p_weight: p.weight,
+    p_temperature: p.temperature,
+    p_generalState: p.generalState,
+    p_chargeStatus: p.chargeStatus,
+    p_chargeNotes: p.chargeNotes,
+    p_notes: p.notes,
+    p_cc_reason: p.caseClinical?.reason,
+    p_cc_anamnesis: p.caseClinical?.anamnesis,
+    p_cc_bodyCondition: p.caseClinical?.bodyCondition,
+    p_cc_mucosa: p.caseClinical?.mucosa,
+    p_cc_tllc: p.caseClinical?.tllc,
+    p_cc_hydration: p.caseClinical?.hydration,
+    p_cc_fc: p.caseClinical?.fc,
+    p_cc_fr: p.caseClinical?.fr,
+    p_cc_temp: p.caseClinical?.temp,
+    p_cc_weight2: p.caseClinical?.weight,
+    p_cc_exam: p.caseClinical?.exam,
+    p_cc_presumptiveDx: p.caseClinical?.presumptiveDx,
+    p_cc_treatment: p.caseClinical?.treatment,
+    p_cc_recommendations: p.caseClinical?.recommendations,
+    p_cc_followup: p.caseClinical?.followup,
+    p_nec_idAnimal: p.necropsy?.idAnimal,
+    p_nec_species: p.necropsy?.species,
+    p_nec_breed: p.necropsy?.breed,
+    p_nec_sex: p.necropsy?.sex,
+    p_nec_age: p.necropsy?.age,
+    p_nec_sterilized: p.necropsy?.sterilized,
+    p_nec_color: p.necropsy?.color,
+    p_nec_weight: p.necropsy?.weight,
+    p_nec_birthDate: p.necropsy?.birthDate,
+    p_nec_deathDate: p.necropsy?.deathDate,
+    p_nec_timeDeathNec: p.necropsy?.timeDeathNec,
+    p_nec_sender: p.necropsy?.sender,
+    p_nec_caseNumber: p.necropsy?.caseNumber,
+    p_nec_clinicalDx: p.necropsy?.clinicalDx,
+    p_nec_additionalData: p.necropsy?.additionalData,
+    p_nec_externalInspection: p.necropsy?.externalInspection,
+    p_nec_primaryIncision: p.necropsy?.primaryIncision,
+    p_nec_secondaryIncision: p.necropsy?.secondaryIncision,
+    p_nec_organExtraction: p.necropsy?.organExtraction,
+    p_nec_respiratory: p.necropsy?.respiratory,
+    p_nec_heart: p.necropsy?.heart,
+    p_nec_spleen: p.necropsy?.spleen,
+    p_nec_kidneys: p.necropsy?.kidneys,
+    p_nec_stomach: p.necropsy?.stomach,
+    p_nec_preliminaryReport: p.necropsy?.preliminaryReport,
+    p_nec_morphDx: p.necropsy?.morphDx,
+    p_nec_finalDx: p.necropsy?.finalDx,
+    p_nec_comments: p.necropsy?.comments,
+    p_nec_biblioSummary: p.necropsy?.biblioSummary,
+    p_nec_bibliography: p.necropsy?.bibliography,
+    p_zoo_evaluation: p.zootecnia?.evaluation,
+    p_zoo_intervention: p.zootecnia?.intervention,
+    p_zoo_plan: p.zootecnia?.plan,
+    p_zoo_followup: p.zootecnia?.followup,
+    p_sx_preop: p.surgery?.preop,
+    p_sx_procedure: p.surgery?.procedure,
+    p_sx_anesthesia: p.surgery?.anesthesia,
+    p_sx_findings: p.surgery?.findings,
+    p_sx_postop: p.surgery?.postop,
+    p_sx_prognosis: p.surgery?.prognosis,
+    p_chargeManual: p.charge?.manual,
+    p_chargeReason: p.charge?.reason,
+  }).forEach(([k, v]) => {
+    if ($("#" + k)) $("#" + k).value = safe(v);
+  });
+  renderProcedureAnimalSelect();
+  state.draft.procedureMedUses = [...(p.inventory?.meds || [])];
+  state.draft.procedureVaccineUses = [...(p.inventory?.vaccines || [])];
+  state.draft.procedureSupplyUses = [...(p.inventory?.supplies || [])];
+  state.draft.procedureLabIds = [...(p.labIds || [])];
+  state.draft.procedureCasePhotos = [...(p.caseClinical?.photos || [])];
+  state.draft.procedureNecropsyPhotos = [...(p.necropsy?.photos || [])];
+  state.draft.procedureChargePhoto = p.charge?.photo || null;
+  renderProcedureType();
+  renderProcedureDraftLists();
+}
+function renderProcedureList() {
+  const list = $("#p_list");
+  if (!list) return;
+  list.innerHTML = "";
+  state.procedures.forEach((p) => {
+    const prod = byId(state.producers, p.producerId);
+    const animal = (prod?.animals || []).find((a) => a.id === p.animalId);
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<h4>${esc(p.type)} · ${esc(prod?.basic?.name || "")}</h4><div class="line"><b>Fecha:</b> ${esc(p.date)}</div><div class="line"><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification || "")}</div><div class="line"><b>Medicamentos usados:</b> ${(p.inventory?.meds || []).length}</div><div class="line"><b>Vacunas usadas:</b> ${(p.inventory?.vaccines || []).length}</div><div class="line"><b>Pruebas vinculadas:</b> ${(p.labIds || []).length}</div><div class="line"><b>Monto calculado:</b> ${money(p.charge?.calculated)}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, w, e, del] = item.querySelectorAll("button");
+    edit.onclick = () => fillProcedure(p);
+    w.onclick = () =>
+      exportWord(`procedimiento_${slug(p.id)}.doc`, procedureWordHtml(p));
+    e.onclick = () =>
+      exportExcel(
+        `procedimiento_${slug(p.id)}.xls`,
+        producerExcelSheets(
+          [],
+          [],
+          [],
+          [],
+          [],
+          [p],
+          state.labTests.filter((l) => (p.labIds || []).includes(l.id)),
+        ),
+      );
+    del.onclick = () => {
+      state.procedures = state.procedures.filter((x) => x.id !== p.id);
+      saveState();
+      renderAll();
+    };
+    list.appendChild(item);
+  });
+}
+function bindProcedures() {
+  renderProcedureType();
+  $("#p_producer")?.addEventListener("change", () => {
+    state.selectedProducerId =
+      $("#p_producer").value || state.selectedProducerId;
+    renderProcedureAnimalSelect();
+  });
+  $("#p_type")?.addEventListener("change", renderProcedureType);
+  $("#p_scope")?.addEventListener("change", renderProcedureType);
+  $("#p_addMedUse")?.addEventListener("click", addProcedureMedUse);
+  $("#p_addVaccineUse")?.addEventListener("click", addProcedureVaccineUse);
+  $("#p_addSupplyUse")?.addEventListener("click", addProcedureSupplyUse);
+  $("#lab_add")?.addEventListener("click", addLab);
+  [
+    "p_cc_take",
+    "p_cc_pick",
+    "p_nec_take",
+    "p_nec_pick",
+    "p_charge_take",
+    "p_charge_pick",
+  ].forEach((id) =>
+    $("#" + id)?.addEventListener("change", async (e) => {
+      for (const f of Array.from(e.target.files || [])) {
+        const data = await fileToBase64(f);
+        if (id.startsWith("p_cc")) state.draft.procedureCasePhotos.push(data);
+        else if (id.startsWith("p_nec"))
+          state.draft.procedureNecropsyPhotos.push(data);
+        else state.draft.procedureChargePhoto = data;
+      }
+      renderProcedureDraftLists();
+      e.target.value = "";
+    }),
+  );
+  $("#p_cc_btnTake")?.addEventListener("click", () => $("#p_cc_take").click());
+  $("#p_cc_btnPick")?.addEventListener("click", () => $("#p_cc_pick").click());
+  $("#p_cc_btnClear")?.addEventListener("click", () => {
+    state.draft.procedureCasePhotos = [];
+    renderProcedureDraftLists();
+  });
+  $("#p_nec_btnTake")?.addEventListener("click", () =>
+    $("#p_nec_take").click(),
+  );
+  $("#p_nec_btnPick")?.addEventListener("click", () =>
+    $("#p_nec_pick").click(),
+  );
+  $("#p_nec_btnClear")?.addEventListener("click", () => {
+    state.draft.procedureNecropsyPhotos = [];
+    renderProcedureDraftLists();
+  });
+  $("#p_charge_btnTake")?.addEventListener("click", () =>
+    $("#p_charge_take").click(),
+  );
+  $("#p_charge_btnPick")?.addEventListener("click", () =>
+    $("#p_charge_pick").click(),
+  );
+  $("#p_charge_btnClear")?.addEventListener("click", () => {
+    state.draft.procedureChargePhoto = null;
+    renderProcedureDraftLists();
+  });
+  $("#procedureForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveProcedure();
+  });
+  $("#p_save")?.addEventListener("click", saveProcedure);
+  $("#p_clear")?.addEventListener("click", resetProcedure);
+  $("#btnProcedureWord")?.addEventListener("click", () =>
+    exportWord("procedimientos.doc", procedureSummaryHtml()),
+  );
+  $("#btnProcedureExcel")?.addEventListener("click", () =>
+    exportExcel(
+      "procedimientos.xls",
+      producerExcelSheets([], [], [], [], [], state.procedures, state.labTests),
+    ),
+  );
 }
 
-function resetMessages(ids = []) {
-  ids.forEach(id => showMessage(id, "", "help"));
+function slug(v) {
+  return safe(v)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+function exportWord(filename, bodyHtml) {
+  download(
+    filename,
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;vertical-align:top}img{max-width:280px;height:auto}</style></head><body>${bodyHtml}</body></html>`,
+    "application/msword",
+  );
+}
+function xmlCell(v) {
+  return `<Cell><Data ss:Type="String">${esc(v)}</Data></Cell>`;
+}
+function exportExcel(filename, sheets) {
+  const workbookHeader = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">`;
+  const workbookFooter = "</Workbook>";
+  const body = sheets
+    .map(
+      (sheet) =>
+        `<Worksheet ss:Name="${esc(sheet.name).slice(0, 31)}"><Table>${sheet.rows.map((r) => `<Row>${r.map(xmlCell).join("")}</Row>`).join("")}</Table></Worksheet>`,
+    )
+    .join("");
+  download(
+    filename,
+    workbookHeader + body + workbookFooter,
+    "application/vnd.ms-excel",
+  );
+}
+function producerWordHtml(prod) {
+  return `<h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><h2>Animales</h2><table><tr><th>Especie</th><th>Raza</th><th>Cantidad</th><th>Función</th></tr>${(prod.animals || []).map((a) => `<tr><td>${esc(a.species)}</td><td>${esc(a.breed)}</td><td>${esc(a.quantity)}</td><td>${esc((a.function || []).concat(a.functionOther ? [a.functionOther] : []).join(", "))}</td></tr>`).join("")}</table><h2>Notas</h2><p>${esc(prod.notes)}</p>`;
+}
+function medSummaryHtml() {
+  return `<h1>Medicamentos y vacunas</h1><table><tr><th>Medicamento</th><th>Activo</th><th>Propiedad</th><th>Disponible</th><th>Vacuna relacionada</th></tr>${state.meds
+    .map((m) => {
+      const v = state.vaccines.find((x) => x.medId === m.id);
+      return `<tr><td>${esc(m.brand)}</td><td>${esc(m.active)}</td><td>${esc(medOwnerLabel(m.owner))}</td><td>${esc(medRemaining(m))} ${esc(m.unit)}</td><td>${esc(v?.brand || "")}</td></tr>`;
+    })
+    .join("")}</table>`;
+}
+function supplySummaryHtml() {
+  return `<h1>Insumos</h1><table><tr><th>Nombre</th><th>Tipo</th><th>Disponibilidad</th><th>Costo por uso</th></tr>${state.supplies.map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.type)}</td><td>${esc(supplyRemaining(s))}</td><td>${money(s.costUse)}</td></tr>`).join("")}</table>`;
+}
+function procedureWordHtml(p) {
+  const prod = byId(state.producers, p.producerId);
+  const animal = (prod?.animals || []).find((a) => a.id === p.animalId);
+  const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id));
+  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Inventario usado</h2><table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th></tr>${(p.inventory?.meds || []).map((i) => `<tr><td>Medicamento</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td></tr>`).join("")}${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td></tr>`).join("")}</table><h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Resultado</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.result)}</td></tr>`).join("")}</table><h2>Cobro</h2><p><b>Calculado:</b> ${money(p.charge?.calculated)} <b>Final:</b> ${money(p.charge?.manual)}</p>`;
+}
+function procedureSummaryHtml() {
+  return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`;
+}
+function producerExcelSheets(
+  producers = state.producers,
+  animals = [],
+  meds = state.meds,
+  vaccines = state.vaccines,
+  supplies = state.supplies,
+  procedures = state.procedures,
+  labs = state.labTests,
+) {
+  const animalRows = animals.length
+    ? animals
+    : producers.flatMap((p) =>
+        (p.animals || []).map((a) => ({ producer: p.basic.name, ...a })),
+      );
+  return [
+    {
+      name: "Productores",
+      rows: [
+        [
+          "Nombre",
+          "Celular",
+          "Localidad",
+          "Municipio",
+          "Estado",
+          "Clasificación",
+          "Notas",
+        ],
+        ...producers.map((p) => [
+          p.basic.name,
+          p.basic.celular,
+          p.basic.localidad,
+          p.basic.municipio,
+          p.basic.estado,
+          p.classification?.value || "",
+          p.notes || "",
+        ]),
+      ],
+    },
+    {
+      name: "Animales",
+      rows: [
+        ["Productor(a)", "Especie", "Raza", "Cantidad", "Función", "Extra"],
+        ...animalRows.map((a) => [
+          a.producer || producerName(state.selectedProducerId),
+          a.species,
+          a.breed,
+          a.quantity,
+          (a.function || []).join(", "),
+          a.functionOther || "",
+        ]),
+      ],
+    },
+    {
+      name: "Medicamentos",
+      rows: [
+        [
+          "Nombre",
+          "Activo",
+          "Propiedad",
+          "Cantidad",
+          "Unidad",
+          "Disponible",
+          "Cobrado Ana Rosa",
+        ],
+        ...meds.map((m) => [
+          m.brand,
+          m.active,
+          medOwnerLabel(m.owner),
+          m.totalQty,
+          m.unit,
+          medRemaining(m),
+          m.anaRosaCharge,
+        ]),
+      ],
+    },
+    {
+      name: "Vacunas",
+      rows: [
+        ["Marca", "Caducidad", "Cobertura", "Disponible", "Enfermedades"],
+        ...vaccines.map((v) => [
+          v.brand,
+          v.expiry,
+          v.coverageAnimals,
+          vaccineRemaining(v),
+          v.diseases,
+        ]),
+      ],
+    },
+    {
+      name: "Insumos",
+      rows: [
+        ["Nombre", "Tipo", "Cantidad", "Disponible", "Costo uso"],
+        ...supplies.map((s) => [
+          s.name,
+          s.type,
+          s.qty,
+          supplyRemaining(s),
+          s.costUse,
+        ]),
+      ],
+    },
+    {
+      name: "Procedimientos",
+      rows: [
+        [
+          "Fecha",
+          "Tipo",
+          "Productor(a)",
+          "Animal",
+          "Cobro calculado",
+          "Cobro final",
+        ],
+        ...procedures.map((p) => [
+          p.date,
+          p.type,
+          producerName(p.producerId),
+          byId(byId(state.producers, p.producerId)?.animals || [], p.animalId)
+            ?.species ||
+            p.identification ||
+            "",
+          p.charge?.calculated,
+          p.charge?.manual,
+        ]),
+      ],
+    },
+    {
+      name: "PruebasLab",
+      rows: [
+        [
+          "Tipo",
+          "Fecha",
+          "Animal",
+          "Resultado",
+          "Interpretación",
+          "Procedimiento",
+        ],
+        ...labs.map((l) => [
+          l.type,
+          l.date,
+          l.animal,
+          l.result,
+          l.interpretation,
+          l.linkedProcedureId || "",
+        ]),
+      ],
+    },
+  ];
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
+function renderAll() {
+  renderProducerList();
+  renderAnimalsProducerSelect();
+  renderAnimalPeopleSelects();
+  renderAnimalBasedSelects();
+  renderAnimalGroups();
+  fillAnimalQuestionnaire();
+  renderMedList();
+  renderSupplyList();
+  renderProcedureProducerSelect();
+  renderProcedureAnimalSelect();
+  populateInventorySelects();
+  renderProcedureDraftLists();
+  renderProcedureList();
+}
+
+function bindGlobal() {
+  $("#btnExportAllWord")?.addEventListener("click", () =>
+    exportWord(
+      "app_rural_resumen.doc",
+      `<h1>Resumen App Rural</h1>${state.producers.map(producerWordHtml).join("")}<h1>Medicamentos</h1>${medSummaryHtml()}<h1>Insumos</h1>${supplySummaryHtml()}<h1>Procedimientos</h1>${procedureSummaryHtml()}`,
+    ),
+  );
+  $("#btnExportAllExcel")?.addEventListener("click", () =>
+    exportExcel("app_rural_resumen.xls", producerExcelSheets()),
+  );
+  $("#btnBackupJson")?.addEventListener("click", () =>
+    download(
+      `app_rural_backup_${new Date().toISOString().slice(0, 10)}.json`,
+      JSON.stringify(state, null, 2),
+      "application/json",
+    ),
+  );
+  $("#btnRestoreJsonInput")?.addEventListener("change", (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
     const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
-  });
-}
-
-function setThumb(id, dataUrl, emptyHtml = "Sin<br/>foto") {
-  const el = document.getElementById(id);
-  if (!el) return;
-  if (!dataUrl) {
-    el.innerHTML = `<span>${emptyHtml}</span>`;
-    return;
-  }
-  el.innerHTML = `<img src="${dataUrl}" alt="preview" />`;
-}
-
-function openUrl(url) {
-  if (!url) return;
-  let finalUrl = String(url).trim();
-  if (!finalUrl) return;
-  if (!/^https?:\/\//i.test(finalUrl)) {
-    finalUrl = "https://" + finalUrl;
-  }
-  window.open(finalUrl, "_blank", "noopener,noreferrer");
-}
-
-function getCheckedRadio(name) {
-  return document.querySelector(`input[name="${name}"]:checked`)?.value || "";
-}
-
-function setCheckedRadio(name, value) {
-  $$(`input[name="${name}"]`).forEach(r => {
-    r.checked = r.value === value;
-  });
-}
-
-function getSelectedOptions(selectEl) {
-  return Array.from(selectEl?.selectedOptions || []).map(o => o.value);
-}
-
-function setSelectedOptions(selectEl, values = []) {
-  Array.from(selectEl?.options || []).forEach(opt => {
-    opt.selected = values.includes(opt.value);
-  });
-}
-
-function resetMultiSelect(selectEl) {
-  Array.from(selectEl?.options || []).forEach(opt => opt.selected = false);
-}
-
-function downloadFile(filename, content, mime) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function csvEscape(value) {
-  const str = String(value ?? "");
-  if (str.includes('"') || str.includes(",") || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-function downloadCSV(filename, rows) {
-  const csv = rows.map(r => r.map(csvEscape).join(",")).join("\n");
-  downloadFile(filename, "\ufeff" + csv, "text/csv;charset=utf-8;");
-}
-
-function getSelectedProducer() {
-  return state.producers.find(p => p.id === state.selectedProducerId) || null;
-}
-
-function getProducerById(id) {
-  return state.producers.find(p => p.id === id) || null;
-}
-
-function ensureQuestionnaire(prod) {
-  if (!prod.animalQuestionnaire) {
-    prod.animalQuestionnaire = {
-      diseases: [],
-      vaccines: [],
-      dewormings: [],
-      traditional: [],
-      genderAnimals: [],
-      genderActivities: [],
-      importantAnimals: [],
-      importantAnimalsWhy: "",
-      hasMilpa: "",
-      whatSows: "",
-      forageShortage: "",
-      whereAnimalsStay: "",
-      vaccinatesAny: "",
-      dewormsAny: "",
-      changesDewormer: "",
-      recommendedBy: "",
-      curadorExiste: "",
-      curadorQuien: "",
-      curadorEdad: "",
-      curadorEspecies: "",
-      curadorTiempo: "",
-      curadorServicios: "",
-      practicesAny: "",
-      practicesWho: "",
-      practicesAdvice: "",
-      programRegistered: "",
-      programName: "",
-      hasFolio: "",
-      folio: "",
-      futureCalls: "",
-      huntingCommon: "",
-      huntingTime: "",
-      huntedAnimals: "",
-      huntingPlaces: "",
-      huntingSeason: "",
-      huntingReasons: "",
-      wildProblems: "",
-      wildProblemsDetail: "",
-      riverUse: "",
-      riverUseFor: "",
-      riverMeaning: "",
-      riverProblems: "",
-      localKnowledgeExists: "",
-      localKnowledgeWho: "",
-      localKnowledgeUseful: "",
-      rumiantInterest: "",
-      rumiantInterestWhy: "",
-      hadRumiantsBefore: "",
-      noRumiantsReason: "",
-      rumiantAdvice: "",
-      rumiantOthers: "",
-      rumiantWomen: "",
-      rumiantNeed: "",
-      birdsInterestYes: "",
-      birdsInterestNo: ""
+    fr.onload = () => {
+      try {
+        const parsed = JSON.parse(fr.result);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        loadState();
+        renderAll();
+      } catch (err) {
+        alert("JSON inválido");
+      }
     };
-  }
-  return prod.animalQuestionnaire;
-}
-
-function producerPeopleOptions(prod, includeVet = false) {
-  if (!prod) return [];
-  const arr = [];
-  const mainName = (prod.basic?.name || "").trim();
-  arr.push(mainName ? `Productor(a): ${mainName}` : "Productor(a)");
-
-  (prod.family || []).forEach(f => {
-    const label = [f.name, f.relation].filter(Boolean).join(" - ").trim();
-    if (label) arr.push(label);
-  });
-
-  if (includeVet) arr.push("Veterinario(a)");
-  arr.push("Otro");
-  return [...new Set(arr)];
-}
-
-function animalGroupLabel(a) {
-  return `${a.species || ""}${a.race ? " - " + a.race : ""}${a.quantity ? " (" + a.quantity + ")" : ""}`;
-}
-
-function producerHasBirds(prod) {
-  return (prod?.animals || []).some(a => {
-    const t = (a.species || "").toLowerCase();
-    return (
-      t.includes("gallina") ||
-      t.includes("gallo") ||
-      t.includes("guajolote") ||
-      t.includes("pollo") ||
-      t.includes("ave") ||
-      t.includes("pato") ||
-      t.includes("codorniz")
-    );
+    fr.readAsText(f);
+    e.target.value = "";
   });
 }
 
-/* =========================================================
-   TABS
-========================================================= */
-function activateTab(name) {
-  const map = {
-    producer: ["#tabProducer", "#pageProducer"],
-    animals: ["#tabAnimals", "#pageAnimals"],
-    meds: ["#tabMeds", "#pageMeds"],
-    supplies: ["#tabSupplies", "#pageSupplies"],
-    procedures: ["#tabProcedures", "#pageProcedures"]
-  };
-
-  Object.values(map).forEach(([b, p]) => {
-    $(b)?.classList.remove("active");
-    $(p)?.classList.remove("active");
-  });
-
-  $(map[name][0])?.classList.add("active");
-  $(map[name][1])?.classList.add("active");
-}
-
-function bindTabs() {
-  $("#tabProducer")?.addEventListener("click", () => activateTab("producer"));
-  $("#tabAnimals")?.addEventListener("click", () => activateTab("animals"));
-  $("#tabMeds")?.addEventListener("click", () => activateTab("meds"));
-  $("#tabSupplies")?.addEventListener("click", () => activateTab("supplies"));
-  $("#tabProcedures")?.addEventListener("click", () => activateTab("procedures"));
-  $("#btnGoProducerFromAnimals")?.addEventListener("click", () => activateTab("producer"));
-}
-
-/* =========================================================
-   PRODUCTOR/A
-========================================================= */
-function updateProducerConditionalFields() {
-  const pertenencia = $("#pertenenciaIndigena")?.value || "";
-  $("#grupoIndigenaYoWrap").style.display = pertenencia === "YO" ? "block" : "none";
-  $("#grupoIndigenaFamiliarWrap").style.display = pertenencia === "FAMILIAR" ? "grid" : "none";
-
-  const lengua = $("#lenguaIndigenaTipo")?.value || "";
-  $("#lenguaYoWrap").style.display = lengua === "YO" ? "block" : "none";
-  $("#lenguaFamiliarWrap").style.display = lengua === "FAMILIAR" ? "grid" : "none";
-
-  $("#alertaWrap").style.display = getProducerClassification() === "NO_TRABAJAR" ? "block" : "none";
-}
-
-function getProducerClassification() {
-  return $("#chipsClasificacion .chip[data-active='true']")?.dataset.value || "TRABAJAR";
-}
-
-function setProducerClassification(value) {
-  $$("#chipsClasificacion .chip").forEach(chip => {
-    chip.dataset.active = chip.dataset.value === value ? "true" : "false";
-  });
+window.addEventListener("DOMContentLoaded", () => {
+  loadState();
+  bindTabs();
+  bindProducer();
+  bindAnimals();
+  bindMeds();
+  bindSupplies();
+  bindProcedures();
+  bindGlobal();
+  if (!state.selectedProducerId && state.producers[0])
+    state.selectedProducerId = state.producers[0].id;
+  renderAll();
+  activateTab("Producer");
   updateProducerConditionalFields();
-}
-
-function bindProducerClassification() {
-  $$("#chipsClasificacion .chip").forEach(chip => {
-    chip.addEventListener("click", () => setProducerClassification(chip.dataset.value));
-  });
-}
-
-function familyRowTemplate(item = {}) {
-  return `
-    <tr>
-      <td><input type="text" class="fam-name" value="${escapeHtml(item.name || "")}" placeholder="Nombre" /></td>
-      <td><input type="text" class="fam-relation" value="${escapeHtml(item.relation || "")}" placeholder="Relación" /></td>
-      <td><input type="text" class="fam-occupation" value="${escapeHtml(item.occupation || item.job || "")}" placeholder="Ocupación" /></td>
-      <td><input type="number" min="0" step="1" class="fam-age" value="${escapeHtml(item.age || "")}" placeholder="Edad" /></td>
-      <td><button class="btn small bad fam-remove" type="button">✖</button></td>
-    </tr>
-  `;
-}
-
-function addFamilyRow(item = {}) {
-  const tbody = $("#familyTbody");
-  if (!tbody) return;
-  tbody.insertAdjacentHTML("beforeend", familyRowTemplate(item));
-  const row = tbody.lastElementChild;
-  row.querySelector(".fam-remove")?.addEventListener("click", () => row.remove());
-}
-
-function setFamilyRows(items = []) {
-  const tbody = $("#familyTbody");
-  tbody.innerHTML = "";
-  if (!items.length) {
-    addFamilyRow();
-    return;
-  }
-  items.forEach(addFamilyRow);
-}
-
-function collectFamilyRows() {
-  return Array.from($("#familyTbody")?.querySelectorAll("tr") || [])
-    .map(row => ({
-      name: row.querySelector(".fam-name")?.value.trim() || "",
-      relation: row.querySelector(".fam-relation")?.value.trim() || "",
-      occupation: row.querySelector(".fam-occupation")?.value.trim() || "",
-      age: row.querySelector(".fam-age")?.value.trim() || ""
-    }))
-    .filter(x => x.name || x.relation || x.occupation || x.age);
-}
-
-async function onProducerPhotoSelected(file) {
-  if (!file) return;
-  state.media.producerPhoto = await fileToBase64(file);
-  setThumb("photoPreview", state.media.producerPhoto, "Sin<br/>foto");
-}
-
-function bindProducerPhoto() {
-  $("#btnTakePhoto")?.addEventListener("click", () => $("#fotoTomar")?.click());
-  $("#btnPickPhoto")?.addEventListener("click", () => $("#fotoElegir")?.click());
-
-  $("#fotoTomar")?.addEventListener("change", async (e) => {
-    await onProducerPhotoSelected(e.target.files?.[0]);
-    e.target.value = "";
-  });
-
-  $("#fotoElegir")?.addEventListener("change", async (e) => {
-    await onProducerPhotoSelected(e.target.files?.[0]);
-    e.target.value = "";
-  });
-
-  $("#btnRemovePhoto")?.addEventListener("click", () => {
-    state.media.producerPhoto = null;
-    setThumb("photoPreview", null, "Sin<br/>foto");
-  });
-}
-
-function bindProducerLocation() {
-  $("#btnGeo")?.addEventListener("click", () => {
-    if (!navigator.geolocation) {
-      showMessage("err", "Tu navegador no soporta geolocalización.", "error");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        $("#lat").value = pos.coords.latitude.toFixed(7);
-        $("#lng").value = pos.coords.longitude.toFixed(7);
-        showMessage("ok", "Ubicación cargada.", "success");
-      },
-      () => showMessage("err", "No se pudo obtener la ubicación.", "error"),
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  });
-
-  $("#btnGenMaps")?.addEventListener("click", () => {
-    const lat = $("#lat").value.trim();
-    const lng = $("#lng").value.trim();
-    if (!lat || !lng) {
-      showMessage("err", "Primero captura latitud y longitud.", "error");
-      return;
-    }
-    $("#mapsUrl").value = `https://maps.google.com/?q=${lat},${lng}`;
-    showMessage("ok", "Link de Maps generado.", "success");
-  });
-
-  $("#btnOpenMaps")?.addEventListener("click", () => {
-    const url = $("#mapsUrl").value.trim();
-    if (!url) {
-      showMessage("err", "No hay link de Maps.", "error");
-      return;
-    }
-    openUrl(url);
-  });
-
-  $("#btnClearLocation")?.addEventListener("click", () => {
-    $("#lat").value = "";
-    $("#lng").value = "";
-    $("#mapsUrl").value = "";
-  });
-}
-
-function resetProducerForm() {
-  $("#producerForm")?.reset();
-  state.editing.producerId = null;
-  state.media.producerPhoto = null;
-
-  setCheckedRadio("sabeLeer", "SI");
-  setCheckedRadio("sabeEscribir", "SI");
-  setProducerClassification("TRABAJAR");
-  setFamilyRows([]);
-
-  $("#formTitle").textContent = "Nuevo productor(a)";
-  $("#btnCancelEdit").style.display = "none";
-  setThumb("photoPreview", null, "Sin<br/>foto");
-  resetMessages(["msg", "err", "ok"]);
-  updateProducerConditionalFields();
-}
-
-function collectProducerForm() {
-  const old = state.editing.producerId ? getProducerById(state.editing.producerId) : null;
-
-  return {
-    id: state.editing.producerId || uid(),
-    createdAt: old?.createdAt || nowText(),
-    updatedAt: nowText(),
-
-    basic: {
-      name: $("#nombre").value.trim(),
-      age: $("#edad").value.trim(),
-      sex: $("#sexo").value,
-      maritalStatus: $("#estadoCivil").value,
-      phone: $("#celular").value.trim(),
-      locality: $("#localidad").value.trim(),
-      municipality: $("#municipio").value.trim(),
-      stateName: $("#estado").value.trim(),
-      schooling: $("#escolaridad").value,
-      schoolingOther: $("#escolaridadOtro").value.trim(),
-      canRead: getCheckedRadio("sabeLeer"),
-      canWrite: getCheckedRadio("sabeEscribir"),
-      indigenousType: $("#pertenenciaIndigena").value,
-      indigenousSelf: $("#grupoIndigenaYo").value.trim(),
-      indigenousFamilyWho: $("#grupoIndigenaFamiliarQuien").value.trim(),
-      indigenousFamilyGroup: $("#grupoIndigenaFamiliarCual").value.trim(),
-      languageType: $("#lenguaIndigenaTipo").value,
-      languageSelf: $("#lenguaYo").value.trim(),
-      languageFamilyWho: $("#lenguaFamiliarQuien").value.trim(),
-      languageFamilyWhich: $("#lenguaFamiliarCual").value.trim(),
-      schedule: $("#horario").value.trim(),
-      peopleAtHome: $("#personasEnCasa").value.trim()
-    },
-
-    location: {
-      lat: $("#lat").value.trim(),
-      lng: $("#lng").value.trim(),
-      mapsUrl: $("#mapsUrl").value.trim()
-    },
-
-    classification: {
-      status: getProducerClassification(),
-      noReason: $("#alerta").value.trim(),
-      extraNote: $("#notaExtraPersona").value.trim()
-    },
-
-    family: collectFamilyRows(),
-    notes: $("#notas").value.trim(),
-    photo: state.media.producerPhoto || null,
-    animals: old?.animals || [],
-    animalQuestionnaire: old?.animalQuestionnaire || null
-  };
-}
-
-function saveProducer(e) {
-  e.preventDefault();
-  resetMessages(["msg", "err", "ok"]);
-
-  const prod = collectProducerForm();
-  if (!prod.basic.name) {
-    showMessage("err", "El nombre es obligatorio.", "error");
-    return;
-  }
-
-  const idx = state.producers.findIndex(p => p.id === prod.id);
-  if (idx >= 0) {
-    state.producers[idx] = prod;
-    showMessage("ok", "Productor(a) actualizado.", "success");
-  } else {
-    state.producers.unshift(prod);
-    showMessage("ok", "Productor(a) guardado.", "success");
-  }
-
-  state.selectedProducerId = prod.id;
-  saveState();
-  renderProducerList();
-  renderAnimalsProducerSelect();
-  renderProcedureProducerSelect();
-  resetProducerForm();
-}
-
-function fillProducerForm(prod) {
-  state.editing.producerId = prod.id;
-
-  $("#formTitle").textContent = "Editar productor(a)";
-  $("#btnCancelEdit").style.display = "inline-flex";
-
-  $("#nombre").value = prod.basic?.name || "";
-  $("#edad").value = prod.basic?.age || "";
-  $("#sexo").value = prod.basic?.sex || "";
-  $("#estadoCivil").value = prod.basic?.maritalStatus || "";
-  $("#celular").value = prod.basic?.phone || "";
-  $("#localidad").value = prod.basic?.locality || "";
-  $("#municipio").value = prod.basic?.municipality || "";
-  $("#estado").value = prod.basic?.stateName || "";
-  $("#escolaridad").value = prod.basic?.schooling || "";
-  $("#escolaridadOtro").value = prod.basic?.schoolingOther || "";
-  setCheckedRadio("sabeLeer", prod.basic?.canRead || "SI");
-  setCheckedRadio("sabeEscribir", prod.basic?.canWrite || "SI");
-  $("#pertenenciaIndigena").value = prod.basic?.indigenousType || "";
-  $("#grupoIndigenaYo").value = prod.basic?.indigenousSelf || "";
-  $("#grupoIndigenaFamiliarQuien").value = prod.basic?.indigenousFamilyWho || "";
-  $("#grupoIndigenaFamiliarCual").value = prod.basic?.indigenousFamilyGroup || "";
-  $("#lenguaIndigenaTipo").value = prod.basic?.languageType || "";
-  $("#lenguaYo").value = prod.basic?.languageSelf || "";
-  $("#lenguaFamiliarQuien").value = prod.basic?.languageFamilyWho || "";
-  $("#lenguaFamiliarCual").value = prod.basic?.languageFamilyWhich || "";
-  $("#horario").value = prod.basic?.schedule || "";
-  $("#personasEnCasa").value = prod.basic?.peopleAtHome || "";
-
-  $("#lat").value = prod.location?.lat || "";
-  $("#lng").value = prod.location?.lng || "";
-  $("#mapsUrl").value = prod.location?.mapsUrl || "";
-
-  setProducerClassification(prod.classification?.status || "TRABAJAR");
-  $("#alerta").value = prod.classification?.noReason || "";
-  $("#notaExtraPersona").value = prod.classification?.extraNote || "";
-  $("#notas").value = prod.notes || "";
-
-  state.media.producerPhoto = prod.photo || null;
-  setThumb("photoPreview", state.media.producerPhoto, "Sin<br/>foto");
-  setFamilyRows(prod.family || []);
-  updateProducerConditionalFields();
-}
-
-function deleteProducer(id) {
-  const prod = getProducerById(id);
-  if (!prod) return;
-  if (!confirm(`¿Eliminar a "${prod.basic?.name || "este productor(a)"}"?`)) return;
-
-  state.producers = state.producers.filter(p => p.id !== id);
-  if (state.selectedProducerId === id) {
-    state.selectedProducerId = state.producers[0]?.id || null;
-  }
-  if (state.editing.producerId === id) resetProducerForm();
-
-  saveState();
-  renderProducerList();
-  renderAnimalsProducerSelect();
-  renderProcedureProducerSelect();
-}
-
-function producerWordHtml(prod) {
-  const animals = prod.animals || [];
-  const fam = prod.family || [];
-  const q = ensureQuestionnaire(prod);
-
-  const famRows = fam.map((f, i) => `
-    <tr><td>${i + 1}</td><td>${escapeHtml(f.name)}</td><td>${escapeHtml(f.relation)}</td><td>${escapeHtml(f.occupation)}</td><td>${escapeHtml(f.age)}</td></tr>
-  `).join("");
-
-  const animalRows = animals.map((a, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${escapeHtml(a.species)}</td>
-      <td>${escapeHtml(a.race)}</td>
-      <td>${escapeHtml(a.quantity)}</td>
-      <td>${escapeHtml((a.owners || []).join(", "))}</td>
-      <td>${escapeHtml((a.sellDecision || []).join(", "))}</td>
-      <td>${escapeHtml((a.cleanFeedBy || []).join(", "))}</td>
-      <td>${escapeHtml((a.function || []).join(", "))}</td>
-      <td>${escapeHtml(a.installations)}</td>
-      <td>${escapeHtml(a.feed)}</td>
-    </tr>
-  `).join("");
-
-  return `
-  <html><head><meta charset="utf-8">
-  <style>
-  body{font-family:Arial,sans-serif;font-size:11pt;color:#111}
-  h1,h2{color:#111827}
-  table{border-collapse:collapse;width:100%;margin-bottom:14px}
-  th,td{border:1px solid #999;padding:6px;vertical-align:top}
-  th{background:#eee}
-  img{max-width:180px}
-  </style></head><body>
-    <h1>Expediente de productor(a)</h1>
-    <h2>Datos básicos</h2>
-    <p><b>Nombre:</b> ${escapeHtml(prod.basic?.name || "")}</p>
-    <p><b>Edad:</b> ${escapeHtml(prod.basic?.age || "")}</p>
-    <p><b>Sexo:</b> ${escapeHtml(prod.basic?.sex || "")}</p>
-    <p><b>Estado civil:</b> ${escapeHtml(prod.basic?.maritalStatus || "")}</p>
-    <p><b>Celular:</b> ${escapeHtml(prod.basic?.phone || "")}</p>
-    <p><b>Localidad:</b> ${escapeHtml(prod.basic?.locality || "")}</p>
-    <p><b>Municipio:</b> ${escapeHtml(prod.basic?.municipality || "")}</p>
-    <p><b>Estado:</b> ${escapeHtml(prod.basic?.stateName || "")}</p>
-    <p><b>Horario:</b> ${escapeHtml(prod.basic?.schedule || "")}</p>
-    <p><b>Personas en casa:</b> ${escapeHtml(prod.basic?.peopleAtHome || "")}</p>
-    <p><b>Clasificación:</b> ${escapeHtml(classificationLabel(prod.classification?.status))}</p>
-    <p><b>Razón si no:</b> ${escapeHtml(prod.classification?.noReason || "")}</p>
-    <p><b>Nota extra:</b> ${escapeHtml(prod.classification?.extraNote || "")}</p>
-    <p><b>Notas generales:</b> ${escapeHtml(prod.notes || "")}</p>
-
-    <h2>Ubicación</h2>
-    <p><b>Latitud:</b> ${escapeHtml(prod.location?.lat || "")}</p>
-    <p><b>Longitud:</b> ${escapeHtml(prod.location?.lng || "")}</p>
-    <p><b>Maps:</b> ${escapeHtml(prod.location?.mapsUrl || "")}</p>
-
-    <h2>Familia</h2>
-    <table>
-      <tr><th>#</th><th>Nombre</th><th>Relación</th><th>Ocupación</th><th>Edad</th></tr>
-      ${famRows || `<tr><td colspan="5">Sin registros</td></tr>`}
-    </table>
-
-    <h2>Animales</h2>
-    <table>
-      <tr><th>#</th><th>Especie</th><th>Raza</th><th>Cantidad</th><th>Dueño/a</th><th>Decide venta</th><th>Limpia/alimenta</th><th>Función</th><th>Instalaciones</th><th>Alimentación</th></tr>
-      ${animalRows || `<tr><td colspan="10">Sin registros</td></tr>`}
-    </table>
-
-    <h2>Cuestionario</h2>
-    <p><b>Animales importantes:</b> ${escapeHtml((q.importantAnimals || []).join(", "))}</p>
-    <p><b>¿Por qué son importantes?:</b> ${escapeHtml(q.importantAnimalsWhy || "")}</p>
-    <p><b>¿Tiene milpa?:</b> ${escapeHtml(q.hasMilpa || "")}</p>
-    <p><b>¿Qué siembra?:</b> ${escapeHtml(q.whatSows || "")}</p>
-    <p><b>Escasez de forraje:</b> ${escapeHtml(q.forageShortage || "")}</p>
-
-    ${prod.photo ? `<h2>Foto de la casa</h2><img src="${prod.photo}" />` : ""}
-  </body></html>`;
-}
-
-function exportProducerWord(id) {
-  const prod = getProducerById(id);
-  if (!prod) return;
-  const html = producerWordHtml(prod);
-  downloadFile(`${(prod.basic?.name || "productor").replace(/[^\wáéíóúÁÉÍÓÚñÑ\- ]/g, "").trim() || "productor"}.doc`, "\ufeff" + html, "application/msword");
-}
-
-function exportProducersJSON() {
-  downloadFile("productores.json", JSON.stringify(state.producers, null, 2), "application/json");
-}
-
-function importProducersJSON(file) {
-  if (!file) return;
-  const fr = new FileReader();
-  fr.onload = () => {
-    try {
-      const parsed = JSON.parse(fr.result);
-      if (!Array.isArray(parsed)) throw new Error();
-      state.producers = parsed;
-      state.selectedProducerId = state.producers[0]?.id || null;
-      saveState();
-      renderProducerList();
-      renderAnimalsProducerSelect();
-      renderProcedureProducerSelect();
-      showMessage("ok", "Productores importados.", "success");
-    } catch {
-      showMessage("err", "No se pudo importar el JSON.", "error");
-    }
-  };
-  fr.readAsText(file);
-}
-
-function renderProducerList() {
-  const list = $("#producerList");
-  const count = $("#count");
-  list.innerHTML = "";
-  count.textContent = String(state.producers.length);
-
-  if (!state.producers.length) {
-    list.innerHTML = `<div class="empty-state">No hay productores registrados todavía.</div>`;
-    return;
-  }
-
-  state.producers.forEach(prod => {
-    const item = document.createElement("div");
-    item.className = "item";
-    item.innerHTML = `
-      <div class="row" style="justify-content:space-between; align-items:flex-start;">
-        <div>
-          <h3>${escapeHtml(prod.basic?.name || "Sin nombre")}</h3>
-          <div class="meta">📍 ${escapeHtml(prod.basic?.locality || "")}, ${escapeHtml(prod.basic?.municipality || "")}, ${escapeHtml(prod.basic?.stateName || "")}</div>
-          <div class="row">
-            <span class="badge">${escapeHtml(classificationLabel(prod.classification?.status))}</span>
-            <span class="badge">👨‍👩‍👧‍👦 ${(prod.family || []).length} familiares</span>
-            <span class="badge">🐾 ${(prod.animals || []).length} grupos</span>
-          </div>
-        </div>
-        ${prod.photo ? `<div class="preview-mini"><img src="${prod.photo}" alt="foto"/></div>` : ""}
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small" type="button" data-action="select">✅ Seleccionar</button>
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small ghost" type="button" data-action="animals">🐾 Animales</button>
-        <button class="btn small ghost" type="button" data-action="word">📄 Word</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-
-    item.querySelector('[data-action="select"]').addEventListener("click", () => {
-      state.selectedProducerId = prod.id;
-      saveState();
-      renderProducerList();
-      renderAnimalsProducerSelect();
-      renderProcedureProducerSelect();
-    });
-    item.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      fillProducerForm(prod);
-      activateTab("producer");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-    item.querySelector('[data-action="animals"]').addEventListener("click", () => {
-      state.selectedProducerId = prod.id;
-      saveState();
-      renderAnimalsProducerSelect();
-      activateTab("animals");
-    });
-    item.querySelector('[data-action="word"]').addEventListener("click", () => exportProducerWord(prod.id));
-    item.querySelector('[data-action="delete"]').addEventListener("click", () => deleteProducer(prod.id));
-    list.appendChild(item);
-  });
-}
-
-function wipeAll() {
-  if (!confirm("Esto borrará TODO lo guardado localmente. ¿Continuar?")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  location.reload();
-}
-
-function bindProducerSection() {
-  bindProducerClassification();
-  bindProducerPhoto();
-  bindProducerLocation();
-
-  $("#producerForm")?.addEventListener("submit", saveProducer);
-  $("#btnReset")?.addEventListener("click", resetProducerForm);
-  $("#btnCancelEdit")?.addEventListener("click", resetProducerForm);
-  $("#btnAddFamily")?.addEventListener("click", () => addFamilyRow());
-  $("#pertenenciaIndigena")?.addEventListener("change", updateProducerConditionalFields);
-  $("#lenguaIndigenaTipo")?.addEventListener("change", updateProducerConditionalFields);
-
-  $("#btnExport")?.addEventListener("click", exportProducersJSON);
-  $("#btnImport")?.addEventListener("click", () => $("#importFile")?.click());
-  $("#importFile")?.addEventListener("change", (e) => {
-    importProducersJSON(e.target.files?.[0]);
-    e.target.value = "";
-  });
-  $("#btnExportWordProducer")?.addEventListener("click", () => {
-    if (!state.selectedProducerId) {
-      showMessage("err", "Primero selecciona un productor(a).", "error");
-      return;
-    }
-    exportProducerWord(state.selectedProducerId);
-  });
-  $("#btnWipe")?.addEventListener("click", wipeAll);
-}
-
-/* =========================================================
-   ANIMALES
-========================================================= */
-function renderAnimalsProducerSelect() {
-  const sel = $("#animalsProducerSelect");
-  const hint = $("#animalsProducerHint");
-  sel.innerHTML = `<option value="">— Selecciona productor/a —</option>`;
-
-  state.producers.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.basic?.name || "Sin nombre";
-    sel.appendChild(opt);
-  });
-
-  if (state.selectedProducerId) sel.value = state.selectedProducerId;
-  const prod = getSelectedProducer();
-  hint.textContent = prod ? `Trabajando con: ${prod.basic?.name || ""}` : "Primero selecciona un productor/a";
-
-  renderAnimalPeopleSelects();
-  renderAnimalBasedSelects();
-  renderAnimalGroups();
-  fillAnimalQuestionnaireFields();
-}
-
-function renderAnimalPeopleSelects() {
-  const prod = getSelectedProducer();
-  const normalPeople = producerPeopleOptions(prod, false);
-  const withVet = producerPeopleOptions(prod, true);
-
-  const currentOwners = getSelectedOptions($("#a_dueno"));
-  const currentSell = getSelectedOptions($("#a_decideVenta"));
-  const currentFeed = getSelectedOptions($("#a_limpiaAlimenta"));
-  const currentVaxWho = $("#a_vaxWho")?.value || "";
-  const currentDewormWho = $("#a_dewormWho")?.value || "";
-
-  [["#a_dueno", normalPeople, currentOwners], ["#a_decideVenta", normalPeople, currentSell], ["#a_limpiaAlimenta", normalPeople, currentFeed]].forEach(([id, opts, vals]) => {
-    const s = $(id);
-    s.innerHTML = "";
-    opts.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      s.appendChild(opt);
-    });
-    setSelectedOptions(s, vals);
-  });
-
-  [["#a_vaxWho", withVet, currentVaxWho], ["#a_dewormWho", withVet, currentDewormWho]].forEach(([id, opts, val]) => {
-    const s = $(id);
-    s.innerHTML = `<option value="">— Selecciona —</option>`;
-    opts.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      s.appendChild(opt);
-    });
-    s.value = val || "";
-  });
-}
-
-function renderAnimalBasedSelects() {
-  const prod = getSelectedProducer();
-  const labels = (prod?.animals || []).map(animalGroupLabel);
-
-  [["#a_enfAnimal", false], ["#a_vaxAnimal", false], ["#a_dewormAnimal", false]].forEach(([id]) => {
-    const s = $(id);
-    const prev = s.value || "";
-    s.innerHTML = `<option value="">— Selecciona —</option>`;
-    labels.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      s.appendChild(opt);
-    });
-    s.value = prev;
-  });
-
-  const imp = $("#a_animalesImportantes");
-  const prevImp = getSelectedOptions(imp);
-  imp.innerHTML = "";
-  labels.forEach(v => {
-    const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    imp.appendChild(opt);
-  });
-  setSelectedOptions(imp, prevImp);
-
-  $("#a_interestBirdsYesWrap").style.display = producerHasBirds(prod) ? "block" : "none";
-  $("#a_interestBirdsNoWrap").style.display = producerHasBirds(prod) ? "none" : "block";
-}
-
-async function bindAnimalPhotos() {
-  $("#a_btnInstTake")?.addEventListener("click", () => $("#a_instTake")?.click());
-  $("#a_btnInstPick")?.addEventListener("click", () => $("#a_instPick")?.click());
-  $("#a_btnInstClear")?.addEventListener("click", () => {
-    state.media.animalTempPhotos = [];
-    renderAnimalTempPhotos();
-  });
-
-  $("#a_instTake")?.addEventListener("change", async (e) => {
-    for (const f of Array.from(e.target.files || [])) {
-      state.media.animalTempPhotos.push(await fileToBase64(f));
-    }
-    renderAnimalTempPhotos();
-    e.target.value = "";
-  });
-
-  $("#a_instPick")?.addEventListener("change", async (e) => {
-    for (const f of Array.from(e.target.files || [])) {
-      state.media.animalTempPhotos.push(await fileToBase64(f));
-    }
-    renderAnimalTempPhotos();
-    e.target.value = "";
-  });
-}
-
-function renderAnimalTempPhotos() {
-  const box = $("#a_instPreview");
-  const hint = $("#a_instHint");
-  box.innerHTML = "";
-  if (!state.media.animalTempPhotos.length) {
-    hint.textContent = "Sin fotos todavía.";
-    return;
-  }
-  hint.textContent = `${state.media.animalTempPhotos.length} foto(s) cargada(s).`;
-
-  state.media.animalTempPhotos.forEach((src, i) => {
-    const div = document.createElement("div");
-    div.className = "preview-mini";
-    div.innerHTML = `<img src="${src}" alt="animal"><button class="mini-remove" type="button">✖</button>`;
-    div.querySelector("button").addEventListener("click", () => {
-      state.media.animalTempPhotos.splice(i, 1);
-      renderAnimalTempPhotos();
-    });
-    box.appendChild(div);
-  });
-}
-
-function collectAnimalGroupForm() {
-  return {
-    id: uid(),
-    species: $("#a_especie").value.trim(),
-    race: $("#a_raza").value.trim(),
-    quantity: $("#a_cantidad").value.trim(),
-    owners: getSelectedOptions($("#a_dueno")),
-    sellDecision: getSelectedOptions($("#a_decideVenta")),
-    cleanFeedBy: getSelectedOptions($("#a_limpiaAlimenta")),
-    function: getSelectedOptions($("#a_funcion")),
-    installations: $("#a_viven").value.trim(),
-    feed: $("#a_feedType").value.trim(),
-    photos: [...state.media.animalTempPhotos]
-  };
-}
-
-function resetAnimalGroupForm() {
-  $("#a_especie").value = "";
-  $("#a_raza").value = "";
-  $("#a_cantidad").value = "";
-  $("#a_viven").value = "";
-  $("#a_feedType").value = "";
-  resetMultiSelect($("#a_dueno"));
-  resetMultiSelect($("#a_decideVenta"));
-  resetMultiSelect($("#a_limpiaAlimenta"));
-  resetMultiSelect($("#a_funcion"));
-  state.media.animalTempPhotos = [];
-  renderAnimalTempPhotos();
-}
-
-function saveAnimalGroup() {
-  const prod = getSelectedProducer();
-  if (!prod) {
-    showMessage("a_msg", "Selecciona primero un productor/a.", "error");
-    return;
-  }
-
-  const item = collectAnimalGroupForm();
-  if (!item.species || !item.quantity) {
-    showMessage("a_msg", "Especie y cantidad son obligatorias.", "error");
-    return;
-  }
-
-  prod.animals = prod.animals || [];
-  prod.animals.push(item);
-  saveState();
-  renderAnimalGroups();
-  renderAnimalBasedSelects();
-  renderProcedureProducerSelect();
-  resetAnimalGroupForm();
-  showMessage("a_msg", "Grupo de animales guardado.", "success");
-}
-
-function renderAnimalGroups() {
-  const prod = getSelectedProducer();
-  const list = $("#a_list");
-  list.innerHTML = "";
-
-  if (!prod) {
-    list.innerHTML = `<div class="empty-state">Selecciona un productor/a.</div>`;
-    return;
-  }
-
-  if (!(prod.animals || []).length) {
-    list.innerHTML = `<div class="empty-state">No hay grupos de animales registrados.</div>`;
-    return;
-  }
-
-  prod.animals.forEach(animal => {
-    const photos = (animal.photos || []).slice(0, 4).map(src => `<div class="preview-mini"><img src="${src}" alt="animal"></div>`).join("");
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(animal.species || "")} ${animal.race ? `· ${escapeHtml(animal.race)}` : ""}</h3>
-      <div class="meta">Cantidad: ${escapeHtml(animal.quantity || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Dueño/a:</b> ${escapeHtml((animal.owners || []).join(", "))}</div>
-        <div class="line"><b>Decide venta:</b> ${escapeHtml((animal.sellDecision || []).join(", "))}</div>
-        <div class="line"><b>Limpia/alimenta:</b> ${escapeHtml((animal.cleanFeedBy || []).join(", "))}</div>
-        <div class="line"><b>Función:</b> ${escapeHtml((animal.function || []).join(", "))}</div>
-        <div class="line"><b>Instalaciones:</b> ${escapeHtml(animal.installations || "")}</div>
-        <div class="line"><b>Alimentación:</b> ${escapeHtml(animal.feed || "")}</div>
-      </div>
-      ${photos ? `<div class="row" style="margin-top:10px;">${photos}</div>` : ""}
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_especie").value = animal.species || "";
-      $("#a_raza").value = animal.race || "";
-      $("#a_cantidad").value = animal.quantity || "";
-      $("#a_viven").value = animal.installations || "";
-      $("#a_feedType").value = animal.feed || "";
-      renderAnimalPeopleSelects();
-      setSelectedOptions($("#a_dueno"), animal.owners || []);
-      setSelectedOptions($("#a_decideVenta"), animal.sellDecision || []);
-      setSelectedOptions($("#a_limpiaAlimenta"), animal.cleanFeedBy || []);
-      setSelectedOptions($("#a_funcion"), animal.function || []);
-      state.media.animalTempPhotos = [...(animal.photos || [])];
-      renderAnimalTempPhotos();
-
-      prod.animals = prod.animals.filter(a => a.id !== animal.id);
-      saveState();
-      renderAnimalGroups();
-      renderAnimalBasedSelects();
-      renderProcedureProducerSelect();
-    });
-
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      prod.animals = prod.animals.filter(a => a.id !== animal.id);
-      saveState();
-      renderAnimalGroups();
-      renderAnimalBasedSelects();
-      renderProcedureProducerSelect();
-    });
-
-    list.appendChild(div);
-  });
-}
-
-function addDisease() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    date: $("#a_lastSick").value,
-    animal: $("#a_enfAnimal").value,
-    name: $("#a_commonDis").value.trim(),
-    signs: $("#a_signs").value.trim(),
-    treatment: $("#a_whenSickDo").value.trim()
-  };
-
-  if (!item.signs) {
-    showMessage("a_msg", "Los signos clínicos son obligatorios.", "error");
-    return;
-  }
-
-  q.diseases.push(item);
-  saveState();
-  renderDiseaseList();
-
-  $("#a_lastSick").value = "";
-  $("#a_enfAnimal").value = "";
-  $("#a_commonDis").value = "";
-  $("#a_signs").value = "";
-  $("#a_whenSickDo").value = "";
-}
-
-function renderDiseaseList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_diseaseList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.diseases.length) {
-    list.innerHTML = `<div class="empty-state">No hay enfermedades registradas.</div>`;
-    return;
-  }
-
-  q.diseases.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")} ${item.name ? `· ${escapeHtml(item.name)}` : ""}</h3>
-      <div class="meta">📅 ${escapeHtml(item.date || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Signos:</b> ${escapeHtml(item.signs || "")}</div>
-        <div class="line"><b>Tratamiento:</b> ${escapeHtml(item.treatment || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_lastSick").value = item.date || "";
-      $("#a_enfAnimal").value = item.animal || "";
-      $("#a_commonDis").value = item.name || "";
-      $("#a_signs").value = item.signs || "";
-      $("#a_whenSickDo").value = item.treatment || "";
-      q.diseases = q.diseases.filter(x => x.id !== item.id);
-      saveState();
-      renderDiseaseList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.diseases = q.diseases.filter(x => x.id !== item.id);
-      saveState();
-      renderDiseaseList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addVaccineRecord() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  q.vaccines.push({
-    id: uid(),
-    animal: $("#a_vaxAnimal").value,
-    name: $("#a_vaxName").value.trim(),
-    date: $("#a_vaxDate").value,
-    who: $("#a_vaxWho").value
-  });
-
-  saveState();
-  renderVaccineList();
-
-  $("#a_vaxAnimal").value = "";
-  $("#a_vaxName").value = "";
-  $("#a_vaxDate").value = "";
-  $("#a_vaxWho").value = "";
-}
-
-function renderVaccineList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_vaxList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.vaccines.length) {
-    list.innerHTML = `<div class="empty-state">No hay vacunaciones registradas.</div>`;
-    return;
-  }
-
-  q.vaccines.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")} ${item.name ? `· ${escapeHtml(item.name)}` : ""}</h3>
-      <div class="meta">📅 ${escapeHtml(item.date || "")} · 👤 ${escapeHtml(item.who || "")}</div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_vaxAnimal").value = item.animal || "";
-      $("#a_vaxName").value = item.name || "";
-      $("#a_vaxDate").value = item.date || "";
-      $("#a_vaxWho").value = item.who || "";
-      q.vaccines = q.vaccines.filter(x => x.id !== item.id);
-      saveState();
-      renderVaccineList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.vaccines = q.vaccines.filter(x => x.id !== item.id);
-      saveState();
-      renderVaccineList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addDeworming() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  q.dewormings.push({
-    id: uid(),
-    animal: $("#a_dewormAnimal").value,
-    product: $("#a_dewormProd").value.trim(),
-    date: $("#a_dewormDate").value,
-    who: $("#a_dewormWho").value
-  });
-
-  saveState();
-  renderDewormList();
-
-  $("#a_dewormAnimal").value = "";
-  $("#a_dewormProd").value = "";
-  $("#a_dewormDate").value = "";
-  $("#a_dewormWho").value = "";
-}
-
-function renderDewormList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_dewormList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.dewormings.length) {
-    list.innerHTML = `<div class="empty-state">No hay desparasitaciones registradas.</div>`;
-    return;
-  }
-
-  q.dewormings.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")} ${item.product ? `· ${escapeHtml(item.product)}` : ""}</h3>
-      <div class="meta">📅 ${escapeHtml(item.date || "")} · 👤 ${escapeHtml(item.who || "")}</div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_dewormAnimal").value = item.animal || "";
-      $("#a_dewormProd").value = item.product || "";
-      $("#a_dewormDate").value = item.date || "";
-      $("#a_dewormWho").value = item.who || "";
-      q.dewormings = q.dewormings.filter(x => x.id !== item.id);
-      saveState();
-      renderDewormList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.dewormings = q.dewormings.filter(x => x.id !== item.id);
-      saveState();
-      renderDewormList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addTraditional() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    name: $("#a_tradNombre").value.trim(),
-    type: $("#a_tradTipo").value,
-    use: $("#a_tradUso").value.trim(),
-    part: $("#a_tradParte").value.trim()
-  };
-
-  if (!item.name) {
-    showMessage("a_msg", "Pon nombre del producto/remedio.", "error");
-    return;
-  }
-
-  q.traditional.push(item);
-  saveState();
-  renderTraditionalList();
-
-  $("#a_tradNombre").value = "";
-  $("#a_tradTipo").value = "";
-  $("#a_tradUso").value = "";
-  $("#a_tradParte").value = "";
-}
-
-function renderTraditionalList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_tradList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.traditional.length) {
-    list.innerHTML = `<div class="empty-state">No hay productos/remedios tradicionales.</div>`;
-    return;
-  }
-
-  q.traditional.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.name || "")}</h3>
-      <div class="meta">${escapeHtml(item.type || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Uso:</b> ${escapeHtml(item.use || "")}</div>
-        <div class="line"><b>Parte:</b> ${escapeHtml(item.part || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_tradNombre").value = item.name || "";
-      $("#a_tradTipo").value = item.type || "";
-      $("#a_tradUso").value = item.use || "";
-      $("#a_tradParte").value = item.part || "";
-      q.traditional = q.traditional.filter(x => x.id !== item.id);
-      saveState();
-      renderTraditionalList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.traditional = q.traditional.filter(x => x.id !== item.id);
-      saveState();
-      renderTraditionalList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addGenderAnimal() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    animal: $("#a_genderAnimal").value,
-    sex: $("#a_genderAnimalWho").value,
-    why: $("#a_genderAnimalWhy").value.trim()
-  };
-
-  if (!item.sex) {
-    showMessage("a_msg", "Selecciona quién cuida más ese animal.", "error");
-    return;
-  }
-
-  q.genderAnimals.push(item);
-  saveState();
-  renderGenderAnimalList();
-
-  $("#a_genderAnimalWho").value = "";
-  $("#a_genderAnimalWhy").value = "";
-}
-
-function renderGenderAnimalList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_genderAnimalList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.genderAnimals.length) {
-    list.innerHTML = `<div class="empty-state">No hay registros de animales por género.</div>`;
-    return;
-  }
-
-  q.genderAnimals.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.animal || "")}</h3>
-      <div class="meta">👤 ${escapeHtml(item.sex || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Por qué:</b> ${escapeHtml(item.why || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_genderAnimal").value = item.animal || "";
-      $("#a_genderAnimalWho").value = item.sex || "";
-      $("#a_genderAnimalWhy").value = item.why || "";
-      q.genderAnimals = q.genderAnimals.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderAnimalList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.genderAnimals = q.genderAnimals.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderAnimalList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function addGenderActivity() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  const item = {
-    id: uid(),
-    activity: $("#a_actividadGenero").value.trim(),
-    sex: $("#a_actividadGeneroSexo").value,
-    why: $("#a_actividadGeneroRazon").value.trim()
-  };
-
-  if (!item.activity || !item.sex) {
-    showMessage("a_msg", "Actividad y sexo son obligatorios.", "error");
-    return;
-  }
-
-  q.genderActivities.push(item);
-  saveState();
-  renderGenderActivityList();
-
-  $("#a_actividadGenero").value = "";
-  $("#a_actividadGeneroSexo").value = "";
-  $("#a_actividadGeneroRazon").value = "";
-}
-
-function renderGenderActivityList() {
-  const prod = getSelectedProducer();
-  const list = $("#a_generoActividadList");
-  list.innerHTML = "";
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  if (!q.genderActivities.length) {
-    list.innerHTML = `<div class="empty-state">No hay actividades por género.</div>`;
-    return;
-  }
-
-  q.genderActivities.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <h3>${escapeHtml(item.activity || "")}</h3>
-      <div class="meta">👤 ${escapeHtml(item.sex || "")}</div>
-      <div class="kv">
-        <div class="line"><b>Por qué:</b> ${escapeHtml(item.why || "")}</div>
-      </div>
-      <div class="actions" style="margin-top:12px;">
-        <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
-        <button class="btn small bad" type="button" data-action="delete">🗑️ Eliminar</button>
-      </div>
-    `;
-    div.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      $("#a_actividadGenero").value = item.activity || "";
-      $("#a_actividadGeneroSexo").value = item.sex || "";
-      $("#a_actividadGeneroRazon").value = item.why || "";
-      q.genderActivities = q.genderActivities.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderActivityList();
-    });
-    div.querySelector('[data-action="delete"]').addEventListener("click", () => {
-      q.genderActivities = q.genderActivities.filter(x => x.id !== item.id);
-      saveState();
-      renderGenderActivityList();
-    });
-    list.appendChild(div);
-  });
-}
-
-function saveAnimalQuestionnaireFull() {
-  const prod = getSelectedProducer();
-  if (!prod) {
-    showMessage("a_msg", "Primero selecciona un productor/a.", "error");
-    return;
-  }
-
-  const q = ensureQuestionnaire(prod);
-  q.importantAnimals = getSelectedOptions($("#a_animalesImportantes"));
-  q.importantAnimalsWhy = $("#a_importanciaDetalle").value.trim();
-  q.hasMilpa = $("#a_tieneMilpa").value;
-  q.whatSows = $("#a_queSiembra").value.trim();
-  q.forageShortage = $("#a_escasezForraje").value.trim();
-  q.whereAnimalsStay = $("#a_dondeEstanMayorTiempo").value.trim();
-  q.vaccinatesAny = $("#a_vaxAny").value;
-  q.dewormsAny = $("#a_dewormAny").value;
-  q.changesDewormer = $("#a_changeDewormProduct").value;
-  q.recommendedBy = $("#a_recommendWho").value.trim();
-  q.curadorExiste = $("#a_curadorExiste").value;
-  q.curadorQuien = $("#a_curadorQuien").value.trim();
-  q.curadorEdad = $("#a_curadorEdad").value.trim();
-  q.curadorEspecies = $("#a_curadorEspecies").value.trim();
-  q.curadorTiempo = $("#a_curadorTiempo").value.trim();
-  q.curadorServicios = $("#a_curadorServicios").value.trim();
-  q.practicesAny = $("#a_practicas").value;
-  q.practicesWho = $("#a_practicasQuien").value.trim();
-  q.practicesAdvice = $("#a_practicasAsesoria").value;
-  q.programRegistered = $("#a_programaRegistro").value;
-  q.programName = $("#a_programaNombre").value.trim();
-  q.hasFolio = $("#a_programaFolioTiene").value;
-  q.folio = $("#a_programaFolio").value.trim();
-  q.futureCalls = $("#a_programaConvocatorias").value.trim();
-  q.huntingCommon = $("#a_cazaComunidad").value;
-  q.huntingTime = $("#a_cazaTiempo").value.trim();
-  q.huntedAnimals = $("#a_cazaAnimales").value.trim();
-  q.huntingPlaces = $("#a_cazaLugares").value.trim();
-  q.huntingSeason = $("#a_cazaEpoca").value.trim();
-  q.huntingReasons = $("#a_cazaMotivos").value.trim();
-  q.wildProblems = $("#a_silvestresProblemas").value;
-  q.wildProblemsDetail = $("#a_silvestresQuePaso").value.trim();
-  q.riverUse = $("#a_rioUso").value;
-  q.riverUseFor = $("#a_rioParaQue").value.trim();
-  q.riverMeaning = $("#a_rioSignificado").value.trim();
-  q.riverProblems = $("#a_rioProblemas").value.trim();
-  q.localKnowledgeExists = $("#a_saberesLocales").value;
-  q.localKnowledgeWho = $("#a_saberesQuien").value.trim();
-  q.localKnowledgeUseful = $("#a_saberesUtilidad").value;
-  q.rumiantInterest = $("#a_interestRumiants").value;
-  q.rumiantInterestWhy = $("#a_interestRumiantsWhy").value.trim();
-  q.hadRumiantsBefore = $("#a_hadRumiantsBefore").value;
-  q.noRumiantsReason = $("#a_noRumiantsWhy").value.trim();
-  q.rumiantAdvice = $("#a_rumiantsAdvice").value;
-  q.rumiantOthers = $("#a_rumiantsOthers").value;
-  q.rumiantWomen = $("#a_rumiantsWomen").value;
-  q.rumiantNeed = $("#a_rumiantsNeed").value.trim();
-  q.birdsInterestYes = $("#a_interestBirdsYes").value;
-  q.birdsInterestNo = $("#a_interestBirdsNo").value;
-
-  saveState();
-  renderProducerList();
-  showMessage("a_msg", "Sección de animales y cuestionario guardada.", "success");
-}
-
-function fillAnimalQuestionnaireFields() {
-  const prod = getSelectedProducer();
-  if (!prod) return;
-  const q = ensureQuestionnaire(prod);
-
-  setSelectedOptions($("#a_animalesImportantes"), q.importantAnimals || []);
-  $("#a_importanciaDetalle").value = q.importantAnimalsWhy || "";
-  $("#a_tieneMilpa").value = q.hasMilpa || "";
-  $("#a_queSiembra").value = q.whatSows || "";
-  $("#a_escasezForraje").value = q.forageShortage || "";
-  $("#a_dondeEstanMayorTiempo").value = q.whereAnimalsStay || "";
-  $("#a_vaxAny").value = q.vaccinatesAny || "";
-  $("#a_dewormAny").value = q.dewormsAny || "";
-  $("#a_changeDewormProduct").value = q.changesDewormer || "";
-  $("#a_recommendWho").value = q.recommendedBy || "";
-  $("#a_curadorExiste").value = q.curadorExiste || "";
-  $("#a_curadorQuien").value = q.curadorQuien || "";
-  $("#a_curadorEdad").value = q.curadorEdad || "";
-  $("#a_curadorEspecies").value = q.curadorEspecies || "";
-  $("#a_curadorTiempo").value = q.curadorTiempo || "";
-  $("#a_curadorServicios").value = q.curadorServicios || "";
-  $("#a_practicas").value = q.practicesAny || "";
-  $("#a_practicasQuien").value = q.practicesWho || "";
-  $("#a_practicasAsesoria").value = q.practicesAdvice || "";
-  $("#a_programaRegistro").value = q.programRegistered || "";
-  $("#a_programaNombre").value = q.programName || "";
-  $("#a_programaFolioTiene").value = q.hasFolio || "";
-  $("#a_programaFolio").value = q.folio || "";
-  $("#a_programaConvocatorias").value = q.futureCalls || "";
-  $("#a_cazaComunidad").value = q.huntingCommon || "";
-  $("#a_cazaTiempo").value = q.huntingTime || "";
-  $("#a_cazaAnimales").value = q.huntedAnimals || "";
-  $("#a_cazaLugares").value = q.huntingPlaces || "";
-  $("#a_cazaEpoca").value = q.huntingSeason || "";
-  $("#a_cazaMotivos").value = q.huntingReasons || "";
-  $("#a_silvestresProblemas").value = q.wildProblems || "";
-  $("#a_silvestresQuePaso").value = q.wildProblemsDetail || "";
-  $("#a_rioUso").value = q.riverUse || "";
-  $("#a_rioParaQue").value = q.riverUseFor || "";
-  $("#a_rioSignificado").value = q.riverMeaning || "";
-  $("#a_rioProblemas").value = q.riverProblems || "";
-  $("#a_saberesLocales").value = q.localKnowledgeExists || "";
-  $("#a_saberesQuien").value = q.localKnowledgeWho || "";
-  $("#a_saberesUtilidad").value = q.localKnowledgeUseful || "";
-  $("#a_interestRumiants").value = q.rumiantInterest || "";
-  $("#a_interestRumiantsWhy").value = q.rumiantInterestWhy || "";
-  $("#a_hadRumiantsBefore").value = q.hadRumiantsBefore || "";
-  $("#a_noRumiantsWhy").value = q.noRumiantsReason || "";
-  $("#a_rumiantsAdvice").value = q.rumiantAdvice || "";
-  $("#a_rumiantsOthers").value = q.rumiantOthers || "";
-  $("#a_rumiantsWomen").value = q.rumiantWomen || "";
-  $("#a_rumiantsNeed").value = q.rumiantNeed || "";
-  $("#a_interestBirdsYes").value = q.birdsInterestYes || "";
-  $("#a_interestBirdsNo").value = q.birdsInterestNo || "";
-
-  renderDiseaseList();
-  renderVaccineList();
-  renderDewormList();
-  renderTraditionalList();
-  renderGenderAnimalList();
-  renderGenderActivityList();
-}
-
-function bindAnimalsSection() {
-  bindAnimalPhotos();
-
-  $("#animalsProducerSelect")?.addEventListener("change", () => {
-    state.selectedProducerId = $("#animalsProducerSelect").value || null;
-    saveState();
-    renderAnimalsProducerSelect();
-    renderProcedureProducerSelect();
-  });
-
-  $("#a_save")?.addEventListener("click", saveAnimalGroup);
-  $("#a_clear")?.addEventListener("click", resetAnimalGroupForm);
-
-  $("#a_addDisease")?.addEventListener("click", addDisease);
-  $("#a_addVax")?.addEventListener("click", addVaccineRecord);
-  $("#a_addDeworm")?.addEventListener("click", addDeworming);
-  $("#a_addTrad")?.addEventListener("click", addTraditional);
-  $("#a_addGenderAnimal")?.addEventListener("click", addGenderAnimal);
-  $("#a_addGeneroActividad")?.addEventListener("click", addGenderActivity);
-  $("#btnSaveAnimalsFull")?.addEventListener("click", saveAnimalQuestionnaireFull);
-}
-
-/* =========================================================
-   MEDICAMENTOS
-========================================================= */
-function renderMedMode() {
-  const isChat = state.ui.medMode === "CHATGPT";
-  $("#chatgptBlock").style.display = isChat ? "block" : "none";
-  $("#m_modeHint").textContent = `Modo actual: ${isChat ? "🪄 ChatGPT" : "✍️ Manual"}`;
-  $("#m_modeManual").classList.toggle("ghost", isChat);
-  $("#m_modeChatGPT").classList.toggle("ghost", !isChat);
-}
-
-function bindMedMode() {
-  $("#m_modeManual")?.addEventListener("click", () => {
-    state.ui.medMode = "MANUAL";
-    renderMedMode();
-    saveState();
-  });
-  $("#m_modeChatGPT")?.addEventListener("click", () => {
-    state.ui.medMode = "CHATGPT";
-    renderMedMode();
-    saveState();
-  });
-}
-
-function calcMedUnitCost() {
-  const total = parseFloat($("#m_totalQty").value || "0");
-  const cost = parseFloat($("#m_cost").value || "0");
-  $("#m_unitCost").value = total > 0 && cost > 0 ? (cost / total).toFixed(2) : "";
-}
-
-function bindMedCalc() {
-  $("#m_totalQty")?.addEventListener("input", calcMedUnitCost);
-  $("#m_cost")?.addEventListener("input", calcMedUnitCost);
-}
-
-function renderMedPhotos() {
-  setThumb("m_rx_preview", state.media.medRxPhoto, "Sin<br/>receta");
-  setThumb("m_tk_preview", state.media.medTicketPhoto, "Sin<br/>ticket");
-}
-
-function bindMedPhotos() {
-  $("#m_btnRxTake")?.addEventListener("click", () => $("#m_rx_take")?.click());
-  $("#m_btnRxPick")?.addEventListener("click", () => $("#m_rx_pick")?.click());
-  $("#m_btnTkTake")?.addEventListener("click", () => $("#m_tk_take")?.click());
-  $("#m_btnTkPick")?.addEventListener("click", () => $("#m_tk_pick")?.click());
-
-  $("#m_rx_take")?.addEventListener("change", async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    state.media.medRxPhoto = await fileToBase64(f);
-    renderMedPhotos();
-    e.target.value = "";
-  });
-  $("#m_rx_pick")?.addEventListener("change", async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    state.media.medRxPhoto = await fileToBase64(f);
-    renderMedPhotos();
-    e.target.value = "";
-  });
-  $("#m_tk_take")?.addEventListener("change", async (e) => {
-    const f = e.target.files
+});
