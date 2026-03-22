@@ -1,23 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
-
-    <script src="./script.js"></script>
-  </body>
-</html>
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>App Rural · Productor/a · Animales · Medicamentos · Insumos · Procedimientos</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
@@ -134,8 +121,16 @@
                     </div>
 
                     <div>
-                      <label for="horario">12. Horario en el que se puede encontrar</label>
-                      <input id="horario" type="text" placeholder="Ej. L-V 7-10 am y 6-8 pm" />
+                      <label>12. Horario visual por día</label>
+                      <div class="schedule-grid">
+                        <input id="horario_lunes" type="text" placeholder="Lunes · Ej. 7:00 a 10:00" />
+                        <input id="horario_martes" type="text" placeholder="Martes · Ej. 7:00 a 10:00" />
+                        <input id="horario_miercoles" type="text" placeholder="Miércoles · Ej. 7:00 a 10:00" />
+                        <input id="horario_jueves" type="text" placeholder="Jueves · Ej. 7:00 a 10:00" />
+                        <input id="horario_viernes" type="text" placeholder="Viernes · Ej. 7:00 a 10:00" />
+                        <input id="horario_sabado" type="text" placeholder="Sábado · Ej. 8:00 a 12:00" />
+                        <input id="horario_domingo" type="text" placeholder="Domingo · Ej. Sólo si se agenda" />
+                      </div>
                     </div>
                   </div>
 
@@ -779,6 +774,7 @@
                     <div>
                       <label for="a_genderAnimal">Animal</label>
                       <select id="a_genderAnimal">
+                        <option value="">— Selecciona —</option>
                         <option>Vacas</option>
                         <option>Pequeños rumiantes (borregos y cabras)</option>
                         <option>Caballos</option>
@@ -822,7 +818,8 @@
                   <div class="grid cols-3">
                     <div>
                       <label for="a_actividadGenero">Actividad</label>
-                      <input id="a_actividadGenero" placeholder="Ej. ordeñar, vender, alimentar..." />
+                      <input id="a_actividadGenero" list="a_activitySuggestions" placeholder="Selecciona o escribe una actividad" />
+                      <datalist id="a_activitySuggestions"></datalist>
                     </div>
 
                     <div>
@@ -968,7 +965,7 @@
 
                   <div class="grid cols-2">
                     <div>
-                      <label for="a_saberesLocales">En su comunidad, ¿hay formas de cuidar animales o cultivos que se hayan aprendido de personas mayores y que se sigan usando hasta hoy?</label>
+                      <label for="a_saberesLocales">¿Todavía usan conocimientos o prácticas aprendidas de personas mayores para cuidar animales o trabajar el campo?</label>
                       <select id="a_saberesLocales">
                         <option value="">— Selecciona —</option>
                         <option>Sí</option>
@@ -983,7 +980,7 @@
                   </div>
 
                   <div>
-                    <label for="a_saberesUtilidad">¿Todavía le sirven o le funcionan esas prácticas para el manejo de animales o del campo?</label>
+                    <label for="a_saberesUtilidad">Hoy en día, ¿qué tanto le ayudan esas prácticas en su trabajo con animales o en el campo?</label>
                     <select id="a_saberesUtilidad">
                       <option value="">— Selecciona —</option>
                       <option>Sí, mucho</option>
@@ -1001,8 +998,8 @@
                 <summary>VII. Interés en pequeños rumiantes</summary>
                 <div class="inner grid">
                   <div class="grid cols-2">
-                    <div>
-                      <label for="a_interestRumiants">¿Le interesaría tener borregos o cabras en el futuro?</label>
+                    <div id="a_interestRumiantsBlock">
+                      <label for="a_interestRumiants">Si hoy no tiene borregos o cabras, ¿le interesaría tenerlos en el futuro?</label>
                       <select id="a_interestRumiants">
                         <option value="">— Selecciona —</option>
                         <option>Sí</option>
@@ -1041,26 +1038,6 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_rumiantsOthers">¿Conoce a otras personas en la comunidad que también estén interesadas?</label>
-                      <select id="a_rumiantsOthers">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_rumiantsWomen">¿Cree que las mujeres estarían interesadas en criar borregos o cabras si tuvieran oportunidad o recursos?</label>
-                      <select id="a_rumiantsWomen">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
-                    </div>
-                    <div>
                       <label for="a_rumiantsNeed">¿Qué necesitarían para poder hacerlo?</label>
                       <input id="a_rumiantsNeed" />
                     </div>
@@ -1078,13 +1055,13 @@
                   </div>
 
                   <div id="a_interestBirdsYesWrap">
-                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 5)</label>
-                    <input id="a_interestBirdsYes" type="number" min="1" max="5" />
+                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 4)</label>
+                    <select id="a_interestBirdsYes"><option value="">— Selecciona —</option><option value="1">1 = Nada</option><option value="2">2 = Poco</option><option value="3">3 = Regular</option><option value="4">4 = Mucho</option></select>
                   </div>
 
                   <div id="a_interestBirdsNoWrap">
-                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 5)</label>
-                    <input id="a_interestBirdsNo" type="number" min="1" max="5" />
+                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 4)</label>
+                    <select id="a_interestBirdsNo"><option value="">— Selecciona —</option><option value="1">1 = Nada</option><option value="2">2 = Poco</option><option value="3">3 = Regular</option><option value="4">4 = Mucho</option></select>
                   </div>
                 </div>
               </details>
@@ -1612,11 +1589,7 @@
                   </div>
 
                   <div class="grid cols-4">
-                    <div>
-                      <label for="p_species">Especie animal</label>
-                      <input id="p_species" type="text" />
-                    </div>
-                    <div>
+                                        <div>
                       <label for="p_identification">No. identificación animal</label>
                       <input id="p_identification" type="text" />
                     </div>
@@ -1644,21 +1617,7 @@
                         <option>Otro</option>
                       </select>
                     </div>
-                    <div>
-                      <label for="p_chargeStatus">Estado del cobro</label>
-                      <select id="p_chargeStatus">
-                        <option value="">— Selecciona —</option>
-                        <option>Pendiente</option>
-                        <option>Cobrado</option>
-                        <option>Parcial</option>
-                        <option>Donado</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="p_chargeNotes">Notas de cobro</label>
-                      <input id="p_chargeNotes" type="text" />
-                    </div>
-                  </div>
+                                      </div>
 
                   <div>
                     <label for="p_notes">Notas generales del procedimiento</label>
