@@ -315,6 +315,18 @@ button:active {
   font-size: 0.84rem;
   color: #cbd5e1;
 }
+
+.chip {
+  cursor: pointer;
+}
+.chip.active {
+  box-shadow: 0 0 0 2px rgba(255,255,255,.08), 0 0 0 4px rgba(34,197,94,.22);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.chip.good.active { background: rgba(34,197,94,.24); border-color: rgba(34,197,94,.6); }
+.chip.warn.active { background: rgba(245,158,11,.24); border-color: rgba(245,158,11,.6); }
+.chip.bad.active { background: rgba(239,68,68,.24); border-color: rgba(239,68,68,.6); }
 .stat {
   padding: 12px;
   border-radius: 14px;

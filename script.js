@@ -1,4 +1,4 @@
-const STORAGE_KEY = "app_rural_consolidada_v1";
+const STORAGE_KEY = "app_rural_consolidada_v2";
 const state = {
   producers: [],
   meds: [],
@@ -11,6 +11,7 @@ const state = {
     producerId: null,
     animalId: null,
     medId: null,
+    vaccineId: null,
     supplyId: null,
     procedureId: null,
   },
@@ -19,6 +20,7 @@ const state = {
     animalPhotos: [],
     medRxPhoto: null,
     medTicketPhoto: null,
+    vaccinePhoto: null,
     supplyTicketPhoto: null,
     procedureCasePhotos: [],
     procedureNecropsyPhotos: [],
@@ -52,7 +54,7 @@ function saveState() {
 }
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("app_rural_consolidada_v1");
     if (!raw) return;
     const parsed = JSON.parse(raw);
     Object.assign(state, {
@@ -180,12 +182,19 @@ function supplyRemaining(s) {
     ? "No aplica"
     : Math.max(0, Number(s.qty || 0) - (inventoryUsage().supplies[s.id] || 0));
 }
+function supplyDisplayCost(s) {
+  return s.type === "NON_DISPOSABLE" ? Number(s.costUse || 0) : Number(s.unitCost || 0);
+}
+function formatWeeklySchedule(weekly = {}) {
+  return Object.entries(weekly).map(([day, hours]) => `${day}: ${hours?.start || "--"}-${hours?.end || "--"}`).join(", ");
+}
 
 function activateTab(name) {
   const map = {
     Producer: "pageProducer",
     Animals: "pageAnimals",
     Meds: "pageMeds",
+    Vaccines: "pageVaccines",
     Supplies: "pageSupplies",
     Procedures: "pageProcedures",
   };
@@ -198,7 +207,7 @@ function activateTab(name) {
 }
 
 function bindTabs() {
-  ["Producer", "Animals", "Meds", "Supplies", "Procedures"].forEach((tab) =>
+  ["Producer", "Animals", "Meds", "Vaccines", "Supplies", "Procedures"].forEach((tab) =>
     $(`#tab${tab}`)?.addEventListener("click", () => activateTab(tab)),
   );
 }
@@ -265,7 +274,7 @@ function collectProducerForm() {
     },
     photo: state.draft.producerPhoto || null,
     classification: {
-      value: document.querySelector(".chip.active")?.dataset.value || "",
+      value: document.querySelector("#chipsClasificacion .chip.active")?.dataset.value || "",
       alerta: $("#alerta").value.trim(),
       notaExtraPersona: $("#notaExtraPersona").value.trim(),
     },
@@ -311,8 +320,8 @@ function resetProducerForm() {
   setThumb("photoPreview", null, "Sin<br/>foto");
   $("#familyTbody").innerHTML = "";
   document
-    .querySelectorAll(".chip")
-    .forEach((ch) => ch.classList.remove("active"));
+    .querySelectorAll("#chipsClasificacion .chip")
+    .forEach((ch) => { ch.classList.remove("active"); ch.setAttribute("aria-pressed", "false"); });
   fillWeeklySchedule({});
 }
 function fillProducerForm(prod) {
@@ -357,13 +366,12 @@ function fillProducerForm(prod) {
   setThumb("photoPreview", prod.photo, "Sin<br/>foto");
   (prod.family || []).forEach(addFamilyRow);
   document
-    .querySelectorAll(".chip")
-    .forEach((ch) =>
-      ch.classList.toggle(
-        "active",
-        ch.dataset.value === (prod.classification?.value || ""),
-      ),
-    );
+    .querySelectorAll("#chipsClasificacion .chip")
+    .forEach((ch) => {
+      const active = ch.dataset.value === (prod.classification?.value || "");
+      ch.classList.toggle("active", active);
+      ch.setAttribute("aria-pressed", active ? "true" : "false");
+    });
   updateProducerConditionalFields();
 }
 function saveProducer(e) {
@@ -446,12 +454,13 @@ function bindProducer() {
     "change",
     updateProducerConditionalFields,
   );
-  document.querySelectorAll(".chip").forEach((ch) =>
+  document.querySelectorAll("#chipsClasificacion .chip").forEach((ch) =>
     ch.addEventListener("click", () => {
       document
-        .querySelectorAll(".chip")
-        .forEach((x) => x.classList.remove("active"));
+        .querySelectorAll("#chipsClasificacion .chip")
+        .forEach((x) => { x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
       ch.classList.add("active");
+      ch.setAttribute("aria-pressed", "true");
     }),
   );
   ["fotoTomar", "fotoElegir"].forEach((id) =>
@@ -1004,14 +1013,7 @@ function collectMed() {
       overdose: $("#m_overdose").value.trim(),
       interactions: $("#m_interactions").value.trim(),
       dosing: $("#m_dosing").value.trim(),
-    },
-    vaccineDraft: {
-      brand: $("#m_vaxBrand").value.trim(),
-      expiry: $("#m_vaxExpiry").value,
-      price: Number($("#m_vaxPrice").value || 0),
-      coverageAnimals: Number($("#m_vaxCoverageAnimals").value || 0),
-      diseases: $("#m_vaxDiseases").value.trim(),
-    },
+    }
   };
 }
 function saveMed() {
@@ -1027,22 +1029,6 @@ function saveMed() {
   const idx = state.meds.findIndex((x) => x.id === med.id);
   if (idx >= 0) state.meds[idx] = med;
   else state.meds.unshift(med);
-  if (med.vaccineDraft.brand || med.vaccineDraft.coverageAnimals) {
-    const existing = state.vaccines.find((v) => v.medId === med.id);
-    const vaccine = {
-      id: existing?.id || uid("vax"),
-      medId: med.id,
-      brand: med.vaccineDraft.brand || med.brand,
-      expiry: med.vaccineDraft.expiry,
-      price: med.vaccineDraft.price,
-      coverageAnimals: med.vaccineDraft.coverageAnimals,
-      diseases: med.vaccineDraft.diseases,
-      owner: med.owner,
-    };
-    const vidx = state.vaccines.findIndex((v) => v.id === vaccine.id);
-    if (vidx >= 0) state.vaccines[vidx] = vaccine;
-    else state.vaccines.unshift(vaccine);
-  }
   saveState();
   renderAll();
   resetMed();
@@ -1079,11 +1065,6 @@ function fillMed(m) {
     m_overdose: m.clinical?.overdose,
     m_interactions: m.clinical?.interactions,
     m_dosing: m.clinical?.dosing,
-    m_vaxBrand: m.vaccineDraft?.brand,
-    m_vaxExpiry: m.vaccineDraft?.expiry,
-    m_vaxPrice: m.vaccineDraft?.price,
-    m_vaxCoverageAnimals: m.vaccineDraft?.coverageAnimals,
-    m_vaxDiseases: m.vaccineDraft?.diseases,
   }).forEach(([k, v]) => {
     if ($("#" + k)) $("#" + k).value = safe(v);
   });
@@ -1105,10 +1086,9 @@ function renderMedList() {
   head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${state.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div><div class="stat"><b>Reintegrar a Dra. Ana Rosa</b><div>${money(anaRosaDue)}</div></div></div>`;
   list.appendChild(head);
   state.meds.forEach((m) => {
-    const v = state.vaccines.find((x) => x.medId === m.id);
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Cobrado por medicamento Ana Rosa:</b> ${money(m.anaRosaCharge)}</div>${v ? `<div class="line"><b>Vacuna independiente:</b> ${esc(v.brand)} · cobertura restante ${vaccineRemaining(v)}</div>` : ""}<div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Cobrado por medicamento Ana Rosa:</b> ${money(m.anaRosaCharge)}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillMed(m);
     w.onclick = () =>
@@ -1157,7 +1137,7 @@ function bindMeds() {
   );
   $("#ai_makePrompt")?.addEventListener("click", () => {
     const source = $("#ai_english").value.trim();
-    const prompt = `Traduce y estructura este texto farmacológico a JSON veterinario en español con las llaves use, mech, adverse, preg, pk, overdose, interactions, dosing. Texto fuente: ${source}`;
+    const prompt = `Analiza este texto de medicamento veterinario y devuelve exclusivamente JSON válido con las llaves use, mech, adverse, preg, pk, overdose, interactions, dosing. Resume en español, conserva dosis prácticas y advertencias. Texto fuente: ${source}`;
     $("#ai_prompt").value = prompt;
   });
   $("#ai_copyPrompt")?.addEventListener("click", () =>
@@ -1166,6 +1146,7 @@ function bindMeds() {
   $("#ai_openChatGPT")?.addEventListener("click", () =>
     window.open("https://chatgpt.com/", "_blank", "noopener"),
   );
+  $("#ai_runAnalysis")?.addEventListener("click", runMedicationChatGPTAnalysis);
   $("#ai_fillFromJson")?.addEventListener("click", () => {
     try {
       const j = JSON.parse($("#ai_result").value);
@@ -1184,9 +1165,15 @@ function bindMeds() {
       show("ai_status", "JSON inválido.", "error");
     }
   });
+  $("#ai_copyExample")?.addEventListener("click", async () => {
+    const example = JSON.stringify({ use: "Para control antiparasitario", mech: "Actúa sobre canales iónicos", adverse: "Puede causar depresión o vómito", preg: "Usar con criterio veterinario", pk: "Absorción lenta y vida media prolongada", overdose: "Neurológico", interactions: "Precaución con otros lactonas macrocíclicas", dosing: "Según peso vivo y especie" }, null, 2);
+    $("#ai_result").value = example;
+    await navigator.clipboard.writeText(example);
+    show("ai_status", "Ejemplo JSON copiado y pegado en el resultado.", "success");
+  });
   $("#ai_clearAll")?.addEventListener("click", () => {
-    ["ai_english", "ai_prompt", "ai_result"].forEach(
-      (id) => ($("#" + id).value = ""),
+    ["ai_apiKey", "ai_model", "ai_english", "ai_prompt", "ai_result"].forEach(
+      (id) => { if ($("#" + id)) $("#" + id).value = id === "ai_model" ? "gpt-4o-mini" : ""; },
     );
     show("ai_status", "", "help");
   });
@@ -1224,10 +1211,142 @@ function bindMeds() {
   );
   $("#btnMedExcel")?.addEventListener("click", () =>
     exportExcel(
-      "medicamentos_vacunas.xls",
+      "medicamentos.xls",
       producerExcelSheets([], [], state.meds, state.vaccines, []),
     ),
   );
+}
+
+async function runMedicationChatGPTAnalysis() {
+  const apiKey = $("#ai_apiKey")?.value.trim();
+  const model = $("#ai_model")?.value.trim() || "gpt-4o-mini";
+  const source = $("#ai_english")?.value.trim();
+  const prompt = $("#ai_prompt")?.value.trim();
+  if (!apiKey || !source || !prompt) {
+    show("ai_status", "Captura API key, texto fuente y prompt antes de analizar.", "warning");
+    return;
+  }
+  show("ai_status", "Consultando ChatGPT...", "help");
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: "Eres un asistente veterinario. Devuelve JSON válido con use, mech, adverse, preg, pk, overdose, interactions y dosing en español." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error?.message || "No se pudo obtener respuesta.");
+    const content = payload.choices?.[0]?.message?.content || "{}";
+    $("#ai_result").value = content;
+    $("#ai_fillFromJson").click();
+    show("ai_status", "Respuesta recibida y aplicada correctamente.", "success");
+  } catch (error) {
+    console.error(error);
+    show("ai_status", `Falló la consulta real a ChatGPT: ${error.message}`, "error");
+  }
+}
+
+function collectVaccine() {
+  const coverage = Number($("#v_coverageAnimals").value || 0);
+  const price = Number($("#v_price").value || 0);
+  return {
+    id: state.editing.vaccineId || uid("vax"),
+    brand: $("#v_brand").value.trim(),
+    owner: $("#v_owner").value,
+    expiry: $("#v_expiry").value,
+    price,
+    coverageAnimals: coverage,
+    unit: $("#v_unit").value.trim(),
+    unitCost: coverage ? price / coverage : 0,
+    diseases: $("#v_diseases").value.trim(),
+    notes: $("#v_notes").value.trim(),
+    photo: state.draft.vaccinePhoto || null,
+  };
+}
+function resetVaccine() {
+  state.editing.vaccineId = null;
+  $("#vaccineForm")?.reset();
+  state.draft.vaccinePhoto = null;
+  setThumb("v_photo_preview", null, "Sin<br/>foto");
+}
+function fillVaccine(v) {
+  resetVaccine();
+  state.editing.vaccineId = v.id;
+  Object.entries({
+    v_brand: v.brand,
+    v_owner: v.owner,
+    v_expiry: v.expiry,
+    v_price: v.price,
+    v_coverageAnimals: v.coverageAnimals,
+    v_unit: v.unit,
+    v_unitCost: v.unitCost,
+    v_diseases: v.diseases,
+    v_notes: v.notes,
+  }).forEach(([k, val]) => { if ($("#" + k)) $("#" + k).value = safe(val); });
+  state.draft.vaccinePhoto = v.photo || null;
+  setThumb("v_photo_preview", v.photo, "Sin<br/>foto");
+}
+function saveVaccine() {
+  const v = collectVaccine();
+  if (!v.brand || !v.coverageAnimals) {
+    show("v_err", "Marca y cobertura animal son obligatorias.", "error");
+    return;
+  }
+  const idx = state.vaccines.findIndex((x) => x.id === v.id);
+  if (idx >= 0) state.vaccines[idx] = v;
+  else state.vaccines.unshift(v);
+  saveState();
+  renderAll();
+  resetVaccine();
+  show("v_ok", "Vacuna guardada correctamente en su módulo independiente.", "success");
+}
+function renderVaccineList() {
+  const list = $("#v_list");
+  if (!list) return;
+  list.innerHTML = "";
+  $("#v_count").textContent = state.vaccines.length;
+  state.vaccines.forEach((v) => {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<h4>${esc(v.brand)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(v.owner))}</div><div class="line"><b>Cobertura disponible:</b> ${vaccineRemaining(v)} animales</div><div class="line"><b>Costo por animal:</b> ${money(v.unitCost)}</div><div class="line"><b>Enfermedades:</b> ${esc(v.diseases)}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, w, e, del] = item.querySelectorAll("button");
+    edit.onclick = () => fillVaccine(v);
+    w.onclick = () => exportWord(`vacuna_${slug(v.brand)}.doc`, vaccineWordHtml(v));
+    e.onclick = () => exportExcel(`vacuna_${slug(v.brand)}.xls`, producerExcelSheets([], [], [], [v], []));
+    del.onclick = () => { state.vaccines = state.vaccines.filter((x) => x.id !== v.id); saveState(); renderAll(); };
+    list.appendChild(item);
+  });
+}
+function bindVaccines() {
+  ["v_price", "v_coverageAnimals"].forEach((id) =>
+    $("#" + id)?.addEventListener("input", () => {
+      const total = Number($("#v_price").value || 0), coverage = Number($("#v_coverageAnimals").value || 0);
+      $("#v_unitCost").value = coverage ? (total / coverage).toFixed(2) : "";
+    }),
+  );
+  ["v_photo_take", "v_photo_pick"].forEach((id) => $("#" + id)?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    state.draft.vaccinePhoto = await fileToBase64(f);
+    setThumb("v_photo_preview", state.draft.vaccinePhoto, "Sin<br/>foto");
+    e.target.value = "";
+  }));
+  $("#v_btnTake")?.addEventListener("click", () => $("#v_photo_take").click());
+  $("#v_btnPick")?.addEventListener("click", () => $("#v_photo_pick").click());
+  $("#v_btnRemove")?.addEventListener("click", () => { state.draft.vaccinePhoto = null; setThumb("v_photo_preview", null, "Sin<br/>foto"); });
+  $("#v_clear")?.addEventListener("click", resetVaccine);
+  $("#vaccineForm")?.addEventListener("submit", (e) => { e.preventDefault(); saveVaccine(); });
+  $("#btnVaccineWord")?.addEventListener("click", () => exportWord("vacunas.doc", vaccineSummaryHtml()));
+  $("#btnVaccineExcel")?.addEventListener("click", () => exportExcel("vacunas.xls", producerExcelSheets([], [], [], state.vaccines, [])));
 }
 
 function renderSupplyMode() {
@@ -1320,7 +1439,7 @@ function renderSupplyList() {
   state.supplies.forEach((s) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(s.name)}</h4><div class="line"><b>Tipo:</b> ${s.type === "NON_DISPOSABLE" ? "No desechable" : "Desechable"}</div><div class="line"><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</div><div class="line"><b>Costo por uso:</b> ${money(s.costUse)}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(s.name)}</h4><div class="line"><b>Tipo:</b> ${s.type === "NON_DISPOSABLE" ? "No desechable" : "Desechable"}</div><div class="line"><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</div><div class="line"><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillSupply(s);
     w.onclick = () =>
@@ -1531,6 +1650,7 @@ function addProcedureVaccineUse() {
     name: v.brand,
     animalsApplied,
     price: v.price,
+    unitCost: v.unitCost || (v.coverageAnimals ? Number(v.price || 0) / Number(v.coverageAnimals || 1) : 0),
     notes: $("#p_vaccineNotes").value.trim(),
   });
   renderProcedureDraftLists();
@@ -1557,7 +1677,7 @@ function addProcedureSupplyUse() {
     qty,
     notes: $("#p_supplyNotes").value.trim(),
     type: s.type,
-    unitCost: s.type === "NON_DISPOSABLE" ? s.costUse : s.unitCost,
+    unitCost: supplyDisplayCost(s),
   });
   renderProcedureDraftLists();
 }
@@ -1602,7 +1722,8 @@ function renderProcedureDraftLists() {
     state.draft.procedureChargePhoto,
     "Sin<br/>evidencia",
   );
-  $("#p_chargeCalculated").value = calculateProcedureCharge().toFixed(2);
+  const breakdown = calculateProcedureCharge();
+  $("#p_chargeCalculated").value = breakdown.total.toFixed(2);
 }
 function calculateProcedureCharge() {
   const base = Number($("#p_costTotal").value || 0);
@@ -1611,14 +1732,15 @@ function calculateProcedureCharge() {
     0,
   );
   const vaccines = state.draft.procedureVaccineUses.reduce(
-    (a, x) => a + Number(x.price || 0),
+    (a, x) => a + Number(x.animalsApplied || 0) * (Number(x.unitCost || 0) || Number(x.price || 0)),
     0,
   );
   const supplies = state.draft.procedureSupplyUses.reduce(
     (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
     0,
   );
-  return base + meds + vaccines + supplies;
+  const subtotal = base + meds + vaccines + supplies;
+  return { base, meds, vaccines, supplies, subtotal, total: subtotal };
 }
 async function addLab() {
   const file = $("#lab_file").files?.[0];
@@ -1740,9 +1862,11 @@ function collectProcedure() {
       prognosis: $("#p_sx_prognosis").value.trim(),
     },
     charge: {
-      calculated: calculateProcedureCharge(),
+      ...calculateProcedureCharge(),
       manual: Number($("#p_chargeManual").value || 0),
       reason: $("#p_chargeReason").value.trim(),
+      status: $("#p_chargeStatus").value,
+      notes: $("#p_chargeNotes").value.trim(),
       photo: state.draft.procedureChargePhoto,
     },
     labIds: [...state.draft.procedureLabIds],
@@ -1780,8 +1904,17 @@ function saveProcedure() {
     return;
   }
   const idx = state.procedures.findIndex((x) => x.id === p.id);
+  const previous = idx >= 0 ? state.procedures[idx] : null;
   if (idx >= 0) state.procedures[idx] = p;
   else state.procedures.unshift(p);
+  if (p.type === "NECROPSIA" && p.animalId) {
+    const prod = byId(state.producers, p.producerId);
+    const animalTarget = byId(prod?.animals || [], p.animalId);
+    const alreadyApplied = previous?.type === "NECROPSIA" && previous?.animalId === p.animalId;
+    if (animalTarget && !alreadyApplied) {
+      animalTarget.quantity = Math.max(0, Number(animalTarget.quantity || 0) - 1);
+    }
+  }
   saveState();
   renderAll();
   resetProcedure();
@@ -1809,7 +1942,7 @@ function fillProcedure(p) {
     p_type: p.type,
     p_scope: p.scope,
     p_place: p.place,
-    p_costTotal: p.charge?.calculated || "",
+    p_costTotal: p.charge?.total || "",
     p_producer: p.producerId,
     p_animalGroup: p.animalId,
     p_animalsQtyUsed: p.animalsQtyUsed,
@@ -1896,12 +2029,13 @@ function renderProcedureList() {
   const list = $("#p_list");
   if (!list) return;
   list.innerHTML = "";
+  if ($("#p_count")) $("#p_count").textContent = state.procedures.length;
   state.procedures.forEach((p) => {
     const prod = byId(state.producers, p.producerId);
     const animal = (prod?.animals || []).find((a) => a.id === p.animalId);
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(p.type)} · ${esc(prod?.basic?.name || "")}</h4><div class="line"><b>Fecha:</b> ${esc(p.date)}</div><div class="line"><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification || "")}</div><div class="line"><b>Medicamentos usados:</b> ${(p.inventory?.meds || []).length}</div><div class="line"><b>Vacunas usadas:</b> ${(p.inventory?.vaccines || []).length}</div><div class="line"><b>Pruebas vinculadas:</b> ${(p.labIds || []).length}</div><div class="line"><b>Monto calculado:</b> ${money(p.charge?.calculated)}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(p.type)} · ${esc(prod?.basic?.name || "")}</h4><div class="line"><b>Fecha:</b> ${esc(p.date)}</div><div class="line"><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification || "")}</div><div class="line"><b>Medicamentos usados:</b> ${(p.inventory?.meds || []).length}</div><div class="line"><b>Vacunas usadas:</b> ${(p.inventory?.vaccines || []).length}</div><div class="line"><b>Pruebas vinculadas:</b> ${(p.labIds || []).length}</div><div class="line"><b>Monto calculado:</b> ${money(p.charge?.total)}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillProcedure(p);
     w.onclick = () =>
@@ -2036,25 +2170,37 @@ function exportExcel(filename, sheets) {
     "application/vnd.ms-excel",
   );
 }
+function imageHtml(src, label = "imagen") {
+  return src ? `<div><b>${esc(label)}:</b><br><img src="${src}" alt="${esc(label)}"></div>` : "";
+}
+function objectEntriesTable(obj = {}) {
+  return `<table><tr><th>Campo</th><th>Valor</th></tr>${Object.entries(obj).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" && v ? JSON.stringify(v) : v)}</td></tr>`).join("")}</table>`;
+}
+function vaccineWordHtml(v) {
+  return `<h1>Vacuna: ${esc(v.brand)}</h1><p><b>Propiedad:</b> ${esc(medOwnerLabel(v.owner))}</p><p><b>Caducidad:</b> ${esc(v.expiry)}</p><p><b>Cobertura total:</b> ${esc(v.coverageAnimals)} animales</p><p><b>Costo total:</b> ${money(v.price)} · <b>Costo unitario:</b> ${money(v.unitCost)}</p><p><b>Enfermedades:</b> ${esc(v.diseases)}</p><p><b>Notas:</b> ${esc(v.notes)}</p>${imageHtml(v.photo, "Evidencia vacuna")}`;
+}
+function vaccineSummaryHtml() {
+  return `<h1>Vacunas</h1>${state.vaccines.map(vaccineWordHtml).join('<div style="page-break-after:always"></div>')}`;
+}
+function fullProducerSection(prod) {
+  const q = getProducerQuestionnaireSkeleton(prod);
+  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable(a)}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable(q)}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
+}
 function producerWordHtml(prod) {
-  return `<h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><h2>Animales</h2><table><tr><th>Especie</th><th>Raza</th><th>Cantidad</th><th>Función</th></tr>${(prod.animals || []).map((a) => `<tr><td>${esc(a.species)}</td><td>${esc(a.breed)}</td><td>${esc(a.quantity)}</td><td>${esc((a.function || []).concat(a.functionOther ? [a.functionOther] : []).join(", "))}</td></tr>`).join("")}</table><h2>Notas</h2><p>${esc(prod.notes)}</p>`;
+  return fullProducerSection(prod);
 }
 function medSummaryHtml() {
-  return `<h1>Medicamentos y vacunas</h1><table><tr><th>Medicamento</th><th>Activo</th><th>Propiedad</th><th>Disponible</th><th>Vacuna relacionada</th></tr>${state.meds
-    .map((m) => {
-      const v = state.vaccines.find((x) => x.medId === m.id);
-      return `<tr><td>${esc(m.brand)}</td><td>${esc(m.active)}</td><td>${esc(medOwnerLabel(m.owner))}</td><td>${esc(medRemaining(m))} ${esc(m.unit)}</td><td>${esc(v?.brand || "")}</td></tr>`;
-    })
-    .join("")}</table>`;
+  return `<h1>Medicamentos</h1>${state.meds
+    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Cantidad total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Ana Rosa:</b> ${money(m.anaRosaCharge)}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
 }
 function supplySummaryHtml() {
-  return `<h1>Insumos</h1><table><tr><th>Nombre</th><th>Tipo</th><th>Disponibilidad</th><th>Costo por uso</th></tr>${state.supplies.map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.type)}</td><td>${esc(supplyRemaining(s))}</td><td>${money(s.costUse)}</td></tr>`).join("")}</table>`;
+  return `<h1>Insumos</h1>${state.supplies.map((s) => `<section><h2>${esc(s.name)}</h2><p><b>Tipo:</b> ${esc(s.type)}</p><p><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</p><p><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</p>${objectEntriesTable(s)}${imageHtml(s.ticket, "Ticket insumo")}</section>`).join('<div style="page-break-after:always"></div>')}`;
 }
 function procedureWordHtml(p) {
   const prod = byId(state.producers, p.producerId);
   const animal = (prod?.animals || []).find((a) => a.id === p.animalId);
   const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id));
-  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Inventario usado</h2><table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th></tr>${(p.inventory?.meds || []).map((i) => `<tr><td>Medicamento</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td></tr>`).join("")}${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td></tr>`).join("")}</table><h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Resultado</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.result)}</td></tr>`).join("")}</table><h2>Cobro</h2><p><b>Calculado:</b> ${money(p.charge?.calculated)} <b>Final:</b> ${money(p.charge?.manual)}</p>`;
+  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, alcance: p.scope, lugar: p.place, productor: prod?.basic?.name || "", animal: animal ? animalLabel(animal) : p.identification, cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_general: p.generalState, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes })}<h2>Inventario usado</h2><table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.meds || []).map((i) => `<tr><td>Medicamento</td><td>${esc(i.name)}</td><td>${esc(i.qty)} ${esc(i.unit || "")}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.owner || "")}</td></tr>`).join("")}${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Cirugía</h2>${objectEntriesTable(p.surgery || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
 }
 function procedureSummaryHtml() {
   return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`;
@@ -2084,6 +2230,9 @@ function producerExcelSheets(
           "Municipio",
           "Estado",
           "Clasificación",
+          "Razones no trabajar",
+          "Nota extra",
+          "Maps",
           "Notas",
         ],
         ...producers.map((p) => [
@@ -2093,6 +2242,9 @@ function producerExcelSheets(
           p.basic.municipio,
           p.basic.estado,
           p.classification?.value || "",
+          p.classification?.alerta || "",
+          p.classification?.notaExtraPersona || "",
+          p.location?.mapsUrl || "",
           p.notes || "",
         ]),
       ],
@@ -2137,26 +2289,31 @@ function producerExcelSheets(
     {
       name: "Vacunas",
       rows: [
-        ["Marca", "Caducidad", "Cobertura", "Disponible", "Enfermedades"],
+        ["Marca", "Propiedad", "Caducidad", "Cobertura", "Disponible", "Costo total", "Costo unitario", "Enfermedades", "Notas"],
         ...vaccines.map((v) => [
           v.brand,
+          medOwnerLabel(v.owner),
           v.expiry,
           v.coverageAnimals,
           vaccineRemaining(v),
+          v.price,
+          v.unitCost,
           v.diseases,
+          v.notes || "",
         ]),
       ],
     },
     {
       name: "Insumos",
       rows: [
-        ["Nombre", "Tipo", "Cantidad", "Disponible", "Costo uso"],
+        ["Nombre", "Tipo", "Cantidad", "Disponible", "Costo mostrado", "Notas"],
         ...supplies.map((s) => [
           s.name,
           s.type,
           s.qty,
           supplyRemaining(s),
-          s.costUse,
+          supplyDisplayCost(s),
+          s.notes || "",
         ]),
       ],
     },
@@ -2168,8 +2325,14 @@ function producerExcelSheets(
           "Tipo",
           "Productor(a)",
           "Animal",
-          "Cobro calculado",
+          "Cobro procedimiento",
+          "Cobro medicamentos",
+          "Cobro vacunas",
+          "Cobro insumos",
+          "Subtotal",
+          "Total",
           "Cobro final",
+          "Observaciones",
         ],
         ...procedures.map((p) => [
           p.date,
@@ -2179,8 +2342,14 @@ function producerExcelSheets(
             ?.species ||
             p.identification ||
             "",
-          p.charge?.calculated,
+          p.charge?.base,
+          p.charge?.meds,
+          p.charge?.vaccines,
+          p.charge?.supplies,
+          p.charge?.subtotal,
+          p.charge?.total,
           p.charge?.manual,
+          p.charge?.reason || p.charge?.notes || "",
         ]),
       ],
     },
@@ -2216,6 +2385,7 @@ function renderAll() {
   renderAnimalGroups();
   fillAnimalQuestionnaire();
   renderMedList();
+  renderVaccineList();
   renderSupplyList();
   renderProcedureProducerSelect();
   renderProcedureAnimalSelect();
@@ -2228,7 +2398,7 @@ function bindGlobal() {
   $("#btnExportAllWord")?.addEventListener("click", () =>
     exportWord(
       "app_rural_resumen.doc",
-      `<h1>Resumen App Rural</h1>${state.producers.map(producerWordHtml).join("")}<h1>Medicamentos</h1>${medSummaryHtml()}<h1>Insumos</h1>${supplySummaryHtml()}<h1>Procedimientos</h1>${procedureSummaryHtml()}`,
+      `<h1>Resumen App Rural</h1>${state.producers.map(fullProducerSection).join('<div style="page-break-after:always"></div>')}<div style="page-break-after:always"></div>${medSummaryHtml()}<div style="page-break-after:always"></div>${vaccineSummaryHtml()}<div style="page-break-after:always"></div>${supplySummaryHtml()}<div style="page-break-after:always"></div>${procedureSummaryHtml()}`,
     ),
   );
   $("#btnExportAllExcel")?.addEventListener("click", () =>
@@ -2266,6 +2436,7 @@ window.addEventListener("DOMContentLoaded", () => {
   bindProducer();
   bindAnimals();
   bindMeds();
+  bindVaccines();
   bindSupplies();
   bindProcedures();
   bindGlobal();
