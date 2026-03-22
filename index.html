@@ -1,23 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
-
-    <script src="./script.js"></script>
-  </body>
-</html>
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>App Rural · Productor/a · Animales · Medicamentos · Insumos · Procedimientos</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
@@ -69,6 +56,11 @@
                         <option value="OTRO">Otro</option>
                         <option value="NO_DICE">Prefiere no decir</option>
                       </select>
+                    </div>
+
+                    <div id="a_genderAnimalOtroWrap">
+                      <label for="a_genderAnimalOtro">Si eligió otro, escriba cuál</label>
+                      <input id="a_genderAnimalOtro" />
                     </div>
 
                     <div>
@@ -135,7 +127,8 @@
 
                     <div>
                       <label for="horario">12. Horario en el que se puede encontrar</label>
-                      <input id="horario" type="text" placeholder="Ej. L-V 7-10 am y 6-8 pm" />
+                      <input id="horario" type="text" readonly placeholder="Selecciona horarios por día" />
+                      <div class="help">Elige horario por cada día de la semana en el mini calendario.</div>
                     </div>
                   </div>
 
@@ -527,7 +520,7 @@
                         <option>No</option>
                       </select>
                     </div>
-                    <div>
+                    <div id="a_queSiembraWrap">
                       <label for="a_queSiembra">Si sí, ¿qué siembra?</label>
                       <input id="a_queSiembra" type="text" />
                     </div>
@@ -538,15 +531,11 @@
                     <textarea id="a_escasezForraje"></textarea>
                   </div>
 
-                  <div>
-                    <label for="a_dondeEstanMayorTiempo">¿Dónde permanecen o dónde están normalmente los animales?</label>
-                    <textarea id="a_dondeEstanMayorTiempo"></textarea>
-                  </div>
-
+                  
                   <div class="sep"></div>
                   <h3 style="margin:0;font-size:14px;">Enfermedades</h3>
 
-                  <div class="grid cols-4">
+                  <div class="grid cols-4" id="a_vaxBlock">
                     <div>
                       <label for="a_lastSick">¿Cuándo fue la última vez que enfermaron sus animales?</label>
                       <input id="a_lastSick" type="date" />
@@ -590,7 +579,7 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-4">
+                  <div class="grid cols-4" id="a_vaxBlock">
                     <div>
                       <label for="a_vaxAnimal">Animal o especie</label>
                       <select id="a_vaxAnimal"></select>
@@ -637,7 +626,7 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-4">
+                  <div class="grid cols-4" id="a_dewormBlock">
                     <div>
                       <label for="a_dewormAnimal">Animal o especie</label>
                       <select id="a_dewormAnimal"></select>
@@ -673,62 +662,89 @@
               <details open>
                 <summary>IV. Personas que curan animales y prácticas</summary>
                 <div class="inner grid">
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_curadorExiste">¿Hay o ha habido alguna vez en la comunidad alguna persona que se encargue de curar a los animales?</label>
-                      <select id="a_curadorExiste">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_curadorQuien">¿Quién es esa persona?</label>
-                      <input id="a_curadorQuien" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="a_curadorEdad">¿Qué edad tiene o tenía?</label>
-                      <input id="a_curadorEdad" type="number" min="0" step="1" />
-                    </div>
-                    <div>
-                      <label for="a_curadorEspecies">¿Qué especies atiende?</label>
-                      <input id="a_curadorEspecies" />
-                    </div>
-                    <div>
-                      <label for="a_curadorTiempo">¿Desde hace cuánto tiempo?</label>
-                      <input id="a_curadorTiempo" />
-                    </div>
-                    <div>
-                      <label for="a_curadorServicios">¿Qué servicios brinda?</label>
-                      <input id="a_curadorServicios" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_practicas">¿Realizan prácticas como descole, castración o marcaje?</label>
-                      <select id="a_practicas">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_practicasQuien">¿Quién realiza normalmente estos procedimientos?</label>
-                      <input id="a_practicasQuien" />
-                    </div>
-                  </div>
-
                   <div>
-                    <label for="a_practicasAsesoria">¿Reciben asesoría veterinaria para realizarlos?</label>
-                    <select id="a_practicasAsesoria">
+                    <label for="a_curadorExiste">¿Hay veterinarios(as) o personas de la comunidad que ayuden a curar o atender a los animales?</label>
+                    <select id="a_curadorExiste">
                       <option value="">— Selecciona —</option>
                       <option>Sí</option>
                       <option>No</option>
                     </select>
+                  </div>
+
+                  <div id="a_curadorDetalleWrap" class="grid">
+                    <div class="grid cols-3">
+                      <div>
+                        <label for="a_curadorQuien">¿Quién es?</label>
+                        <input id="a_curadorQuien" />
+                      </div>
+                      <div>
+                        <label for="a_curadorEdad">Edad</label>
+                        <input id="a_curadorEdad" type="number" min="0" step="1" />
+                      </div>
+                      <div>
+                        <label for="a_curadorGenero">Género</label>
+                        <select id="a_curadorGenero">
+                          <option value="">— Selecciona —</option>
+                          <option>Mujer</option>
+                          <option>Hombre</option>
+                          <option>Otro</option>
+                          <option>Prefiere no decir</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="grid cols-2">
+                      <div>
+                        <label for="a_curadorEsVet">¿Es veterinaria(o)?</label>
+                        <select id="a_curadorEsVet">
+                          <option value="">— Selecciona —</option>
+                          <option>Sí</option>
+                          <option>No</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="a_curadorEspecies">¿Qué especies atiende?</label>
+                        <input id="a_curadorEspecies" placeholder="Ej. bovinos, aves, perros..." />
+                      </div>
+                    </div>
+                    <div class="grid cols-3">
+                      <div>
+                        <label for="a_curadorTiempo">¿Desde hace cuánto ayuda a los animales?</label>
+                        <input id="a_curadorTiempo" />
+                      </div>
+                      <div>
+                        <label for="a_curadorServicios">¿Qué servicios brinda?</label>
+                        <input id="a_curadorServicios" placeholder="Vacunas, partos, curaciones, asesoría..." />
+                      </div>
+                      <div id="a_curadorAsesoriaWrap">
+                        <label for="a_curadorAsesoriaVet">Si no es veterinaria(o), ¿recibe asesoría veterinaria?</label>
+                        <select id="a_curadorAsesoriaVet">
+                          <option value="">— Selecciona —</option>
+                          <option>Sí</option>
+                          <option>No</option>
+                          <option>A veces</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="a_practicas">¿Realizan prácticas como descole, castración, marcaje u otras?</label>
+                    <select id="a_practicas">
+                      <option value="">— Selecciona —</option>
+                      <option>Sí</option>
+                      <option>No</option>
+                    </select>
+                  </div>
+
+                  <div id="a_practicasDetalleWrap" class="grid cols-2">
+                    <div>
+                      <label for="a_practicasCuales">¿Qué prácticas realizan?</label>
+                      <input id="a_practicasCuales" placeholder="Ej. descole, castración, curaciones..." />
+                    </div>
+                    <div>
+                      <label for="a_practicasQuien">¿Quién las realiza normalmente?</label>
+                      <input id="a_practicasQuien" />
+                    </div>
                   </div>
                 </div>
               </details>
@@ -741,7 +757,7 @@
 
                   <h3 style="margin:0;font-size:14px;">Medicina tradicional</h3>
 
-                  <div class="grid cols-4">
+                  <div class="grid cols-3">
                     <div>
                       <label for="a_tradNombre">Nombre</label>
                       <input id="a_tradNombre" />
@@ -761,6 +777,16 @@
                       <label for="a_tradUso">¿Para qué lo usa?</label>
                       <input id="a_tradUso" />
                     </div>
+                  </div>
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="a_tradComo">¿Cómo lo usa o cómo lo prepara?</label>
+                      <input id="a_tradComo" />
+                    </div>
+                    <div>
+                      <label for="a_tradAnimales">¿En qué animales lo usa?</label>
+                      <input id="a_tradAnimales" />
+                    </div>
                     <div>
                       <label for="a_tradParte">Parte que usa, si aplica</label>
                       <input id="a_tradParte" />
@@ -775,7 +801,7 @@
                   <div class="sep"></div>
                   <h3 style="margin:0;font-size:14px;">Animales que cuidan hombres y mujeres</h3>
 
-                  <div class="grid cols-3">
+                  <div class="grid cols-4">
                     <div>
                       <label for="a_genderAnimal">Animal</label>
                       <select id="a_genderAnimal">
@@ -794,6 +820,11 @@
                         <option>Peces</option>
                         <option>Otro</option>
                       </select>
+                    </div>
+
+                    <div id="a_genderAnimalOtroWrap">
+                      <label for="a_genderAnimalOtro">Si eligió otro, escriba cuál</label>
+                      <input id="a_genderAnimalOtro" />
                     </div>
 
                     <div>
@@ -850,25 +881,18 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>VI. Programas, entorno, agua y saberes locales</summary>
+                <summary>VI. Programas</summary>
                 <div class="inner grid">
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_programaRegistro">¿Se registró en algún programa?</label>
-                      <select id="a_programaRegistro">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_programaNombre">¿En cuál programa?</label>
-                      <input id="a_programaNombre" />
+                  <div>
+                    <label>Seleccione los programas en los que participa o se registró</label>
+                    <div class="check-grid">
+                      <label class="check-card"><input type="checkbox" name="a_programas[]" value="Programa para Dignificar el Campo Hidalguense 2026" /> <span>Programa para Dignificar el Campo Hidalguense 2026</span></label>
+                      <label class="check-card"><input type="checkbox" name="a_programas[]" value="Programa Productivo para la Mujer Rural" /> <span>Programa Productivo para la Mujer Rural</span></label>
+                      <label class="check-card"><input type="checkbox" name="a_programas[]" value="Programa para Transformar el Campo Hidalguense" /> <span>Programa para Transformar el Campo Hidalguense</span></label>
                     </div>
                   </div>
 
-                  <div class="grid cols-2">
+                  <div id="a_programaFolioWrap" class="grid cols-2">
                     <div>
                       <label for="a_programaFolioTiene">¿Recibió folio?</label>
                       <select id="a_programaFolioTiene">
@@ -883,11 +907,18 @@
                     </div>
                   </div>
 
-                  <div>
-                    <label for="a_programaConvocatorias">Si no se registró, ¿le interesaría participar en futuras convocatorias?</label>
+                  <div id="a_programaConvocatoriasWrap">
+                    <label for="a_programaConvocatorias">Si no participa en esos programas, ¿le interesaría futuras convocatorias?</label>
                     <textarea id="a_programaConvocatorias"></textarea>
                   </div>
+                </div>
+              </details>
 
+              <div class="sep"></div>
+
+              <details open>
+                <summary>VII. Entorno y agua</summary>
+                <div class="inner grid">
                   <div class="grid cols-2">
                     <div>
                       <label for="a_cazaComunidad">¿En la comunidad es común que algunas personas cacen animales silvestres?</label>
@@ -898,31 +929,31 @@
                         <option>No sabe</option>
                       </select>
                     </div>
-                    <div>
-                      <label for="a_cazaTiempo">Si sí, ¿desde hace cuánto tiempo se practica?</label>
-                      <input id="a_cazaTiempo" />
+                  </div>
+
+                  <div id="a_cazaDetalleWrap" class="grid">
+                    <div class="grid cols-2">
+                      <div>
+                        <label for="a_cazaTiempo">¿Desde hace cuánto tiempo se practica?</label>
+                        <input id="a_cazaTiempo" />
+                      </div>
+                      <div>
+                        <label for="a_cazaEpoca">¿En qué época del año es más común?</label>
+                        <input id="a_cazaEpoca" />
+                      </div>
                     </div>
-                  </div>
-
-                  <div>
-                    <label for="a_cazaAnimales">¿Qué animales silvestres se cazan o se han cazado en la comunidad?</label>
-                    <textarea id="a_cazaAnimales"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
+                    <div>
+                      <label for="a_cazaAnimales">¿Qué animales silvestres se cazan o se han cazado en la comunidad?</label>
+                      <textarea id="a_cazaAnimales"></textarea>
+                    </div>
                     <div>
                       <label for="a_cazaLugares">¿En qué lugares de la región suele realizarse la caza?</label>
                       <input id="a_cazaLugares" />
                     </div>
                     <div>
-                      <label for="a_cazaEpoca">¿En qué época del año es más común la caza?</label>
-                      <input id="a_cazaEpoca" />
+                      <label for="a_cazaMotivos">¿Por qué motivos se cazan estos animales?</label>
+                      <textarea id="a_cazaMotivos"></textarea>
                     </div>
-                  </div>
-
-                  <div>
-                    <label for="a_cazaMotivos">¿Por qué motivos se cazan estos animales?</label>
-                    <textarea id="a_cazaMotivos"></textarea>
                   </div>
 
                   <div class="grid cols-2">
@@ -935,10 +966,11 @@
                         <option>No sabe</option>
                       </select>
                     </div>
-                    <div>
-                      <label for="a_silvestresQuePaso">Si sí, ¿qué pasó?</label>
-                      <input id="a_silvestresQuePaso" />
-                    </div>
+                  </div>
+
+                  <div id="a_silvestresDetalleWrap">
+                    <label for="a_silvestresQuePaso">Si sí, ¿qué pasó?</label>
+                    <input id="a_silvestresQuePaso" />
                   </div>
 
                   <div class="grid cols-2">
@@ -950,47 +982,21 @@
                         <option>No</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div id="a_rioDetalleWrap" class="grid">
                     <div>
-                      <label for="a_rioParaQue">Si sí, ¿para qué actividades los utiliza?</label>
+                      <label for="a_rioParaQue">¿Para qué actividades los utiliza?</label>
                       <input id="a_rioParaQue" />
                     </div>
-                  </div>
-
-                  <div>
-                    <label for="a_rioSignificado">¿Qué significado tiene el río para usted o su familia?</label>
-                    <textarea id="a_rioSignificado"></textarea>
-                  </div>
-
-                  <div>
-                    <label for="a_rioProblemas">¿Ha observado algún problema relacionado con el río o el agua?</label>
-                    <textarea id="a_rioProblemas"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
                     <div>
-                      <label for="a_saberesLocales">En su comunidad, ¿hay formas de cuidar animales o cultivos que se hayan aprendido de personas mayores y que se sigan usando hasta hoy?</label>
-                      <select id="a_saberesLocales">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
+                      <label for="a_rioSignificado">¿Qué significado tiene el río para usted o su familia?</label>
+                      <textarea id="a_rioSignificado"></textarea>
                     </div>
                     <div>
-                      <label for="a_saberesQuien">¿Quién le enseñó o de quién aprendió estas prácticas?</label>
-                      <input id="a_saberesQuien" />
+                      <label for="a_rioProblemas">¿Ha observado algún problema relacionado con el río o el agua?</label>
+                      <textarea id="a_rioProblemas"></textarea>
                     </div>
-                  </div>
-
-                  <div>
-                    <label for="a_saberesUtilidad">¿Todavía le sirven o le funcionan esas prácticas para el manejo de animales o del campo?</label>
-                    <select id="a_saberesUtilidad">
-                      <option value="">— Selecciona —</option>
-                      <option>Sí, mucho</option>
-                      <option>Sí, a veces</option>
-                      <option>Poco</option>
-                      <option>Nada</option>
-                    </select>
                   </div>
                 </div>
               </details>
@@ -998,11 +1004,49 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>VII. Interés en pequeños rumiantes</summary>
+                <summary>VIII. Saberes locales</summary>
                 <div class="inner grid">
-                  <div class="grid cols-2">
+                  <div>
+                    <label for="a_saberesLocales">En su comunidad, ¿hay formas de cuidar animales o cultivos que se hayan aprendido de personas mayores y que se sigan usando hasta hoy?</label>
+                    <select id="a_saberesLocales">
+                        <option value="">— Selecciona —</option>
+                        <option>Sí</option>
+                        <option>No</option>
+                        <option>No sabe</option>
+                      </select>
+                    </div>
+
+                  <div id="a_saberesDetalleWrap" class="grid cols-3">
                     <div>
-                      <label for="a_interestRumiants">¿Le interesaría tener borregos o cabras en el futuro?</label>
+                      <label for="a_saberesCual">¿Qué saber en específico?</label>
+                      <input id="a_saberesCual" />
+                    </div>
+                    <div>
+                      <label for="a_saberesQuien">¿Quién se lo enseñó?</label>
+                      <input id="a_saberesQuien" />
+                    </div>
+                    <div>
+                      <label for="a_saberesUso">¿Qué tanto lo usan actualmente?</label>
+                      <select id="a_saberesUso">
+                        <option value="">— Selecciona —</option>
+                        <option>Mucho</option>
+                        <option>Regular</option>
+                        <option>Poco</option>
+                        <option>Nada</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>IX. Interés en pequeños rumiantes</summary>
+                <div class="inner grid">
+                  <div class="grid cols-2" id="rumiantInterestWrap">
+                    <div>
+                      <label for="a_interestRumiants">Si actualmente no tiene borregos o cabras, ¿le interesaría tenerlos?</label>
                       <select id="a_interestRumiants">
                         <option value="">— Selecciona —</option>
                         <option>Sí</option>
@@ -1011,7 +1055,7 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_interestRumiantsWhy">¿Por qué le gustaría tenerlos?</label>
+                      <label for="a_interestRumiantsWhy">¿Por qué?</label>
                       <input id="a_interestRumiantsWhy" />
                     </div>
                   </div>
@@ -1025,9 +1069,20 @@
                         <option>No</option>
                       </select>
                     </div>
-                    <div>
-                      <label for="a_noRumiantsWhy">Si respondió “No”, ¿cuál es la principal razón por la que actualmente no tiene borregos o cabras?</label>
-                      <input id="a_noRumiantsWhy" />
+                    <div id="rumiantNoCurrentReasonWrap">
+                      <label for="a_noRumiantsWhy">¿Cuál es la principal razón por la que actualmente no tiene borregos o cabras?</label>
+                      <select id="a_noRumiantsWhy">
+                        <option value="">— Selecciona —</option>
+                        <option>Falta de dinero para comprar animales</option>
+                        <option>Falta de conocimiento sobre su manejo</option>
+                        <option>Falta de espacio o tierra</option>
+                        <option>Porque nadie en la familia se dedica a eso</option>
+                        <option>Falta de alimento o pasto</option>
+                        <option>Porque se perdieron o murieron los animales</option>
+                        <option>Falta de tiempo para cuidarlos</option>
+                        <option>Porque los vendió y no volvió a comprar</option>
+                        <option>Otro</option>
+                      </select>
                     </div>
                   </div>
 
@@ -1060,7 +1115,7 @@
                         <option>No sabe</option>
                       </select>
                     </div>
-                    <div>
+                    <div id="rumiantWomenNeedWrap">
                       <label for="a_rumiantsNeed">¿Qué necesitarían para poder hacerlo?</label>
                       <input id="a_rumiantsNeed" />
                     </div>
@@ -1071,20 +1126,30 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>VIII. Interés en aves</summary>
+                <summary>X. Interés en aves</summary>
                 <div class="inner grid">
                   <div class="help">
-                    Esta parte es para conocer lo que saben y poder dar información sobre aves; no significa que se les van a regalar o vender animales.
+                    Marque el número que mejor represente su opinión. 1 = Nada, 2 = Poco, 3 = Regular, 4 = Mucho.
                   </div>
 
-                  <div id="a_interestBirdsYesWrap">
-                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 5)</label>
-                    <input id="a_interestBirdsYes" type="number" min="1" max="5" />
+                  <div id="a_interestBirdsCurrentWrap">
+                    <label>Si actualmente tiene aves: ¿qué tanto interés tendría en participar en actividades para aprender más sobre la crianza de aves y mejorar su producción, como entrevistas más detalladas o dinámicas de trabajo relacionadas con el tema?</label>
+                    <div class="scale-row">
+                      <label class="radio"><input type="radio" name="birds_current" value="1"><span>1</span></label>
+                      <label class="radio"><input type="radio" name="birds_current" value="2"><span>2</span></label>
+                      <label class="radio"><input type="radio" name="birds_current" value="3"><span>3</span></label>
+                      <label class="radio"><input type="radio" name="birds_current" value="4"><span>4</span></label>
+                    </div>
                   </div>
 
-                  <div id="a_interestBirdsNoWrap">
-                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 5)</label>
-                    <input id="a_interestBirdsNo" type="number" min="1" max="5" />
+                  <div id="a_interestBirdsStartWrap">
+                    <label>Si actualmente no tiene aves: ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves, como entrevistas más detalladas o dinámicas relacionadas con este tema?</label>
+                    <div class="scale-row">
+                      <label class="radio"><input type="radio" name="birds_start" value="1"><span>1</span></label>
+                      <label class="radio"><input type="radio" name="birds_start" value="2"><span>2</span></label>
+                      <label class="radio"><input type="radio" name="birds_start" value="3"><span>3</span></label>
+                      <label class="radio"><input type="radio" name="birds_start" value="4"><span>4</span></label>
+                    </div>
                   </div>
                 </div>
               </details>
