@@ -1,17 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
-
-    <script src="./script.js"></script>
-  </body>
-</html>
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -133,10 +120,6 @@
                       <input id="escolaridadOtro" type="text" />
                     </div>
 
-                    <div>
-                      <label for="horario">12. Horario en el que se puede encontrar</label>
-                      <input id="horario" type="text" placeholder="Ej. L-V 7-10 am y 6-8 pm" />
-                    </div>
                   </div>
 
                   <div class="grid cols-2">
@@ -683,7 +666,7 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_curadorQuien">¿Quién es esa persona?</label>
+                      <label for="a_curadorQuien">Nombre de la persona</label>
                       <input id="a_curadorQuien" />
                     </div>
                   </div>
@@ -702,7 +685,7 @@
                       <input id="a_curadorTiempo" />
                     </div>
                     <div>
-                      <label for="a_curadorServicios">¿Qué servicios brinda?</label>
+                      <label for="a_curadorServicios">¿Qué servicios brinda? (escríbalos)</label>
                       <input id="a_curadorServicios" />
                     </div>
                   </div>
@@ -717,13 +700,17 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_practicasQuien">¿Quién realiza normalmente estos procedimientos?</label>
-                      <input id="a_practicasQuien" />
+                      <label for="a_atencionVeterinaria">¿Alguna vez ha acudido a atención veterinaria?</label>
+                      <select id="a_atencionVeterinaria">
+                        <option value="">— Selecciona —</option>
+                        <option>Sí</option>
+                        <option>No</option>
+                      </select>
                     </div>
                   </div>
 
                   <div>
-                    <label for="a_practicasAsesoria">¿Reciben asesoría veterinaria para realizarlos?</label>
+                    <label for="a_practicasAsesoria">Si la persona no es veterinaria, ¿recibe asesoría veterinaria?</label>
                     <select id="a_practicasAsesoria">
                       <option value="">— Selecciona —</option>
                       <option>Sí</option>
@@ -758,12 +745,16 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_tradUso">¿Para qué lo usa?</label>
+                      <label for="a_tradUso">¿Cómo lo usa?</label>
                       <input id="a_tradUso" />
                     </div>
                     <div>
                       <label for="a_tradParte">Parte que usa, si aplica</label>
                       <input id="a_tradParte" />
+                    </div>
+                    <div>
+                      <label for="a_tradAnimales">¿En qué animales lo aplica?</label>
+                      <input id="a_tradAnimales" />
                     </div>
                   </div>
 
@@ -780,19 +771,16 @@
                       <label for="a_genderAnimal">Animal</label>
                       <select id="a_genderAnimal">
                         <option>Vacas</option>
-                        <option>Pequeños rumiantes (borregos y cabras)</option>
-                        <option>Caballos</option>
-                        <option>Burros, mulas</option>
-                        <option>Aves de corral</option>
-                        <option>Guajolotes</option>
-                        <option>Aves de pelea</option>
+                        <option>Borregos</option>
+                        <option>Cabras</option>
+                        <option>Équidos</option>
                         <option>Cerdos</option>
                         <option>Perros</option>
                         <option>Gatos</option>
                         <option>Conejos</option>
-                        <option>Abejas</option>
-                        <option>Peces</option>
-                        <option>Otro</option>
+                        <option>Aves de pelea</option>
+                        <option>Aves de ornato</option>
+                        <option>Aves de corral</option>
                       </select>
                     </div>
 
@@ -822,7 +810,24 @@
                   <div class="grid cols-3">
                     <div>
                       <label for="a_actividadGenero">Actividad</label>
-                      <input id="a_actividadGenero" placeholder="Ej. ordeñar, vender, alimentar..." />
+                      <input id="a_actividadGenero" list="actividadCampoList" placeholder="Ej. ordeñar, vender, alimentar..." />
+                      <datalist id="actividadCampoList">
+                        <option value="Ordeñar"></option>
+                        <option value="Alimentar animales"></option>
+                        <option value="Limpiar corrales"></option>
+                        <option value="Pastorear"></option>
+                        <option value="Vacunar"></option>
+                        <option value="Desparasitar"></option>
+                        <option value="Dar tratamientos"></option>
+                        <option value="Atender partos"></option>
+                        <option value="Recolectar huevo"></option>
+                        <option value="Vender animales"></option>
+                        <option value="Comprar alimento"></option>
+                        <option value="Cuidar crías"></option>
+                        <option value="Llevar agua"></option>
+                        <option value="Siembra"></option>
+                        <option value="Cosecha"></option>
+                      </datalist>
                     </div>
 
                     <div>
@@ -968,7 +973,7 @@
 
                   <div class="grid cols-2">
                     <div>
-                      <label for="a_saberesLocales">En su comunidad, ¿hay formas de cuidar animales o cultivos que se hayan aprendido de personas mayores y que se sigan usando hasta hoy?</label>
+                      <label for="a_saberesLocales">¿En su comunidad siguen usando saberes o prácticas aprendidas de personas mayores para cuidar animales o trabajar el campo?</label>
                       <select id="a_saberesLocales">
                         <option value="">— Selecciona —</option>
                         <option>Sí</option>
@@ -977,13 +982,18 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_saberesQuien">¿Quién le enseñó o de quién aprendió estas prácticas?</label>
+                      <label for="a_saberesQuien">Si sí, ¿quién se lo enseñó?</label>
                       <input id="a_saberesQuien" />
                     </div>
                   </div>
 
                   <div>
-                    <label for="a_saberesUtilidad">¿Todavía le sirven o le funcionan esas prácticas para el manejo de animales o del campo?</label>
+                    <label for="a_saberesCual">Si sí, ¿cuál saber o práctica usa?</label>
+                    <input id="a_saberesCual" />
+                  </div>
+
+                  <div>
+                    <label for="a_saberesUtilidad">¿Qué tanto usa ese saber actualmente?</label>
                     <select id="a_saberesUtilidad">
                       <option value="">— Selecciona —</option>
                       <option>Sí, mucho</option>
@@ -1000,7 +1010,7 @@
               <details open>
                 <summary>VII. Interés en pequeños rumiantes</summary>
                 <div class="inner grid">
-                  <div class="grid cols-2">
+                  <div class="grid cols-2" id="a_rumiantInterestWrap">
                     <div>
                       <label for="a_interestRumiants">¿Le interesaría tener borregos o cabras en el futuro?</label>
                       <select id="a_interestRumiants">
@@ -1041,27 +1051,7 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_rumiantsOthers">¿Conoce a otras personas en la comunidad que también estén interesadas?</label>
-                      <select id="a_rumiantsOthers">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_rumiantsWomen">¿Cree que las mujeres estarían interesadas en criar borregos o cabras si tuvieran oportunidad o recursos?</label>
-                      <select id="a_rumiantsWomen">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_rumiantsNeed">¿Qué necesitarían para poder hacerlo?</label>
+                      <label for="a_rumiantsNeed">¿Qué necesitaría para poder hacerlo?</label>
                       <input id="a_rumiantsNeed" />
                     </div>
                   </div>
@@ -1075,16 +1065,17 @@
                 <div class="inner grid">
                   <div class="help">
                     Esta parte es para conocer lo que saben y poder dar información sobre aves; no significa que se les van a regalar o vender animales.
+                    <br />Escala visible: 1 = Nada, 2 = Poco, 3 = Regular, 4 = Mucho.
                   </div>
 
                   <div id="a_interestBirdsYesWrap">
-                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 5)</label>
-                    <input id="a_interestBirdsYes" type="number" min="1" max="5" />
+                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 4)</label>
+                    <input id="a_interestBirdsYes" type="number" min="1" max="4" />
                   </div>
 
                   <div id="a_interestBirdsNoWrap">
-                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 5)</label>
-                    <input id="a_interestBirdsNo" type="number" min="1" max="5" />
+                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 4)</label>
+                    <input id="a_interestBirdsNo" type="number" min="1" max="4" />
                   </div>
                 </div>
               </details>
@@ -1611,11 +1602,7 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_species">Especie animal</label>
-                      <input id="p_species" type="text" />
-                    </div>
+                  <div class="grid cols-3">
                     <div>
                       <label for="p_identification">No. identificación animal</label>
                       <input id="p_identification" type="text" />
@@ -1630,7 +1617,7 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-3">
+                  <div class="grid cols-1">
                     <div>
                       <label for="p_generalState">Estado general</label>
                       <select id="p_generalState">
@@ -1643,20 +1630,6 @@
                         <option>Deshidratado</option>
                         <option>Otro</option>
                       </select>
-                    </div>
-                    <div>
-                      <label for="p_chargeStatus">Estado del cobro</label>
-                      <select id="p_chargeStatus">
-                        <option value="">— Selecciona —</option>
-                        <option>Pendiente</option>
-                        <option>Cobrado</option>
-                        <option>Parcial</option>
-                        <option>Donado</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="p_chargeNotes">Notas de cobro</label>
-                      <input id="p_chargeNotes" type="text" />
                     </div>
                   </div>
 

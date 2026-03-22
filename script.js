@@ -1162,7 +1162,7 @@ function collectProducerForm() {
       languageSelf: $("#lenguaYo").value.trim(),
       languageFamilyWho: $("#lenguaFamiliarQuien").value.trim(),
       languageFamilyWhich: $("#lenguaFamiliarCual").value.trim(),
-      schedule: $("#horario").value.trim(),
+      schedule: $("#horario")?.value.trim() || "",
       peopleAtHome: $("#personasEnCasa").value.trim()
     },
 
@@ -1239,7 +1239,7 @@ function fillProducerForm(prod) {
   $("#lenguaYo").value = prod.basic?.languageSelf || "";
   $("#lenguaFamiliarQuien").value = prod.basic?.languageFamilyWho || "";
   $("#lenguaFamiliarCual").value = prod.basic?.languageFamilyWhich || "";
-  $("#horario").value = prod.basic?.schedule || "";
+  if ($("#horario")) $("#horario").value = prod.basic?.schedule || "";
   $("#personasEnCasa").value = prod.basic?.peopleAtHome || "";
 
   $("#lat").value = prod.location?.lat || "";
@@ -1953,7 +1953,8 @@ function addTraditional() {
     name: $("#a_tradNombre").value.trim(),
     type: $("#a_tradTipo").value,
     use: $("#a_tradUso").value.trim(),
-    part: $("#a_tradParte").value.trim()
+    part: $("#a_tradParte").value.trim(),
+    animals: $("#a_tradAnimales")?.value.trim() || ""
   };
 
   if (!item.name) {
@@ -1969,6 +1970,7 @@ function addTraditional() {
   $("#a_tradTipo").value = "";
   $("#a_tradUso").value = "";
   $("#a_tradParte").value = "";
+  if ($("#a_tradAnimales")) $("#a_tradAnimales").value = "";
 }
 
 function renderTraditionalList() {
@@ -1992,6 +1994,7 @@ function renderTraditionalList() {
       <div class="kv">
         <div class="line"><b>Uso:</b> ${escapeHtml(item.use || "")}</div>
         <div class="line"><b>Parte:</b> ${escapeHtml(item.part || "")}</div>
+        <div class="line"><b>Animales:</b> ${escapeHtml(item.animals || "")}</div>
       </div>
       <div class="actions" style="margin-top:12px;">
         <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
@@ -2003,6 +2006,7 @@ function renderTraditionalList() {
       $("#a_tradTipo").value = item.type || "";
       $("#a_tradUso").value = item.use || "";
       $("#a_tradParte").value = item.part || "";
+      if ($("#a_tradAnimales")) $("#a_tradAnimales").value = item.animals || "";
       q.traditional = q.traditional.filter(x => x.id !== item.id);
       saveState();
       renderTraditionalList();
@@ -2178,7 +2182,7 @@ function saveAnimalQuestionnaireFull() {
   q.curadorTiempo = $("#a_curadorTiempo").value.trim();
   q.curadorServicios = $("#a_curadorServicios").value.trim();
   q.practicesAny = $("#a_practicas").value;
-  q.practicesWho = $("#a_practicasQuien").value.trim();
+  q.attendedVetCare = $("#a_atencionVeterinaria")?.value || "";
   q.practicesAdvice = $("#a_practicasAsesoria").value;
   q.programRegistered = $("#a_programaRegistro").value;
   q.programName = $("#a_programaNombre").value.trim();
@@ -2199,6 +2203,7 @@ function saveAnimalQuestionnaireFull() {
   q.riverProblems = $("#a_rioProblemas").value.trim();
   q.localKnowledgeExists = $("#a_saberesLocales").value;
   q.localKnowledgeWho = $("#a_saberesQuien").value.trim();
+  q.localKnowledgeWhat = $("#a_saberesCual")?.value.trim() || "";
   q.localKnowledgeUseful = $("#a_saberesUtilidad").value;
   q.rumiantInterest = $("#a_interestRumiants").value;
   q.rumiantInterestWhy = $("#a_interestRumiantsWhy").value.trim();
@@ -2238,7 +2243,7 @@ function fillAnimalQuestionnaireFields() {
   $("#a_curadorTiempo").value = q.curadorTiempo || "";
   $("#a_curadorServicios").value = q.curadorServicios || "";
   $("#a_practicas").value = q.practicesAny || "";
-  $("#a_practicasQuien").value = q.practicesWho || "";
+  if ($("#a_atencionVeterinaria")) $("#a_atencionVeterinaria").value = q.attendedVetCare || "";
   $("#a_practicasAsesoria").value = q.practicesAdvice || "";
   $("#a_programaRegistro").value = q.programRegistered || "";
   $("#a_programaNombre").value = q.programName || "";
@@ -2259,6 +2264,7 @@ function fillAnimalQuestionnaireFields() {
   $("#a_rioProblemas").value = q.riverProblems || "";
   $("#a_saberesLocales").value = q.localKnowledgeExists || "";
   $("#a_saberesQuien").value = q.localKnowledgeWho || "";
+  if ($("#a_saberesCual")) $("#a_saberesCual").value = q.localKnowledgeWhat || "";
   $("#a_saberesUtilidad").value = q.localKnowledgeUseful || "";
   $("#a_interestRumiants").value = q.rumiantInterest || "";
   $("#a_interestRumiantsWhy").value = q.rumiantInterestWhy || "";
@@ -2904,7 +2910,7 @@ function collectProducerForm() {
       languageSelf: $("#lenguaYo").value.trim(),
       languageFamilyWho: $("#lenguaFamiliarQuien").value.trim(),
       languageFamilyWhich: $("#lenguaFamiliarCual").value.trim(),
-      schedule: $("#horario").value.trim(),
+      schedule: $("#horario")?.value.trim() || "",
       peopleAtHome: $("#personasEnCasa").value.trim()
     },
 
@@ -2981,7 +2987,7 @@ function fillProducerForm(prod) {
   $("#lenguaYo").value = prod.basic?.languageSelf || "";
   $("#lenguaFamiliarQuien").value = prod.basic?.languageFamilyWho || "";
   $("#lenguaFamiliarCual").value = prod.basic?.languageFamilyWhich || "";
-  $("#horario").value = prod.basic?.schedule || "";
+  if ($("#horario")) $("#horario").value = prod.basic?.schedule || "";
   $("#personasEnCasa").value = prod.basic?.peopleAtHome || "";
 
   $("#lat").value = prod.location?.lat || "";
@@ -3695,7 +3701,8 @@ function addTraditional() {
     name: $("#a_tradNombre").value.trim(),
     type: $("#a_tradTipo").value,
     use: $("#a_tradUso").value.trim(),
-    part: $("#a_tradParte").value.trim()
+    part: $("#a_tradParte").value.trim(),
+    animals: $("#a_tradAnimales")?.value.trim() || ""
   };
 
   if (!item.name) {
@@ -3711,6 +3718,7 @@ function addTraditional() {
   $("#a_tradTipo").value = "";
   $("#a_tradUso").value = "";
   $("#a_tradParte").value = "";
+  if ($("#a_tradAnimales")) $("#a_tradAnimales").value = "";
 }
 
 function renderTraditionalList() {
@@ -3734,6 +3742,7 @@ function renderTraditionalList() {
       <div class="kv">
         <div class="line"><b>Uso:</b> ${escapeHtml(item.use || "")}</div>
         <div class="line"><b>Parte:</b> ${escapeHtml(item.part || "")}</div>
+        <div class="line"><b>Animales:</b> ${escapeHtml(item.animals || "")}</div>
       </div>
       <div class="actions" style="margin-top:12px;">
         <button class="btn small ghost" type="button" data-action="edit">✏️ Editar</button>
@@ -3745,6 +3754,7 @@ function renderTraditionalList() {
       $("#a_tradTipo").value = item.type || "";
       $("#a_tradUso").value = item.use || "";
       $("#a_tradParte").value = item.part || "";
+      if ($("#a_tradAnimales")) $("#a_tradAnimales").value = item.animals || "";
       q.traditional = q.traditional.filter(x => x.id !== item.id);
       saveState();
       renderTraditionalList();
@@ -3920,7 +3930,7 @@ function saveAnimalQuestionnaireFull() {
   q.curadorTiempo = $("#a_curadorTiempo").value.trim();
   q.curadorServicios = $("#a_curadorServicios").value.trim();
   q.practicesAny = $("#a_practicas").value;
-  q.practicesWho = $("#a_practicasQuien").value.trim();
+  q.attendedVetCare = $("#a_atencionVeterinaria")?.value || "";
   q.practicesAdvice = $("#a_practicasAsesoria").value;
   q.programRegistered = $("#a_programaRegistro").value;
   q.programName = $("#a_programaNombre").value.trim();
@@ -3941,6 +3951,7 @@ function saveAnimalQuestionnaireFull() {
   q.riverProblems = $("#a_rioProblemas").value.trim();
   q.localKnowledgeExists = $("#a_saberesLocales").value;
   q.localKnowledgeWho = $("#a_saberesQuien").value.trim();
+  q.localKnowledgeWhat = $("#a_saberesCual")?.value.trim() || "";
   q.localKnowledgeUseful = $("#a_saberesUtilidad").value;
   q.rumiantInterest = $("#a_interestRumiants").value;
   q.rumiantInterestWhy = $("#a_interestRumiantsWhy").value.trim();
@@ -3980,7 +3991,7 @@ function fillAnimalQuestionnaireFields() {
   $("#a_curadorTiempo").value = q.curadorTiempo || "";
   $("#a_curadorServicios").value = q.curadorServicios || "";
   $("#a_practicas").value = q.practicesAny || "";
-  $("#a_practicasQuien").value = q.practicesWho || "";
+  if ($("#a_atencionVeterinaria")) $("#a_atencionVeterinaria").value = q.attendedVetCare || "";
   $("#a_practicasAsesoria").value = q.practicesAdvice || "";
   $("#a_programaRegistro").value = q.programRegistered || "";
   $("#a_programaNombre").value = q.programName || "";
@@ -4001,6 +4012,7 @@ function fillAnimalQuestionnaireFields() {
   $("#a_rioProblemas").value = q.riverProblems || "";
   $("#a_saberesLocales").value = q.localKnowledgeExists || "";
   $("#a_saberesQuien").value = q.localKnowledgeWho || "";
+  if ($("#a_saberesCual")) $("#a_saberesCual").value = q.localKnowledgeWhat || "";
   $("#a_saberesUtilidad").value = q.localKnowledgeUseful || "";
   $("#a_interestRumiants").value = q.rumiantInterest || "";
   $("#a_interestRumiantsWhy").value = q.rumiantInterestWhy || "";
