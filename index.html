@@ -1,17 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
-
-    <script src="./script.js"></script>
-  </body>
-</html>
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -114,6 +101,23 @@
                   </div>
 
                   <div class="grid cols-3">
+                    <div>
+                      <label for="tenenciaComunal">Tenencia / calidad agraria</label>
+                      <select id="tenenciaComunal">
+                        <option value="">— Selecciona —</option>
+                        <option value="EJIDATARIO">Ejidatario(a)</option>
+                        <option value="AVECINDADO">Avecindado(a)</option>
+                        <option value="POSESIONARIO">Posesionario(a)</option>
+                        <option value="COMUNERO">Comunero(a)</option>
+                        <option value="OTRO">Otro</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label for="tenenciaComunalOtro">Detalle si es otro</label>
+                      <input id="tenenciaComunalOtro" type="text" placeholder="Ej. pequeño propietario" />
+                    </div>
+
                     <div>
                       <label for="escolaridad">Escolaridad</label>
                       <select id="escolaridad">
@@ -1581,7 +1585,7 @@
                       <select id="p_type">
                         <option value="">— Selecciona —</option>
                         <option value="PREVENTIVA">Medicina preventiva</option>
-                        <option value="ZOOTECNIA">Asesoría zootécnica</option>
+                        <option value="ZOOTECNIA">Técnicas zootécnicas</option>
                         <option value="CASO_CLINICO">Caso clínico</option>
                         <option value="NECROPSIA">Necropsia</option>
                       </select>
@@ -1747,8 +1751,171 @@
 
               <div class="sep"></div>
 
+              <details open id="p_preventiveSection">
+                <summary>3. Medicina preventiva</summary>
+                <div class="inner grid">
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="p_preventiveSubtype">Tipo de medicina preventiva</label>
+                      <select id="p_preventiveSubtype">
+                        <option value="">— Selecciona —</option>
+                        <option value="VACUNACION">Vacunación</option>
+                        <option value="DESPARASITACION">Desparasitación</option>
+                        <option value="VITAMINACION">Vitaminación</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="p_preventiveTarget">¿A qué animales se realizará?</label>
+                      <input id="p_preventiveTarget" type="text" placeholder="Ej. becerras de 3-6 meses" />
+                    </div>
+                    <div>
+                      <label for="p_preventiveQty">¿A cuántos animales?</label>
+                      <input id="p_preventiveQty" type="number" min="0" step="1" />
+                    </div>
+                    <div>
+                      <label for="p_preventiveRoute">Vía / estrategia</label>
+                      <input id="p_preventiveRoute" type="text" placeholder="SC, IM, oral..." />
+                    </div>
+                  </div>
+
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="p_preventiveProduct">Producto principal</label>
+                      <input id="p_preventiveProduct" type="text" />
+                    </div>
+                    <div>
+                      <label for="p_preventiveLot">Lote / caducidad</label>
+                      <input id="p_preventiveLot" type="text" />
+                    </div>
+                    <div>
+                      <label for="p_preventiveNextDate">Próxima fecha sugerida</label>
+                      <input id="p_preventiveNextDate" type="date" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="p_preventiveNotes">Plan, cobertura y observaciones</label>
+                    <textarea id="p_preventiveNotes"></textarea>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open id="p_labSection">
+                <summary>4. Pruebas de laboratorio</summary>
+                <div class="inner grid">
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="p_lab_requested">¿Se solicitaron pruebas?</label>
+                      <select id="p_lab_requested">
+                        <option value="">— Selecciona —</option>
+                        <option value="SI">Sí</option>
+                        <option value="NO">No</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="p_lab_type">Tipo de prueba</label>
+                      <input id="p_lab_type" type="text" placeholder="BH, copro, serología..." />
+                    </div>
+                    <div>
+                      <label for="p_lab_sample">Muestra tomada</label>
+                      <input id="p_lab_sample" type="text" placeholder="Sangre, heces, tejido..." />
+                    </div>
+                    <div>
+                      <label for="p_lab_date">Fecha de muestreo</label>
+                      <input id="p_lab_date" type="date" />
+                    </div>
+                  </div>
+
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="p_lab_labName">Laboratorio</label>
+                      <input id="p_lab_labName" type="text" />
+                    </div>
+                    <div>
+                      <label for="p_lab_folio">Folio / referencia</label>
+                      <input id="p_lab_folio" type="text" />
+                    </div>
+                    <div>
+                      <label for="p_lab_status">Estado del resultado</label>
+                      <select id="p_lab_status">
+                        <option value="">— Selecciona —</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="RECIBIDO">Recibido</option>
+                        <option value="INTERPRETADO">Interpretado</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="grid cols-2">
+                    <div>
+                      <label for="p_lab_results">Resultados</label>
+                      <textarea id="p_lab_results"></textarea>
+                    </div>
+                    <div>
+                      <label for="p_lab_interpretation">Interpretación / decisión clínica</label>
+                      <textarea id="p_lab_interpretation"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open id="p_zootecSection">
+                <summary>5. Técnicas zootécnicas</summary>
+                <div class="inner grid">
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="p_zoo_technique">Técnica principal</label>
+                      <select id="p_zoo_technique">
+                        <option value="">— Selecciona —</option>
+                        <option value="DESCORNE">Descorne</option>
+                        <option value="DESCOLLE">Descole</option>
+                        <option value="CASTRACION">Castración</option>
+                        <option value="IDENTIFICACION">Identificación</option>
+                        <option value="PESAJE">Pesaje</option>
+                        <option value="ASESORIA_MANEJO">Asesoría de manejo zootécnico</option>
+                        <option value="OTRA">Otra</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="p_zoo_target">Grupo objetivo</label>
+                      <input id="p_zoo_target" type="text" placeholder="Ej. corderos al destete" />
+                    </div>
+                    <div>
+                      <label for="p_zoo_qty">Cantidad intervenida</label>
+                      <input id="p_zoo_qty" type="number" min="0" step="1" />
+                    </div>
+                    <div>
+                      <label for="p_zoo_anaesthesia">Anestesia / analgesia</label>
+                      <input id="p_zoo_anaesthesia" type="text" />
+                    </div>
+                  </div>
+
+                  <div class="grid cols-2">
+                    <div>
+                      <label for="p_zoo_protocol">Protocolo aplicado</label>
+                      <textarea id="p_zoo_protocol"></textarea>
+                    </div>
+                    <div>
+                      <label for="p_zoo_recommendations">Recomendaciones zootécnicas integradas</label>
+                      <textarea id="p_zoo_recommendations"></textarea>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="p_zoo_outcome">Resultado / seguimiento sugerido</label>
+                    <textarea id="p_zoo_outcome"></textarea>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
               <details open>
-                <summary>3. Caso clínico</summary>
+                <summary>6. Caso clínico</summary>
                 <div class="inner grid">
 
                   <div class="grid cols-2">
@@ -1806,24 +1973,24 @@
                       <textarea id="p_cc_exam"></textarea>
                     </div>
                     <div>
-                      <label for="p_cc_presumptiveDx">Diagnóstico presuntivo</label>
-                      <textarea id="p_cc_presumptiveDx"></textarea>
+                      <label for="p_cc_problemList">Lista de problemas orientada al diagnóstico</label>
+                      <textarea id="p_cc_problemList"></textarea>
                     </div>
                   </div>
 
                   <div class="grid cols-2">
                     <div>
-                      <label for="p_cc_treatment">Tratamiento</label>
-                      <textarea id="p_cc_treatment"></textarea>
+                      <label for="p_cc_assessment">Valoración / diagnósticos diferenciales</label>
+                      <textarea id="p_cc_assessment"></textarea>
                     </div>
                     <div>
-                      <label for="p_cc_recommendations">Recomendaciones</label>
-                      <textarea id="p_cc_recommendations"></textarea>
+                      <label for="p_cc_plan">Plan diagnóstico-terapéutico</label>
+                      <textarea id="p_cc_plan"></textarea>
                     </div>
                   </div>
 
                   <div>
-                    <label for="p_cc_followup">Seguimiento</label>
+                    <label for="p_cc_followup">Seguimiento y respuesta esperada</label>
                     <textarea id="p_cc_followup"></textarea>
                   </div>
 
@@ -1846,7 +2013,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>4. Necropsia</summary>
+                <summary>7. Necropsia</summary>
                 <div class="inner grid">
 
                   <div class="grid cols-4">
@@ -1990,6 +2157,51 @@
                     <textarea id="p_nec_comments"></textarea>
                   </div>
 
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="p_nec_posture">Posición del cadáver</label>
+                      <input id="p_nec_posture" type="text" />
+                    </div>
+                    <div>
+                      <label for="p_nec_nutritionalStatus">Estado nutricional</label>
+                      <input id="p_nec_nutritionalStatus" type="text" />
+                    </div>
+                    <div>
+                      <label for="p_nec_decomposition">Grado de descomposición</label>
+                      <input id="p_nec_decomposition" type="text" />
+                    </div>
+                    <div>
+                      <label for="p_nec_parasites">Parásitos / ectoparásitos</label>
+                      <input id="p_nec_parasites" type="text" />
+                    </div>
+                  </div>
+
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="p_nec_liver">Hígado</label>
+                      <textarea id="p_nec_liver"></textarea>
+                    </div>
+                    <div>
+                      <label for="p_nec_intestines">Intestinos</label>
+                      <textarea id="p_nec_intestines"></textarea>
+                    </div>
+                    <div>
+                      <label for="p_nec_urogenital">Sistema urogenital</label>
+                      <textarea id="p_nec_urogenital"></textarea>
+                    </div>
+                  </div>
+
+                  <div class="grid cols-2">
+                    <div>
+                      <label for="p_nec_samplesTaken">Muestras tomadas para laboratorio</label>
+                      <textarea id="p_nec_samplesTaken"></textarea>
+                    </div>
+                    <div>
+                      <label for="p_nec_epicrisis">Epicrisis y correlación clínico-patológica</label>
+                      <textarea id="p_nec_epicrisis"></textarea>
+                    </div>
+                  </div>
+
                   <div class="grid cols-2">
                     <div>
                       <label for="p_nec_biblioSummary">Resumen bibliográfico</label>
@@ -2020,7 +2232,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>5. Cobro y evidencia</summary>
+                <summary>8. Cobro y evidencia</summary>
                 <div class="inner grid">
                   <div class="grid cols-3">
                     <div>
