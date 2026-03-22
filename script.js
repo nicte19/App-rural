@@ -223,6 +223,26 @@ function collectWeeklySchedule() {
     ]),
   );
 }
+function weeklyScheduleText(data = {}) {
+  return Object.entries(data)
+    .filter(([, v]) => v?.start || v?.end)
+    .map(([day, v]) => `${day[0].toUpperCase() + day.slice(1)}: ${v.start || "--"} - ${v.end || "--"}`)
+    .join("; ");
+}
+function detailRows(obj = {}) {
+  return Object.entries(obj)
+    .filter(([, v]) => {
+      if (Array.isArray(v)) return v.length;
+      return v !== "" && v != null;
+    })
+    .map(([k, v]) => `<tr><th>${esc(k)}</th><td>${Array.isArray(v) ? esc(v.join(", ")) : esc(v)}</td></tr>`)
+    .join("");
+}
+function dynamicPersonValues(values = []) {
+  const base = Array.isArray(values) ? values.filter(Boolean) : [values].filter(Boolean);
+  const other = $("#a_ownerOther")?.value.trim();
+  return base.flatMap((value) => value === "OTRO" && other ? [value, other] : [value]);
+}
 function fillWeeklySchedule(data = {}) {
   Object.entries(data).forEach(([d, v]) => {
     if ($(`#horario_${d}`)) $(`#horario_${d}`).value = v.start || "";
@@ -245,7 +265,6 @@ function collectProducerForm() {
       estado: $("#estado").value.trim(),
       escolaridad: $("#escolaridad").value,
       escolaridadOtro: $("#escolaridadOtro").value.trim(),
-      horario: $("#horario").value.trim(),
       weeklySchedule: collectWeeklySchedule(),
       sabeLeer: checked("sabeLeer"),
       sabeEscribir: checked("sabeEscribir"),
@@ -332,7 +351,6 @@ function fillProducerForm(prod) {
     estado: b.estado,
     escolaridad: b.escolaridad,
     escolaridadOtro: b.escolaridadOtro,
-    horario: b.horario,
     pertenenciaIndigena: b.pertenenciaIndigena,
     grupoIndigenaYo: b.grupoIndigenaYo,
     grupoIndigenaFamiliarQuien: b.grupoIndigenaFamiliarQuien,
@@ -529,11 +547,12 @@ function serializeAnimal() {
     species: $("#a_especie").value.trim(),
     breed: $("#a_raza").value.trim(),
     quantity: $("#a_cantidad").value,
-    owner: multiValues($("#a_dueno")),
-    decideSale: multiValues($("#a_decideVenta")),
-    feedClean: multiValues($("#a_limpiaAlimenta")),
+    owner: dynamicPersonValues(multiValues($("#a_dueno"))),
+    decideSale: dynamicPersonValues(multiValues($("#a_decideVenta"))),
+    feedClean: dynamicPersonValues(multiValues($("#a_limpiaAlimenta"))),
     function: multiValues($("#a_funcion")),
     functionOther: $("#a_funcionOtro").value.trim(),
+    ownerOther: $("#a_ownerOther").value.trim(),
     housing: $("#a_viven").value.trim(),
     feedType: $("#a_feedType").value.trim(),
     photos: [...state.draft.animalPhotos],
@@ -548,7 +567,8 @@ function resetAnimalEntry() {
     "a_viven",
     "a_feedType",
     "a_funcionOtro",
-  ].forEach((id) => ($("#" + id).value = ""));
+    "a_ownerOther",
+  ].forEach((id) => $("#" + id) && ($("#" + id).value = ""));
   ["#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta", "#a_funcion"].forEach(
     (sel) => setMulti($(sel), []),
   );
@@ -562,6 +582,7 @@ function fillAnimalEntry(an) {
     a_especie: an.species,
     a_raza: an.breed,
     a_cantidad: an.quantity,
+    a_ownerOther: an.ownerOther,
     a_viven: an.housing,
     a_feedType: an.feedType,
     a_funcionOtro: an.functionOther,
@@ -605,7 +626,6 @@ function renderAnimalPeopleSelects() {
       v: f.name,
       t: `${f.name} (${f.relation || "familia"})`,
     })),
-    { v: "VETERINARIO", t: "Veterinario(a)" },
     { v: "OTRO", t: "Otro" },
   ];
   ["#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta"].forEach((sel) => {
@@ -635,7 +655,6 @@ function renderAnimalBasedSelects() {
     "#a_animalesImportantes",
     "#a_vaxAnimal",
     "#a_dewormAnimal",
-    "#a_genderAnimal",
   ].forEach((sel) => {
     const el = $(sel);
     if (!el) return;
@@ -662,6 +681,16 @@ function renderAnimalBasedSelects() {
   $("#a_interestRumiants").closest("div").style.display = hasRumiants
     ? "none"
     : "block";
+  ["#a_rumiantsOthers", "#a_rumiantsWomen"].forEach((sel) => {
+    const el = $(sel)?.closest("div");
+    if (el) el.style.display = "none";
+  });
+  const labAnimal = $("#lab_animal");
+  if (labAnimal) {
+    const prev = labAnimal.value;
+    labAnimal.innerHTML = '<option value="">— Selecciona —</option>' + animals.map((a) => `<option value="${esc(animalLabel(a))}">${esc(animalLabel(a))}</option>`).join("");
+    labAnimal.value = prev;
+  }
 }
 async function bindAnimalPhotos() {
   ["a_instTake", "a_instPick"].forEach((id) =>
@@ -762,11 +791,13 @@ function saveAnimalQuestionnaireFull() {
     curadorExiste: $("#a_curadorExiste").value,
     curadorQuien: $("#a_curadorQuien").value.trim(),
     curadorEdad: $("#a_curadorEdad").value.trim(),
+    curadorGenero: $("#a_curadorGenero").value,
     curadorEspecies: $("#a_curadorEspecies").value.trim(),
     curadorTiempo: $("#a_curadorTiempo").value.trim(),
     curadorServicios: $("#a_curadorServicios").value.trim(),
     practicas: $("#a_practicas").value,
-    practicasQuien: $("#a_practicasQuien").value.trim(),
+    practicasServiciosTexto: $("#a_practicasServiciosTexto").value.trim(),
+    practicasAtencionVeterinaria: $("#a_practicasAtencionVeterinaria").value,
     practicasAsesoria: $("#a_practicasAsesoria").value,
     programaRegistro: $("#a_programaRegistro").value,
     programaNombre: $("#a_programaNombre").value,
@@ -786,15 +817,15 @@ function saveAnimalQuestionnaireFull() {
     riverMeaning: $("#a_rioSignificado").value.trim(),
     riverProblems: $("#a_rioProblemas").value.trim(),
     localKnowledgeExists: $("#a_saberesLocales").value,
+    localKnowledgeSpecific: $("#a_saberesCual").value.trim(),
     localKnowledgeWho: $("#a_saberesQuien").value.trim(),
+    localKnowledgeUseLevel: $("#a_saberesUso").value.trim(),
     localKnowledgeUseful: $("#a_saberesUtilidad").value.trim(),
     rumiantInterest: $("#a_interestRumiants").value,
     rumiantInterestWhy: $("#a_interestRumiantsWhy").value.trim(),
     hadRumiantsBefore: $("#a_hadRumiantsBefore").value,
     noRumiantsReason: $("#a_noRumiantsWhy").value.trim(),
     rumiantAdvice: $("#a_rumiantsAdvice").value,
-    rumiantOthers: $("#a_rumiantsOthers").value,
-    rumiantWomen: $("#a_rumiantsWomen").value,
     rumiantNeed: $("#a_rumiantsNeed").value.trim(),
     birdsInterestYes: $("#a_interestBirdsYes").value,
     birdsInterestNo: $("#a_interestBirdsNo").value,
@@ -822,11 +853,13 @@ function fillAnimalQuestionnaire() {
     a_curadorExiste: q.curadorExiste,
     a_curadorQuien: q.curadorQuien,
     a_curadorEdad: q.curadorEdad,
+    a_curadorGenero: q.curadorGenero,
     a_curadorEspecies: q.curadorEspecies,
     a_curadorTiempo: q.curadorTiempo,
     a_curadorServicios: q.curadorServicios,
     a_practicas: q.practicas,
-    a_practicasQuien: q.practicasQuien,
+    a_practicasServiciosTexto: q.practicasServiciosTexto,
+    a_practicasAtencionVeterinaria: q.practicasAtencionVeterinaria,
     a_practicasAsesoria: q.practicasAsesoria,
     a_programaRegistro: q.programaRegistro,
     a_programaNombre: q.programaNombre,
@@ -846,15 +879,15 @@ function fillAnimalQuestionnaire() {
     a_rioSignificado: q.riverMeaning,
     a_rioProblemas: q.riverProblems,
     a_saberesLocales: q.localKnowledgeExists,
+    a_saberesCual: q.localKnowledgeSpecific,
     a_saberesQuien: q.localKnowledgeWho,
+    a_saberesUso: q.localKnowledgeUseLevel,
     a_saberesUtilidad: q.localKnowledgeUseful,
     a_interestRumiants: q.rumiantInterest,
     a_interestRumiantsWhy: q.rumiantInterestWhy,
     a_hadRumiantsBefore: q.hadRumiantsBefore,
     a_noRumiantsWhy: q.noRumiantsReason,
     a_rumiantsAdvice: q.rumiantAdvice,
-    a_rumiantsOthers: q.rumiantOthers,
-    a_rumiantsWomen: q.rumiantWomen,
     a_rumiantsNeed: q.rumiantNeed,
     a_interestBirdsYes: q.birdsInterestYes,
     a_interestBirdsNo: q.birdsInterestNo,
@@ -881,7 +914,7 @@ function fillAnimalQuestionnaire() {
   renderSimpleList(
     "#a_tradList",
     q.traditional || [],
-    (x) => `${x.name || ""} · ${x.use || ""}`,
+    (x) => `${x.name || ""} · ${x.use || ""} · ${x.animals || ""}`,
   );
   renderSimpleList(
     "#a_genderAnimalList",
@@ -893,7 +926,40 @@ function fillAnimalQuestionnaire() {
     q.genderActivities || [],
     (x) => `${x.activity || ""} · ${x.sex || ""}`,
   );
+  updateAnimalConditionalFields();
 }
+function updateAnimalConditionalFields() {
+  const functionOtherWrap = $("#a_funcionOtro")?.closest("div");
+  if (functionOtherWrap) {
+    functionOtherWrap.style.display = multiValues($("#a_funcion")).includes("Otro") ? "block" : "none";
+  }
+  const ownerOtherWrap = $("#a_ownerOther")?.closest("div");
+  if (ownerOtherWrap) {
+    const needsOther = ["#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta"].some((sel) => multiValues($(sel)).includes("OTRO"));
+    ownerOtherWrap.style.display = needsOther ? "block" : "none";
+  }
+  const curadorVisible = $("#a_curadorExiste")?.value === "Sí";
+  ["#a_curadorQuien", "#a_curadorEdad", "#a_curadorGenero", "#a_curadorEspecies", "#a_curadorTiempo", "#a_curadorServicios"].forEach((sel) => {
+    const wrap = $(sel)?.closest("div");
+    if (wrap) wrap.style.display = curadorVisible ? "block" : "none";
+  });
+  const practicasVisible = $("#a_practicas")?.value === "Sí";
+  ["#a_practicasServiciosTexto", "#a_practicasAtencionVeterinaria", "#a_practicasAsesoria"].forEach((sel) => {
+    const wrap = $(sel)?.closest("div");
+    if (wrap) wrap.style.display = practicasVisible ? "block" : "none";
+  });
+  const programaVisible = $("#a_programaRegistro")?.value === "Sí";
+  ["#a_programaNombre", "#a_programaFolioTiene", "#a_programaFolio"].forEach((sel) => {
+    const wrap = $(sel)?.closest("div");
+    if (wrap) wrap.style.display = programaVisible ? "block" : "none";
+  });
+  const saberVisible = $("#a_saberesLocales")?.value === "Sí";
+  ["#a_saberesCual", "#a_saberesQuien", "#a_saberesUso", "#a_saberesUtilidad"].forEach((sel) => {
+    const wrap = $(sel)?.closest("div");
+    if (wrap) wrap.style.display = saberVisible ? "block" : "none";
+  });
+}
+
 function bindAnimals() {
   bindAnimalPhotos();
   $("#animalsProducerSelect")?.addEventListener("change", () => {
@@ -902,6 +968,7 @@ function bindAnimals() {
     renderAll();
   });
   $("#btnAnimalsSyncProducer")?.addEventListener("click", () => renderAll());
+  ["#a_funcion", "#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta", "#a_curadorExiste", "#a_practicas", "#a_programaRegistro", "#a_saberesLocales"].forEach((sel) => $(sel)?.addEventListener("change", updateAnimalConditionalFields));
   $("#a_save")?.addEventListener("click", saveAnimalGroup);
   $("#a_clear")?.addEventListener("click", resetAnimalEntry);
   $("#btnSaveAnimalsFull")?.addEventListener(
@@ -942,6 +1009,8 @@ function bindAnimals() {
       name: $("#a_tradNombre").value,
       type: $("#a_tradTipo").value,
       use: $("#a_tradUso").value,
+      how: $("#a_tradComo").value,
+      animals: $("#a_tradAnimales").value,
       part: $("#a_tradParte").value,
     }),
   );
@@ -1602,23 +1671,36 @@ function renderProcedureDraftLists() {
     state.draft.procedureChargePhoto,
     "Sin<br/>evidencia",
   );
-  $("#p_chargeCalculated").value = calculateProcedureCharge().toFixed(2);
+  const charge = calculateProcedureCharge();
+  $("#p_chargeMeds").value = charge.meds.toFixed(2);
+  $("#p_chargeVaccines").value = charge.vaccines.toFixed(2);
+  $("#p_chargeSupplies").value = charge.supplies.toFixed(2);
+  $("#p_chargeReusable").value = charge.reusable.toFixed(2);
+  $("#p_chargeSubtotal").value = charge.subtotal.toFixed(2);
+  $("#p_chargeCalculated").value = charge.calculated.toFixed(2);
+  const manual = Number($("#p_chargeManual").value || 0);
+  $("#p_chargeDifference").value = Math.max(0, charge.calculated - manual).toFixed(2);
 }
 function calculateProcedureCharge() {
-  const base = Number($("#p_costTotal").value || 0);
+  const base = Number($("#p_chargeBase").value || 0);
   const meds = state.draft.procedureMedUses.reduce(
     (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
     0,
   );
   const vaccines = state.draft.procedureVaccineUses.reduce(
-    (a, x) => a + Number(x.price || 0),
+    (a, x) => a + Number(x.animalsApplied || 0) * Number(x.price || 0),
     0,
   );
-  const supplies = state.draft.procedureSupplyUses.reduce(
+  const supplies = state.draft.procedureSupplyUses.filter((x) => x.type !== "NON_DISPOSABLE").reduce(
     (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
     0,
   );
-  return base + meds + vaccines + supplies;
+  const reusable = state.draft.procedureSupplyUses.filter((x) => x.type === "NON_DISPOSABLE").reduce(
+    (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
+    0,
+  );
+  const subtotal = base + meds + vaccines + supplies + reusable;
+  return { base, meds, vaccines, supplies, reusable, subtotal, calculated: subtotal };
 }
 async function addLab() {
   const file = $("#lab_file").files?.[0];
@@ -1661,14 +1743,11 @@ function collectProcedure() {
     producerId: $("#p_producer").value,
     animalId: $("#p_animalGroup").value,
     animalsQtyUsed: Number($("#p_animalsQtyUsed").value || 0),
-    species: $("#p_species").value.trim(),
     identification: $("#p_identification").value.trim(),
     weight: $("#p_weight").value,
     temperature: $("#p_temperature").value,
     generalState: $("#p_generalState").value,
     notes: $("#p_notes").value.trim(),
-    chargeStatus: $("#p_chargeStatus").value,
-    chargeNotes: $("#p_chargeNotes").value.trim(),
     inventory: {
       meds: [...state.draft.procedureMedUses],
       vaccines: [...state.draft.procedureVaccineUses],
@@ -1740,9 +1819,11 @@ function collectProcedure() {
       prognosis: $("#p_sx_prognosis").value.trim(),
     },
     charge: {
-      calculated: calculateProcedureCharge(),
+      ...calculateProcedureCharge(),
       manual: Number($("#p_chargeManual").value || 0),
       reason: $("#p_chargeReason").value.trim(),
+      paid: $("#p_chargePaid").value,
+      difference: Number($("#p_chargeDifference").value || 0),
       photo: state.draft.procedureChargePhoto,
     },
     labIds: [...state.draft.procedureLabIds],
@@ -1780,6 +1861,13 @@ function saveProcedure() {
     return;
   }
   const idx = state.procedures.findIndex((x) => x.id === p.id);
+  if (p.type === "NECROPSIA") {
+    const prod = byId(state.producers, p.producerId);
+    const animalRef = byId(prod?.animals || [], p.animalId);
+    if (animalRef && Number(animalRef.quantity || 0) > 0) {
+      animalRef.quantity = String(Math.max(0, Number(animalRef.quantity || 0) - 1));
+    }
+  }
   if (idx >= 0) state.procedures[idx] = p;
   else state.procedures.unshift(p);
   saveState();
@@ -1809,17 +1897,14 @@ function fillProcedure(p) {
     p_type: p.type,
     p_scope: p.scope,
     p_place: p.place,
-    p_costTotal: p.charge?.calculated || "",
+    p_chargeBase: p.charge?.base || "",
     p_producer: p.producerId,
     p_animalGroup: p.animalId,
     p_animalsQtyUsed: p.animalsQtyUsed,
-    p_species: p.species,
     p_identification: p.identification,
     p_weight: p.weight,
     p_temperature: p.temperature,
     p_generalState: p.generalState,
-    p_chargeStatus: p.chargeStatus,
-    p_chargeNotes: p.chargeNotes,
     p_notes: p.notes,
     p_cc_reason: p.caseClinical?.reason,
     p_cc_anamnesis: p.caseClinical?.anamnesis,
@@ -1876,8 +1961,17 @@ function fillProcedure(p) {
     p_sx_findings: p.surgery?.findings,
     p_sx_postop: p.surgery?.postop,
     p_sx_prognosis: p.surgery?.prognosis,
+    p_chargeBase: p.charge?.base,
+    p_chargeMeds: p.charge?.meds,
+    p_chargeVaccines: p.charge?.vaccines,
+    p_chargeSupplies: p.charge?.supplies,
+    p_chargeReusable: p.charge?.reusable,
+    p_chargeSubtotal: p.charge?.subtotal,
+    p_chargeCalculated: p.charge?.calculated,
     p_chargeManual: p.charge?.manual,
     p_chargeReason: p.charge?.reason,
+    p_chargePaid: p.charge?.paid,
+    p_chargeDifference: p.charge?.difference,
   }).forEach(([k, v]) => {
     if ($("#" + k)) $("#" + k).value = safe(v);
   });
@@ -1936,6 +2030,8 @@ function bindProcedures() {
   });
   $("#p_type")?.addEventListener("change", renderProcedureType);
   $("#p_scope")?.addEventListener("change", renderProcedureType);
+  $("#p_chargeBase")?.addEventListener("input", renderProcedureDraftLists);
+  $("#p_chargeManual")?.addEventListener("input", renderProcedureDraftLists);
   $("#p_addMedUse")?.addEventListener("click", addProcedureMedUse);
   $("#p_addVaccineUse")?.addEventListener("click", addProcedureVaccineUse);
   $("#p_addSupplyUse")?.addEventListener("click", addProcedureSupplyUse);
@@ -2037,7 +2133,8 @@ function exportExcel(filename, sheets) {
   );
 }
 function producerWordHtml(prod) {
-  return `<h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><h2>Animales</h2><table><tr><th>Especie</th><th>Raza</th><th>Cantidad</th><th>Función</th></tr>${(prod.animals || []).map((a) => `<tr><td>${esc(a.species)}</td><td>${esc(a.breed)}</td><td>${esc(a.quantity)}</td><td>${esc((a.function || []).concat(a.functionOther ? [a.functionOther] : []).join(", "))}</td></tr>`).join("")}</table><h2>Notas</h2><p>${esc(prod.notes)}</p>`;
+  const q = prod.questionnaire || {};
+  return `<h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario semanal:</b> ${esc(weeklyScheduleText(prod.basic.weeklySchedule || {}))}</p><h2>Animales</h2><table><tr><th>Especie</th><th>Raza</th><th>Cantidad</th><th>Función</th><th>Personas relacionadas</th></tr>${(prod.animals || []).map((a) => `<tr><td>${esc(a.species)}</td><td>${esc(a.breed)}</td><td>${esc(a.quantity)}</td><td>${esc((a.function || []).concat(a.functionOther ? [a.functionOther] : []).join(", "))}</td><td>${esc([...(a.owner || []), ...(a.decideSale || []), ...(a.feedClean || [])].join(" | "))}</td></tr>`).join("")}</table><h2>Cuestionario completo</h2><table>${detailRows({Importancia: q.importanceDetail, 'Tiene milpa': q.tieneMilpa, 'Qué siembra': q.queSiembra, 'Escasez de forraje': q.escasezForraje, 'Última enfermedad': q.lastSick, 'Persona que cura': q.curadorQuien, 'Servicios que brinda': q.curadorServicios, 'Saber local': q.localKnowledgeSpecific, 'Quién enseñó': q.localKnowledgeWho, 'Uso actual del saber': q.localKnowledgeUseLevel, 'Utilidad actual': q.localKnowledgeUseful, 'Interés aves actual': q.birdsInterestYes || q.birdsInterestNo, 'Interés rumiantes': q.rumiantInterest, 'Razón rumiantes': q.rumiantInterestWhy, 'Necesidades rumiantes': q.rumiantNeed })}</table><h3>Enfermedades</h3><table><tr><th>Fecha</th><th>Animal</th><th>Problema</th><th>Signos</th><th>Tratamiento</th></tr>${(q.diseases || []).map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.animal)}</td><td>${esc(x.problem)}</td><td>${esc(x.signs)}</td><td>${esc(x.treatment)}</td></tr>`).join("")}</table><h3>Vacunación</h3><table><tr><th>Animal</th><th>Vacuna</th><th>Fecha</th><th>Quién</th></tr>${(q.vaccines || []).map((x) => `<tr><td>${esc(x.animal)}</td><td>${esc(x.name)}</td><td>${esc(x.date)}</td><td>${esc(x.who)}</td></tr>`).join("")}</table><h3>Desparasitación</h3><table><tr><th>Animal</th><th>Producto</th><th>Fecha</th><th>Quién</th></tr>${(q.deworming || []).map((x) => `<tr><td>${esc(x.animal)}</td><td>${esc(x.product)}</td><td>${esc(x.date)}</td><td>${esc(x.who)}</td></tr>`).join("")}</table><h3>Medicina tradicional</h3><table><tr><th>Nombre</th><th>Uso</th><th>Cómo</th><th>Animales</th><th>Parte</th></tr>${(q.traditional || []).map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.use)}</td><td>${esc(x.how)}</td><td>${esc(x.animals)}</td><td>${esc(x.part)}</td></tr>`).join("")}</table><h2>Notas</h2><p>${esc(prod.notes)}</p>`;
 }
 function medSummaryHtml() {
   return `<h1>Medicamentos y vacunas</h1><table><tr><th>Medicamento</th><th>Activo</th><th>Propiedad</th><th>Disponible</th><th>Vacuna relacionada</th></tr>${state.meds
@@ -2054,7 +2151,7 @@ function procedureWordHtml(p) {
   const prod = byId(state.producers, p.producerId);
   const animal = (prod?.animals || []).find((a) => a.id === p.animalId);
   const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id));
-  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Inventario usado</h2><table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th></tr>${(p.inventory?.meds || []).map((i) => `<tr><td>Medicamento</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td></tr>`).join("")}${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td></tr>`).join("")}</table><h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Resultado</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.result)}</td></tr>`).join("")}</table><h2>Cobro</h2><p><b>Calculado:</b> ${money(p.charge?.calculated)} <b>Final:</b> ${money(p.charge?.manual)}</p>`;
+  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Animal:</b> ${esc(animal ? animalLabel(animal) : p.identification)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Detalle clínico</h2><table>${detailRows({...p.caseClinical, ...p.zootecnia, ...p.surgery, ...p.necropsy})}</table><h2>Inventario usado</h2><table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Notas</th></tr>${(p.inventory?.meds || []).map((i) => `<tr><td>Medicamento</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${esc(i.unit || "")}</td></tr>`).join("")}${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>${esc(i.type === 'NON_DISPOSABLE' ? 'Insumo no desechable' : 'Insumo desechable')}</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table><h2>Cobro</h2><table>${detailRows({'Costo base': money(p.charge?.base), 'Medicamentos': money(p.charge?.meds), 'Vacunas': money(p.charge?.vaccines), 'Insumos desechables': money(p.charge?.supplies), 'No desechables': money(p.charge?.reusable), 'Subtotal': money(p.charge?.subtotal), 'Calculado': money(p.charge?.calculated), 'Final': money(p.charge?.manual), 'Diferencia': money(p.charge?.difference), 'Pagado': p.charge?.paid, 'Razón': p.charge?.reason})}</table>`;
 }
 function procedureSummaryHtml() {
   return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`;
@@ -2228,7 +2325,7 @@ function bindGlobal() {
   $("#btnExportAllWord")?.addEventListener("click", () =>
     exportWord(
       "app_rural_resumen.doc",
-      `<h1>Resumen App Rural</h1>${state.producers.map(producerWordHtml).join("")}<h1>Medicamentos</h1>${medSummaryHtml()}<h1>Insumos</h1>${supplySummaryHtml()}<h1>Procedimientos</h1>${procedureSummaryHtml()}`,
+      `<h1>Resumen App Rural</h1>${state.producers.map(producerWordHtml).join('<div style="page-break-after:always"></div>')}<h1>Medicamentos</h1>${medSummaryHtml()}<h1>Insumos</h1>${supplySummaryHtml()}<h1>Procedimientos</h1>${procedureSummaryHtml()}`,
     ),
   );
   $("#btnExportAllExcel")?.addEventListener("click", () =>
