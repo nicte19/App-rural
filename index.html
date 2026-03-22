@@ -1480,15 +1480,15 @@
                           <input id="s_costAcq" type="number" min="0" step="0.01" placeholder="Ej. 1200" />
                         </div>
                         <div>
-                          <label for="s_lifeMonths">Vida útil (meses) *</label>
-                          <input id="s_lifeMonths" type="number" min="1" step="1" placeholder="Ej. 24" />
+                          <label for="s_lifeYears">¿Cuántos años puede durar? *</label>
+                          <input id="s_lifeYears" type="number" min="0.1" step="0.1" placeholder="Ej. 3" />
                         </div>
                       </div>
 
                       <div class="grid cols-2">
                         <div>
-                          <label for="s_estimatedUses">Usos estimados (opcional)</label>
-                          <input id="s_estimatedUses" type="number" min="0" step="1" placeholder="Ej. 300" />
+                          <label for="s_usesPerYear">¿Cuántas veces al año se puede usar? *</label>
+                          <input id="s_usesPerYear" type="number" min="1" step="1" placeholder="Ej. 120" />
                         </div>
                         <div>
                           <label for="s_costMonth">Costo por mes (auto)</label>
@@ -1502,7 +1502,7 @@
                           <input id="s_costUse" disabled placeholder="$ / uso" />
                         </div>
                         <div class="help" style="margin-top:22px;">
-                          Te da base de recuperación por usar el equipo.
+                          Se calcula con esta fórmula: costo de adquisición / (años de vida útil × usos por año).
                         </div>
                       </div>
 
@@ -2097,5 +2097,88 @@
   </div>
 
   <script src="script.js"></script>
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+
+      const elements = {
+        modeDisposable: $("s_modeDisposable"),
+        modeNonDisposable: $("s_modeNonDisposable"),
+        modeHint: $("s_modeHint"),
+        blockDisposable: $("blockDisposable"),
+        blockNonDisposable: $("blockNonDisposable"),
+        donatedRadios: Array.from(document.querySelectorAll('input[name="s_donated"]')),
+        priceBlock: $("s_priceBlock"),
+        qty: $("s_qty"),
+        price: $("s_price"),
+        unitCost: $("s_unitCost"),
+        costAcq: $("s_costAcq"),
+        lifeYears: $("s_lifeYears"),
+        usesPerYear: $("s_usesPerYear"),
+        costMonth: $("s_costMonth"),
+        costUse: $("s_costUse")
+      };
+
+      if (!elements.modeDisposable || !elements.modeNonDisposable) return;
+
+      function currentMode() {
+        return localStorage.getItem("app_rural_supply_mode_override") || "DISPOSABLE";
+      }
+
+      function setMode(mode) {
+        const isDisposable = mode === "DISPOSABLE";
+        localStorage.setItem("app_rural_supply_mode_override", mode);
+
+        elements.blockDisposable.style.display = isDisposable ? "block" : "none";
+        elements.blockNonDisposable.style.display = isDisposable ? "none" : "block";
+        elements.modeHint.textContent = `Modo actual: ${isDisposable ? "🧴 Desechables" : "🔧 No desechables"}`;
+        elements.modeDisposable.classList.toggle("ghost", !isDisposable);
+        elements.modeNonDisposable.classList.toggle("ghost", isDisposable);
+      }
+
+      function calcDisposableUnitCost() {
+        const qty = Number(elements.qty?.value || 0);
+        const price = Number(elements.price?.value || 0);
+        elements.unitCost.value = qty > 0 && price > 0 ? (price / qty).toFixed(2) : "";
+      }
+
+      function calcReusableCosts() {
+        const costAcq = Number(elements.costAcq?.value || 0);
+        const lifeYears = Number(elements.lifeYears?.value || 0);
+        const usesPerYear = Number(elements.usesPerYear?.value || 0);
+        const totalMonths = lifeYears * 12;
+        const totalUses = lifeYears * usesPerYear;
+
+        elements.costMonth.value = costAcq > 0 && totalMonths > 0 ? (costAcq / totalMonths).toFixed(2) : "";
+        elements.costUse.value = costAcq > 0 && totalUses > 0 ? (costAcq / totalUses).toFixed(2) : "";
+      }
+
+      function updateDonatedBlock() {
+        const donated = elements.donatedRadios.find((radio) => radio.checked)?.value === "SI";
+        if (!elements.priceBlock) return;
+        elements.priceBlock.style.display = donated ? "none" : "block";
+        if (donated) {
+          if (elements.price) elements.price.value = "";
+          if (elements.qty) elements.qty.value = "";
+          if (elements.unitCost) elements.unitCost.value = "";
+        }
+      }
+
+      elements.modeDisposable.addEventListener("click", () => setMode("DISPOSABLE"));
+      elements.modeNonDisposable.addEventListener("click", () => setMode("NON_DISPOSABLE"));
+
+      elements.qty?.addEventListener("input", calcDisposableUnitCost);
+      elements.price?.addEventListener("input", calcDisposableUnitCost);
+      elements.costAcq?.addEventListener("input", calcReusableCosts);
+      elements.lifeYears?.addEventListener("input", calcReusableCosts);
+      elements.usesPerYear?.addEventListener("input", calcReusableCosts);
+      elements.donatedRadios.forEach((radio) => radio.addEventListener("change", updateDonatedBlock));
+
+      setMode(currentMode());
+      updateDonatedBlock();
+      calcDisposableUnitCost();
+      calcReusableCosts();
+    })();
+  </script>
 </body>
 </html>
