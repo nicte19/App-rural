@@ -2097,5 +2097,68 @@
   </div>
 
   <script src="script.js"></script>
+  <script>
+    (() => {
+      const $ = (selector) => document.querySelector(selector);
+
+      function toNumber(selector) {
+        const element = $(selector);
+        if (!element) return 0;
+        const value = Number.parseFloat(element.value);
+        return Number.isFinite(value) ? value : 0;
+      }
+
+      function setValue(selector, value) {
+        const element = $(selector);
+        if (!element) return;
+        element.value = value;
+      }
+
+      function formatMoney(value) {
+        return value > 0 ? value.toFixed(2) : "";
+      }
+
+      function calcMedUnitCost() {
+        const totalQty = toNumber("#m_totalQty");
+        const totalCost = toNumber("#m_cost");
+        const unitCost = totalQty > 0 ? totalCost / totalQty : 0;
+        setValue("#m_unitCost", formatMoney(unitCost));
+      }
+
+      function calcSupplyCosts() {
+        const qty = toNumber("#s_qty");
+        const totalPrice = toNumber("#s_price");
+        const acquisitionCost = toNumber("#s_costAcq");
+        const lifeMonths = toNumber("#s_lifeMonths");
+        const estimatedUses = toNumber("#s_estimatedUses");
+
+        const unitCost = qty > 0 ? totalPrice / qty : 0;
+        const costPerMonth = lifeMonths > 0 ? acquisitionCost / lifeMonths : 0;
+        const costPerUse = estimatedUses > 0 ? acquisitionCost / estimatedUses : 0;
+
+        setValue("#s_unitCost", formatMoney(unitCost));
+        setValue("#s_costMonth", formatMoney(costPerMonth));
+        setValue("#s_costUse", formatMoney(costPerUse));
+      }
+
+      function bindAutoCalculation(selectors, handler) {
+        selectors.forEach((selector) => {
+          const element = $(selector);
+          if (!element) return;
+          ["input", "change"].forEach((eventName) => {
+            element.addEventListener(eventName, handler);
+          });
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        bindAutoCalculation(["#m_totalQty", "#m_cost"], calcMedUnitCost);
+        bindAutoCalculation(["#s_qty", "#s_price", "#s_costAcq", "#s_lifeMonths", "#s_estimatedUses"], calcSupplyCosts);
+
+        calcMedUnitCost();
+        calcSupplyCosts();
+      });
+    })();
+  </script>
 </body>
 </html>
