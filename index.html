@@ -1,2101 +1,636 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
-
-    <script src="./script.js"></script>
-  </body>
-</html>
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>App Rural · Productor/a · Animales · Medicamentos · Insumos · Procedimientos</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>App Rural Consolidada</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header>
-    <h1>App Rural · 👤 Productor/a · 🐾 Animales · 💊 Medicamentos · 🧰 Insumos · 🩺 Procedimientos</h1>
-    <p>Guardado local (localStorage). Fotos y evidencias se guardan como base64.</p>
+  <header class="hero">
+    <div>
+      <h1>App Rural Consolidada</h1>
+      <p>Productor(a), animales, medicamentos, vacunas, insumos, laboratorio, procedimientos, cobro, evidencia, Maps, ChatGPT y exportaciones listas para despliegue estático.</p>
+    </div>
+    <div class="hero-actions">
+      <button class="btn ghost" id="exportAllWordBtn" type="button">📄 Exportar Word general</button>
+      <button class="btn ghost" id="exportAllExcelBtn" type="button">📊 Exportar Excel general</button>
+      <button class="btn ghost" id="backupBtn" type="button">⬇️ Respaldo JSON</button>
+      <label class="btn ghost upload-btn">⬆️ Importar JSON
+        <input id="restoreInput" type="file" accept="application/json" hidden />
+      </label>
+    </div>
   </header>
 
-  <nav class="tabs">
-    <button class="tab active" id="tabProducer" type="button">👤 Productor/a</button>
-    <button class="tab" id="tabAnimals" type="button">🐾 Animales</button>
-    <button class="tab" id="tabMeds" type="button">💊 Medicamentos</button>
-    <button class="tab" id="tabSupplies" type="button">🧰 Insumos</button>
-    <button class="tab" id="tabProcedures" type="button">🩺 Procedimientos</button>
+  <nav class="tabs" id="tabsNav">
+    <button class="tab active" data-tab="productores">👤 Productor(a)</button>
+    <button class="tab" data-tab="animales">🐾 Animales</button>
+    <button class="tab" data-tab="medicamentos">💊 Medicamentos</button>
+    <button class="tab" data-tab="vacunas">💉 Vacunas</button>
+    <button class="tab" data-tab="insumos">🧰 Insumos</button>
+    <button class="tab" data-tab="laboratorio">🧪 Laboratorio</button>
+    <button class="tab" data-tab="procedimientos">🩺 Procedimientos</button>
+    <button class="tab" data-tab="panel">📚 Panel</button>
   </nav>
 
-  <div class="pages">
+  <main class="layout">
+    <section class="page active" id="tab-productores">
+      <div class="split two-col">
+        <article class="card">
+          <h2 id="producerFormTitle">Nuevo productor(a)</h2>
+          <form id="producerForm" class="stack">
+            <details open>
+              <summary>I. Datos básicos</summary>
+              <div class="grid cols-3 padded">
+                <label>Nombre completo *<input id="producer_name" required /></label>
+                <label>Edad<input id="producer_age" type="number" min="0" /></label>
+                <label>Género
+                  <select id="producer_gender">
+                    <option value="">Selecciona</option>
+                    <option>Mujer</option>
+                    <option>Hombre</option>
+                    <option>Otro</option>
+                    <option>Prefiere no decir</option>
+                  </select>
+                </label>
+                <label>Estado civil<input id="producer_civil" /></label>
+                <label>Celular<input id="producer_phone" /></label>
+                <label>Personas en casa<input id="producer_household" type="number" min="1" /></label>
+                <label>Localidad<input id="producer_locality" /></label>
+                <label>Municipio<input id="producer_municipality" /></label>
+                <label>Estado<input id="producer_state" value="Hidalgo" /></label>
+                <label>Escolaridad<input id="producer_schooling" /></label>
+                <label>Función animal principal
+                  <select id="producer_animalFunction">
+                    <option value="">Selecciona</option>
+                    <option>Producción</option>
+                    <option>Consumo familiar</option>
+                    <option>Venta</option>
+                    <option>Reproducción</option>
+                    <option>Trabajo</option>
+                    <option>Otro</option>
+                  </select>
+                </label>
+                <label id="producer_animalFunctionOther_wrap" class="hidden">¿Cuál otra función?<input id="producer_animalFunctionOther" /></label>
+              </div>
+            </details>
 
-    <!-- =====================================================
-         PÁGINA 1 · PRODUCTOR/A
-    ====================================================== -->
-    <section id="pageProducer" class="page active">
-      <main>
-        <section class="card">
-          <h2 id="formTitle">Nuevo productor(a)</h2>
-          <div class="content">
-            <form id="producerForm" autocomplete="off">
-
-              <details open>
-                <summary>I. Datos básicos del productor(a)</summary>
-                <div class="inner grid">
-
+            <details open>
+              <summary>II. Horario, Maps y ubicación</summary>
+              <div class="padded stack">
+                <div class="grid cols-2">
                   <div>
-                    <label for="nombre">1. Nombre completo *</label>
-                    <input id="nombre" type="text" required placeholder="Ej. María González Ortega" />
+                    <label>Latitud<input id="producer_lat" type="number" step="0.0000001" /></label>
                   </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="edad">2. Edad</label>
-                      <input id="edad" type="number" min="0" step="1" placeholder="Ej. 42" />
-                    </div>
-
-                    <div>
-                      <label for="sexo">3. Sexo</label>
-                      <select id="sexo">
-                        <option value="">— Selecciona —</option>
-                        <option value="MUJER">Mujer</option>
-                        <option value="HOMBRE">Hombre</option>
-                        <option value="OTRO">Otro</option>
-                        <option value="NO_DICE">Prefiere no decir</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label for="estadoCivil">4. Estado civil</label>
-                      <select id="estadoCivil">
-                        <option value="">— Selecciona —</option>
-                        <option value="SOLTERO">Soltero(a)</option>
-                        <option value="CASADO">Casado(a)</option>
-                        <option value="UNION_LIBRE">Unión libre</option>
-                        <option value="VIUDO">Viudo(a)</option>
-                        <option value="OTRO">Otro</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="celular">5. Número de celular</label>
-                      <input id="celular" type="tel" placeholder="10 dígitos (MX)" />
-                    </div>
-
-                    <div>
-                      <label for="personasEnCasa">13. ¿Cuántas personas viven en su casa?</label>
-                      <input id="personasEnCasa" type="number" min="1" step="1" placeholder="Ej. 6" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="localidad">6. Localidad</label>
-                      <input id="localidad" type="text" placeholder="Ej. Coatlaco" />
-                    </div>
-
-                    <div>
-                      <label for="municipio">7. Municipio</label>
-                      <input id="municipio" type="text" placeholder="Ej. Almoloya" />
-                    </div>
-
-                    <div>
-                      <label for="estado">8. Estado</label>
-                      <input id="estado" type="text" placeholder="Ej. Hidalgo" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="escolaridad">Escolaridad</label>
-                      <select id="escolaridad">
-                        <option value="">— Selecciona —</option>
-                        <option value="NINGUNA">Sin estudios</option>
-                        <option value="PRIMARIA">Primaria</option>
-                        <option value="SECUNDARIA">Secundaria</option>
-                        <option value="PREPA">Preparatoria</option>
-                        <option value="TECNICA">Técnico</option>
-                        <option value="LIC">Universidad</option>
-                        <option value="OTRO">Otro</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label for="escolaridadOtro">Otro (escolaridad)</label>
-                      <input id="escolaridadOtro" type="text" />
-                    </div>
-
-                    <div>
-                      <label for="horario">12. Horario en el que se puede encontrar</label>
-                      <input id="horario" type="text" placeholder="Ej. L-V 7-10 am y 6-8 pm" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label>9. ¿Sabe leer?</label>
-                      <div class="row">
-                        <label class="radio">
-                          <input type="radio" name="sabeLeer" value="SI" checked />
-                          <span>✅ Sí</span>
-                        </label>
-                        <label class="radio">
-                          <input type="radio" name="sabeLeer" value="NO" />
-                          <span>❌ No</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label>10. ¿Sabe escribir?</label>
-                      <div class="row">
-                        <label class="radio">
-                          <input type="radio" name="sabeEscribir" value="SI" checked />
-                          <span>✅ Sí</span>
-                        </label>
-                        <label class="radio">
-                          <input type="radio" name="sabeEscribir" value="NO" />
-                          <span>❌ No</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="pertenenciaIndigena">11. ¿Usted pertenece o recuerda algún familiar que perteneciera a un grupo indígena o pueblo originario?</label>
-                      <select id="pertenenciaIndigena">
-                        <option value="">— Selecciona —</option>
-                        <option value="YO">Sí, yo pertenezco</option>
-                        <option value="FAMILIAR">Sí, un familiar pertenecía o pertenece</option>
-                        <option value="NO">No</option>
-                        <option value="NO_SABE">No sabe</option>
-                      </select>
-                    </div>
-
-                    <div id="grupoIndigenaYoWrap" style="display:none;">
-                      <label for="grupoIndigenaYo">¿A cuál grupo o pueblo originario pertenece?</label>
-                      <input id="grupoIndigenaYo" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2" id="grupoIndigenaFamiliarWrap" style="display:none;">
-                    <div>
-                      <label for="grupoIndigenaFamiliarQuien">¿Quién?</label>
-                      <input id="grupoIndigenaFamiliarQuien" type="text" />
-                    </div>
-                    <div>
-                      <label for="grupoIndigenaFamiliarCual">¿A cuál grupo o pueblo originario pertenecía o pertenece?</label>
-                      <input id="grupoIndigenaFamiliarCual" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="lenguaIndigenaTipo">12. ¿Usted o algún miembro de su familia habla o hablaba alguna lengua indígena?</label>
-                      <select id="lenguaIndigenaTipo">
-                        <option value="">— Selecciona —</option>
-                        <option value="YO">Sí, yo hablo</option>
-                        <option value="FAMILIAR">Sí, un familiar habla o hablaba</option>
-                        <option value="NO">No</option>
-                        <option value="NO_SABE">No sabe</option>
-                      </select>
-                    </div>
-
-                    <div id="lenguaYoWrap" style="display:none;">
-                      <label for="lenguaYo">¿Qué lengua indígena habla?</label>
-                      <input id="lenguaYo" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2" id="lenguaFamiliarWrap" style="display:none;">
-                    <div>
-                      <label for="lenguaFamiliarQuien">¿Quién?</label>
-                      <input id="lenguaFamiliarQuien" type="text" />
-                    </div>
-                    <div>
-                      <label for="lenguaFamiliarCual">¿Qué lengua indígena habla o hablaba?</label>
-                      <input id="lenguaFamiliarCual" type="text" />
-                    </div>
-                  </div>
-
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>Ubicación</summary>
-                <div class="inner grid">
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="lat">Latitud</label>
-                      <input id="lat" type="number" step="0.0000001" placeholder="Ej. 19.432608" />
-                    </div>
-                    <div>
-                      <label for="lng">Longitud</label>
-                      <input id="lng" type="number" step="0.0000001" placeholder="Ej. -99.133209" />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="btnGeo">📍 Usar mi ubicación</button>
-                    <button class="btn small" type="button" id="btnGenMaps">🔗 Generar link desde lat/long</button>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="mapsUrl">🗺️ Link Google Maps</label>
-                      <input id="mapsUrl" type="url" placeholder="https://maps.google.com/?q=..." />
-                    </div>
-                    <div class="row" style="align-items:flex-end;">
-                      <button class="btn small" type="button" id="btnOpenMaps">🗺️ Abrir mapa</button>
-                      <button class="btn small ghost" type="button" id="btnClearLocation">🧹 Limpiar ubicación</button>
-                    </div>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>Fotos de la casa</summary>
-                <div class="inner grid">
-                  <div class="row">
-                    <input id="fotoTomar" type="file" accept="image/*" capture="environment" style="display:none" />
-                    <input id="fotoElegir" type="file" accept="image/*" style="display:none" />
-                    <button class="btn small" type="button" id="btnTakePhoto">📸 Tomar foto</button>
-                    <button class="btn small" type="button" id="btnPickPhoto">🖼️ Elegir de carrete</button>
-                    <button class="btn small ghost" type="button" id="btnRemovePhoto">🗑️ Quitar foto</button>
-                  </div>
-
-                  <div class="row">
-                    <div class="thumb" id="photoPreview"><span>Sin<br/>foto</span></div>
-                    <div class="help">Se guarda como base64 en el navegador.</div>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>Clasificación / trabajo con este productor(a)</summary>
-                <div class="inner grid">
-
-                  <div class="chips" id="chipsClasificacion" role="radiogroup">
-                    <div class="chip good" data-value="TRABAJAR" data-active="true">✅ Sí trabajar</div>
-                    <div class="chip warn" data-value="PENDIENTE" data-active="false">⏸️ Aún no sé</div>
-                    <div class="chip bad" data-value="NO_TRABAJAR" data-active="false">❌ No</div>
-                  </div>
-
-                  <div id="alertaWrap" style="display:none;">
-                    <label for="alerta">Razones si es “No”</label>
-                    <input id="alerta" type="text" placeholder="Ej. No hay interés / conflicto / seguridad..." />
-                  </div>
-
                   <div>
-                    <label for="notaExtraPersona">Nota extra de la persona</label>
-                    <textarea id="notaExtraPersona" placeholder="Observaciones importantes sobre la persona"></textarea>
-                  </div>
-
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>Familia</summary>
-                <div class="inner grid">
-                  <div class="row">
-                    <button class="btn small" type="button" id="btnAddFamily">👨‍👩‍👧‍👦 Agregar integrante</button>
-                    <span class="help">Se ignoran filas vacías al guardar.</span>
-                  </div>
-
-                  <div style="overflow:auto;">
-                    <table class="family-table">
-                      <thead>
-                        <tr>
-                          <th>Nombre</th>
-                          <th>Relación</th>
-                          <th>Ocupación</th>
-                          <th>Edad</th>
-                          <th style="width:70px">Quitar</th>
-                        </tr>
-                      </thead>
-                      <tbody id="familyTbody"></tbody>
-                    </table>
+                    <label>Longitud<input id="producer_lng" type="number" step="0.0000001" /></label>
                   </div>
                 </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>Notas generales finales</summary>
-                <div class="inner">
-                  <label for="notas">📝 Notas</label>
-                  <textarea id="notas" placeholder="Acuerdos, horarios, confianza, observaciones, etc."></textarea>
+                <div class="row wrap">
+                  <button class="btn" type="button" id="producerUseLocation">📍 Usar mi ubicación</button>
+                  <button class="btn" type="button" id="producerGenerateMaps">🔗 Generar vínculo Maps</button>
+                  <button class="btn ghost" type="button" id="producerOpenMaps">🗺️ Abrir Maps</button>
                 </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <div class="row" style="justify-content:space-between; align-items:flex-start;">
-                <div class="row">
-                  <button class="btn primary" type="submit" id="btnSave">💾 Guardar productor(a)</button>
-                  <button class="btn ghost" type="button" id="btnReset">🧽 Limpiar</button>
-                  <button class="btn ghost" type="button" id="btnCancelEdit" style="display:none;">↩️ Cancelar edición</button>
-                </div>
-
-                <div style="max-width:420px;">
-                  <div id="msg" class="help"></div>
-                  <div id="err" class="error" style="display:none;"></div>
-                  <div id="ok" class="success" style="display:none;"></div>
+                <label>Vínculo de Google Maps<input id="producer_mapsUrl" type="url" /></label>
+                <div id="producerGeoMsg" class="help"></div>
+                <div class="calendar-card">
+                  <h3>Horario visual por día</h3>
+                  <div class="week-grid" id="availabilityGrid"></div>
                 </div>
               </div>
+            </details>
 
-            </form>
-          </div>
-        </section>
-
-        <aside class="card">
-          <h2>Productores registrados</h2>
-          <div class="content">
-            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <div class="help">Total: <b id="count">0</b></div>
-              <button class="btn small ghost" type="button" id="btnExport">⬇️ Exportar JSON</button>
-              <button class="btn small ghost" type="button" id="btnImport">⬆️ Importar JSON</button>
-              <button class="btn small ghost" type="button" id="btnExportWordProducer">📄 Exportar Word</button>
-              <input id="importFile" type="file" accept="application/json" style="display:none;" />
-            </div>
-
-            <div class="list" id="producerList"></div>
-
-            <div class="sep"></div>
-
-            <button class="btn bad" type="button" id="btnWipe">🧨 Borrar TODO (local)</button>
-            <div class="help">Esto borra todo lo guardado en este navegador.</div>
-          </div>
-        </aside>
-      </main>
-    </section>
-
-    <!-- =====================================================
-         PÁGINA 2 · ANIMALES
-    ====================================================== -->
-    <section id="pageAnimals" class="page">
-      <main style="grid-template-columns:1fr;">
-        <section class="card">
-          <h2>🐾 Animales y cuestionario ampliado</h2>
-          <div class="content">
-
-            <div class="row" style="justify-content:space-between; align-items:flex-end;">
-              <div style="flex:1 1 auto; min-width:260px;">
-                <label for="animalsProducerSelect">👤 Trabajar con productor/a</label>
-                <select id="animalsProducerSelect"></select>
-                <div class="help" id="animalsProducerHint"></div>
-              </div>
-              <div class="row">
-                <button class="btn ghost" type="button" id="btnGoProducerFromAnimals">↩️ Ir a Productor/a</button>
-              </div>
-            </div>
-
-            <div class="sep"></div>
-
-            <form id="animalForm" autocomplete="off">
-
-              <details open>
-                <summary>II. Función de los animales</summary>
-                <div class="inner grid">
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="a_especie">Especie *</label>
-                      <input id="a_especie" placeholder="Ej. Borregos / gallinas / vacas..." />
-                    </div>
-                    <div>
-                      <label for="a_raza">Raza</label>
-                      <input id="a_raza" placeholder="Ej. Criolla / Dorper / Holstein..." />
-                    </div>
-                    <div>
-                      <label for="a_cantidad">¿Cuántos hay? *</label>
-                      <input id="a_cantidad" type="number" min="1" step="1" placeholder="Ej. 34" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="a_dueno">¿De quién son?</label>
-                      <select id="a_dueno" multiple></select>
-                    </div>
-                    <div>
-                      <label for="a_decideVenta">¿Quién decide si se venden?</label>
-                      <select id="a_decideVenta" multiple></select>
-                    </div>
-                    <div>
-                      <label for="a_limpiaAlimenta">¿Quién les limpia y alimenta?</label>
-                      <select id="a_limpiaAlimenta" multiple></select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_funcion">Función del animal</label>
-                      <select id="a_funcion" multiple>
-                        <option>Autoconsumo</option>
-                        <option>Venta</option>
-                        <option>Ahorro</option>
-                        <option>Tradición familiar</option>
-                        <option>Compañía</option>
-                        <option>Distracción</option>
-                        <option>Ornato</option>
-                        <option>Trabajo</option>
-                        <option>Otro</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label for="a_viven">Instalaciones / dónde viven</label>
-                      <textarea id="a_viven" placeholder="Ej. Corral, pastoreo, mixto, gallinero..."></textarea>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_feedType">Alimentación de los animales</label>
-                    <textarea id="a_feedType" placeholder="Ej. Pastoreo, rastrojo, maíz, concentrado..."></textarea>
-                  </div>
-
-                  <div>
-                    <label>📸 Fotos de animales / instalaciones</label>
-                    <div class="row">
-                      <input id="a_instTake" type="file" accept="image/*" capture="environment" multiple style="display:none" />
-                      <input id="a_instPick" type="file" accept="image/*" multiple style="display:none" />
-                      <button class="btn small" type="button" id="a_btnInstTake">📸 Tomar</button>
-                      <button class="btn small" type="button" id="a_btnInstPick">🖼️ Elegir</button>
-                      <button class="btn small ghost" type="button" id="a_btnInstClear">🧹 Quitar todas</button>
-                    </div>
-                    <div class="help" id="a_instHint">Sin fotos todavía.</div>
-                    <div class="row" id="a_instPreview" style="margin-top:10px;"></div>
-                  </div>
-
-                  <div class="row" style="justify-content:space-between;">
-                    <div class="row">
-                      <button class="btn primary" type="button" id="a_save">💾 Guardar grupo</button>
-                      <button class="btn ghost" type="button" id="a_clear">🧽 Limpiar</button>
-                    </div>
-                    <div id="a_msg" class="help"></div>
-                  </div>
-
-                  <div class="sep"></div>
-
-                  <h3 style="margin:0;font-size:14px;">📋 Grupos registrados</h3>
-                  <div class="list" id="a_list" style="margin-top:10px;"></div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_animalesImportantes">¿Qué animales son más importantes para usted o su familia?</label>
-                      <select id="a_animalesImportantes" multiple></select>
-                    </div>
-                    <div>
-                      <label for="a_importanciaDetalle">¿Por qué son importantes o qué valor tienen para usted o su familia?</label>
-                      <textarea id="a_importanciaDetalle"></textarea>
-                    </div>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>III. Campo, manejo, vacunación y desparasitación</summary>
-                <div class="inner grid">
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_tieneMilpa">¿Tiene tierras de cultivo o milpa?</label>
-                      <select id="a_tieneMilpa">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_queSiembra">Si sí, ¿qué siembra?</label>
-                      <input id="a_queSiembra" type="text" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_escasezForraje">¿Qué hacen cuando hay escasez de forraje o sequía?</label>
-                    <textarea id="a_escasezForraje"></textarea>
-                  </div>
-
-                  <div>
-                    <label for="a_dondeEstanMayorTiempo">¿Dónde permanecen o dónde están normalmente los animales?</label>
-                    <textarea id="a_dondeEstanMayorTiempo"></textarea>
-                  </div>
-
-                  <div class="sep"></div>
-                  <h3 style="margin:0;font-size:14px;">Enfermedades</h3>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="a_lastSick">¿Cuándo fue la última vez que enfermaron sus animales?</label>
-                      <input id="a_lastSick" type="date" />
-                    </div>
-                    <div>
-                      <label for="a_enfAnimal">Animal o especie afectada</label>
-                      <select id="a_enfAnimal"></select>
-                    </div>
-                    <div>
-                      <label for="a_commonDis">Enfermedad o problema</label>
-                      <input id="a_commonDis" />
-                    </div>
-                    <div>
-                      <label for="a_signs">Signos clínicos *</label>
-                      <textarea id="a_signs"></textarea>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_whenSickDo">Tratamiento o acciones realizadas (opcional)</label>
-                    <textarea id="a_whenSickDo"></textarea>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="a_addDisease">➕ Agregar enfermedad</button>
-                  </div>
-                  <div class="list" id="a_diseaseList"></div>
-
-                  <div class="sep"></div>
-                  <h3 style="margin:0;font-size:14px;">Vacunación</h3>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_vaxAny">¿Vacuna a sus animales?</label>
-                      <select id="a_vaxAny">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>A veces</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="a_vaxAnimal">Animal o especie</label>
-                      <select id="a_vaxAnimal"></select>
-                    </div>
-                    <div>
-                      <label for="a_vaxName">Vacuna aplicada</label>
-                      <input id="a_vaxName" />
-                    </div>
-                    <div>
-                      <label for="a_vaxDate">Fecha</label>
-                      <input id="a_vaxDate" type="date" />
-                    </div>
-                    <div>
-                      <label for="a_vaxWho">¿Quién vacunó?</label>
-                      <select id="a_vaxWho"></select>
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="a_addVax">➕ Agregar vacunación</button>
-                  </div>
-                  <div class="list" id="a_vaxList"></div>
-
-                  <div class="sep"></div>
-                  <h3 style="margin:0;font-size:14px;">Desparasitación</h3>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_dewormAny">¿Ha desparasitado a sus animales?</label>
-                      <select id="a_dewormAny">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>A veces</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_changeDewormProduct">¿Alguna vez cambia de producto para desparasitar?</label>
-                      <select id="a_changeDewormProduct">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="a_dewormAnimal">Animal o especie</label>
-                      <select id="a_dewormAnimal"></select>
-                    </div>
-                    <div>
-                      <label for="a_dewormProd">Producto usado</label>
-                      <input id="a_dewormProd" />
-                    </div>
-                    <div>
-                      <label for="a_dewormDate">Fecha</label>
-                      <input id="a_dewormDate" type="date" />
-                    </div>
-                    <div>
-                      <label for="a_dewormWho">¿Quién desparasitó?</label>
-                      <select id="a_dewormWho"></select>
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="a_addDeworm">➕ Agregar desparasitación</button>
-                  </div>
-                  <div class="list" id="a_dewormList"></div>
-
-                  <div>
-                    <label for="a_recommendWho">¿Quién recomendó esos manejos?</label>
-                    <textarea id="a_recommendWho"></textarea>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>IV. Personas que curan animales y prácticas</summary>
-                <div class="inner grid">
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_curadorExiste">¿Hay o ha habido alguna vez en la comunidad alguna persona que se encargue de curar a los animales?</label>
-                      <select id="a_curadorExiste">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_curadorQuien">¿Quién es esa persona?</label>
-                      <input id="a_curadorQuien" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="a_curadorEdad">¿Qué edad tiene o tenía?</label>
-                      <input id="a_curadorEdad" type="number" min="0" step="1" />
-                    </div>
-                    <div>
-                      <label for="a_curadorEspecies">¿Qué especies atiende?</label>
-                      <input id="a_curadorEspecies" />
-                    </div>
-                    <div>
-                      <label for="a_curadorTiempo">¿Desde hace cuánto tiempo?</label>
-                      <input id="a_curadorTiempo" />
-                    </div>
-                    <div>
-                      <label for="a_curadorServicios">¿Qué servicios brinda?</label>
-                      <input id="a_curadorServicios" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_practicas">¿Realizan prácticas como descole, castración o marcaje?</label>
-                      <select id="a_practicas">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_practicasQuien">¿Quién realiza normalmente estos procedimientos?</label>
-                      <input id="a_practicasQuien" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_practicasAsesoria">¿Reciben asesoría veterinaria para realizarlos?</label>
-                    <select id="a_practicasAsesoria">
-                      <option value="">— Selecciona —</option>
+            <details open>
+              <summary>III. Personas que curan animales y prácticas</summary>
+              <div class="padded stack">
+                <label class="inline-check"><input id="producer_hasHelper" type="checkbox" /> Hay veterinarios o personas que ayudan a los animales</label>
+                <div id="producer_helperWrap" class="grid cols-4 hidden">
+                  <label>Quién es<input id="producer_helperName" /></label>
+                  <label>Edad<input id="producer_helperAge" type="number" min="0" /></label>
+                  <label>Género<input id="producer_helperGender" /></label>
+                  <label>Qué especies atiende<input id="producer_helperSpecies" /></label>
+                  <label>Desde hace cuánto<input id="producer_helperSince" /></label>
+                  <label>Qué servicios brinda<input id="producer_helperServices" /></label>
+                  <label>¿Es veterinario(a)?
+                    <select id="producer_helperIsVet">
+                      <option value="">Selecciona</option>
                       <option>Sí</option>
                       <option>No</option>
                     </select>
-                  </div>
+                  </label>
+                  <label id="producer_helperAdviceWrap" class="hidden">Si no es veterinario(a), ¿recibe asesoría veterinaria?<input id="producer_helperAdvice" /></label>
                 </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>V. Medicina tradicional y roles de género</summary>
-                <div class="inner grid">
-
-                  <h3 style="margin:0;font-size:14px;">Medicina tradicional</h3>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="a_tradNombre">Nombre</label>
-                      <input id="a_tradNombre" />
-                    </div>
-                    <div>
-                      <label for="a_tradTipo">Tipo</label>
-                      <select id="a_tradTipo">
-                        <option value="">— Selecciona —</option>
-                        <option>Planta</option>
-                        <option>Remedio casero</option>
-                        <option>Producto comercial no veterinario</option>
-                        <option>Mineral o suplemento</option>
-                        <option>Otro</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_tradUso">¿Para qué lo usa?</label>
-                      <input id="a_tradUso" />
-                    </div>
-                    <div>
-                      <label for="a_tradParte">Parte que usa, si aplica</label>
-                      <input id="a_tradParte" />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="a_addTrad">➕ Agregar producto/remedio</button>
-                  </div>
-                  <div class="list" id="a_tradList"></div>
-
-                  <div class="sep"></div>
-                  <h3 style="margin:0;font-size:14px;">Animales que cuidan hombres y mujeres</h3>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="a_genderAnimal">Animal</label>
-                      <select id="a_genderAnimal">
-                        <option>Vacas</option>
-                        <option>Pequeños rumiantes (borregos y cabras)</option>
-                        <option>Caballos</option>
-                        <option>Burros, mulas</option>
-                        <option>Aves de corral</option>
-                        <option>Guajolotes</option>
-                        <option>Aves de pelea</option>
-                        <option>Cerdos</option>
-                        <option>Perros</option>
-                        <option>Gatos</option>
-                        <option>Conejos</option>
-                        <option>Abejas</option>
-                        <option>Peces</option>
-                        <option>Otro</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label for="a_genderAnimalWho">¿Quién lo cuida más?</label>
-                      <select id="a_genderAnimalWho">
-                        <option value="">— Selecciona —</option>
-                        <option>Mujer</option>
-                        <option>Hombre</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label for="a_genderAnimalWhy">¿Por qué?</label>
-                      <input id="a_genderAnimalWhy" />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="a_addGenderAnimal">➕ Agregar registro</button>
-                  </div>
-                  <div class="list" id="a_genderAnimalList"></div>
-
-                  <div class="sep"></div>
-                  <h3 style="margin:0;font-size:14px;">Actividades que hacen normalmente hombres y mujeres</h3>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="a_actividadGenero">Actividad</label>
-                      <input id="a_actividadGenero" placeholder="Ej. ordeñar, vender, alimentar..." />
-                    </div>
-
-                    <div>
-                      <label for="a_actividadGeneroSexo">¿Quién la hace?</label>
-                      <select id="a_actividadGeneroSexo">
-                        <option value="">— Selecciona —</option>
-                        <option>Mujer</option>
-                        <option>Hombre</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label for="a_actividadGeneroRazon">¿Por qué lo creen?</label>
-                      <input id="a_actividadGeneroRazon" />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="a_addGeneroActividad">➕ Agregar actividad</button>
-                  </div>
-                  <div class="list" id="a_generoActividadList"></div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>VI. Programas, entorno, agua y saberes locales</summary>
-                <div class="inner grid">
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_programaRegistro">¿Se registró en algún programa?</label>
-                      <select id="a_programaRegistro">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_programaNombre">¿En cuál programa?</label>
-                      <input id="a_programaNombre" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_programaFolioTiene">¿Recibió folio?</label>
-                      <select id="a_programaFolioTiene">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_programaFolio">Folio</label>
-                      <input id="a_programaFolio" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_programaConvocatorias">Si no se registró, ¿le interesaría participar en futuras convocatorias?</label>
-                    <textarea id="a_programaConvocatorias"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_cazaComunidad">¿En la comunidad es común que algunas personas cacen animales silvestres?</label>
-                      <select id="a_cazaComunidad">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_cazaTiempo">Si sí, ¿desde hace cuánto tiempo se practica?</label>
-                      <input id="a_cazaTiempo" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_cazaAnimales">¿Qué animales silvestres se cazan o se han cazado en la comunidad?</label>
-                    <textarea id="a_cazaAnimales"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_cazaLugares">¿En qué lugares de la región suele realizarse la caza?</label>
-                      <input id="a_cazaLugares" />
-                    </div>
-                    <div>
-                      <label for="a_cazaEpoca">¿En qué época del año es más común la caza?</label>
-                      <input id="a_cazaEpoca" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_cazaMotivos">¿Por qué motivos se cazan estos animales?</label>
-                    <textarea id="a_cazaMotivos"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_silvestresProblemas">¿Alguna vez los animales silvestres han afectado a sus animales domésticos?</label>
-                      <select id="a_silvestresProblemas">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_silvestresQuePaso">Si sí, ¿qué pasó?</label>
-                      <input id="a_silvestresQuePaso" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_rioUso">¿Hace uso del río o de cuerpos de agua cercanos?</label>
-                      <select id="a_rioUso">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_rioParaQue">Si sí, ¿para qué actividades los utiliza?</label>
-                      <input id="a_rioParaQue" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_rioSignificado">¿Qué significado tiene el río para usted o su familia?</label>
-                    <textarea id="a_rioSignificado"></textarea>
-                  </div>
-
-                  <div>
-                    <label for="a_rioProblemas">¿Ha observado algún problema relacionado con el río o el agua?</label>
-                    <textarea id="a_rioProblemas"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_saberesLocales">En su comunidad, ¿hay formas de cuidar animales o cultivos que se hayan aprendido de personas mayores y que se sigan usando hasta hoy?</label>
-                      <select id="a_saberesLocales">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_saberesQuien">¿Quién le enseñó o de quién aprendió estas prácticas?</label>
-                      <input id="a_saberesQuien" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="a_saberesUtilidad">¿Todavía le sirven o le funcionan esas prácticas para el manejo de animales o del campo?</label>
-                    <select id="a_saberesUtilidad">
-                      <option value="">— Selecciona —</option>
-                      <option>Sí, mucho</option>
-                      <option>Sí, a veces</option>
-                      <option>Poco</option>
-                      <option>Nada</option>
-                    </select>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>VII. Interés en pequeños rumiantes</summary>
-                <div class="inner grid">
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_interestRumiants">¿Le interesaría tener borregos o cabras en el futuro?</label>
-                      <select id="a_interestRumiants">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>Tal vez</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_interestRumiantsWhy">¿Por qué le gustaría tenerlos?</label>
-                      <input id="a_interestRumiantsWhy" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_hadRumiantsBefore">¿Ha tenido antes borregos o cabras?</label>
-                      <select id="a_hadRumiantsBefore">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_noRumiantsWhy">Si respondió “No”, ¿cuál es la principal razón por la que actualmente no tiene borregos o cabras?</label>
-                      <input id="a_noRumiantsWhy" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_rumiantsAdvice">¿Le interesaría recibir asesorías?</label>
-                      <select id="a_rumiantsAdvice">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_rumiantsOthers">¿Conoce a otras personas en la comunidad que también estén interesadas?</label>
-                      <select id="a_rumiantsOthers">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_rumiantsWomen">¿Cree que las mujeres estarían interesadas en criar borregos o cabras si tuvieran oportunidad o recursos?</label>
-                      <select id="a_rumiantsWomen">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_rumiantsNeed">¿Qué necesitarían para poder hacerlo?</label>
-                      <input id="a_rumiantsNeed" />
-                    </div>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>VIII. Interés en aves</summary>
-                <div class="inner grid">
-                  <div class="help">
-                    Esta parte es para conocer lo que saben y poder dar información sobre aves; no significa que se les van a regalar o vender animales.
-                  </div>
-
-                  <div id="a_interestBirdsYesWrap">
-                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 5)</label>
-                    <input id="a_interestBirdsYes" type="number" min="1" max="5" />
-                  </div>
-
-                  <div id="a_interestBirdsNoWrap">
-                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 5)</label>
-                    <input id="a_interestBirdsNo" type="number" min="1" max="5" />
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <div class="row">
-                <button class="btn primary" type="button" id="btnSaveAnimalsFull">💾 Guardar sección animales/cuestionario</button>
               </div>
+            </details>
 
-            </form>
-          </div>
-        </section>
-      </main>
-    </section>
+            <details open>
+              <summary>IV. Medicina tradicional, programas, entorno, agua y saberes locales</summary>
+              <div class="padded stack">
+                <div class="grid cols-2 section-box">
+                  <label class="inline-check"><input id="producer_traditionalUse" type="checkbox" /> Usa medicina tradicional</label>
+                  <div></div>
+                  <label id="producer_traditionalHow_wrap" class="hidden">Cómo lo usa<input id="producer_traditionalHow" /></label>
+                  <label id="producer_traditionalAnimals_wrap" class="hidden">En qué animales lo usa<input id="producer_traditionalAnimals" /></label>
+                </div>
+                <div class="grid cols-2 section-box">
+                  <label>Programas
+                    <select id="producer_programs" multiple>
+                      <option>Programa para Dignificar el Campo Hidalguense 2026</option>
+                      <option>Programa Productivo para la Mujer Rural</option>
+                      <option>Programa para Transformar el Campo Hidalguense</option>
+                    </select>
+                  </label>
+                  <label>Entorno<input id="producer_environment" placeholder="Ej. zona de ladera, barranca, temporal" /></label>
+                  <label>Agua<input id="producer_water" placeholder="Fuentes, acceso, estacionalidad" /></label>
+                  <div>
+                    <label class="inline-check"><input id="producer_localKnowledge" type="checkbox" /> Tiene saberes locales</label>
+                    <div id="producer_knowledgeWrap" class="grid hidden compact-grid">
+                      <label>Cuál saber específico<input id="producer_knowledgeSpecific" /></label>
+                      <label>Quién se lo enseñó<input id="producer_knowledgeTeacher" /></label>
+                      <label>Qué tanto lo usa
+                        <select id="producer_knowledgeUsage">
+                          <option value="">Selecciona</option>
+                          <option>Poco</option>
+                          <option>Regular</option>
+                          <option>Mucho</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="grid cols-2 section-box">
+                  <label class="inline-check"><input id="producer_hasSheepGoats" type="checkbox" /> Actualmente tiene borregos o cabras</label>
+                  <label id="producer_hadSheepGoats_wrap" class="hidden">Si ya tiene, ¿ha tenido antes en otra etapa?<input id="producer_hadSheepGoats" /></label>
+                  <label id="producer_noSheepReason_wrap" class="hidden">Razón principal por la que no tiene actualmente
+                    <select id="producer_noSheepReason">
+                      <option value="">Selecciona</option>
+                      <option>Falta de dinero para comprar animales</option>
+                      <option>Falta de conocimiento sobre su manejo</option>
+                      <option>Falta de espacio o tierra</option>
+                      <option>Porque nadie en la familia se dedica a eso</option>
+                      <option>Falta de alimento o pasto</option>
+                      <option>Porque se perdieron o murieron los animales</option>
+                      <option>Falta de tiempo para cuidarlos</option>
+                      <option>Porque los vendió y no volvió a comprar</option>
+                      <option>Otro</option>
+                    </select>
+                  </label>
+                  <label id="producer_noSheepReasonOther_wrap" class="hidden">Otro: especificar<input id="producer_noSheepReasonOther" /></label>
+                  <label class="inline-check"><input id="producer_hasBirds" type="checkbox" /> Actualmente tiene aves</label>
+                  <label>Interés en aves
+                    <div id="producer_birdsInterestPrompt" class="help small-help"></div>
+                    <select id="producer_birdsInterest">
+                      <option value="">Selecciona</option>
+                      <option value="1">1 = Nada</option>
+                      <option value="2">2 = Poco</option>
+                      <option value="3">3 = Regular</option>
+                      <option value="4">4 = Mucho</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </details>
 
-    <!-- =====================================================
-         PÁGINA 3 · MEDICAMENTOS
-    ====================================================== -->
-    <section id="pageMeds" class="page">
-      <main style="grid-template-columns:1.1fr .9fr;">
-        <section class="card">
-          <h2>💊 Medicamentos (Módulo 4)</h2>
-          <div class="content">
-            <div class="help">Manual o ChatGPT (prompt automático).</div>
-            <div class="sep"></div>
+            <details open>
+              <summary>V. Foto y notas</summary>
+              <div class="padded stack">
+                <div class="row wrap">
+                  <label class="btn ghost upload-btn">📷 Tomar / elegir foto<input id="producer_photo" type="file" accept="image/*" capture="environment" hidden /></label>
+                  <button class="btn ghost" type="button" id="producer_photo_remove">🗑️ Quitar foto</button>
+                </div>
+                <div class="thumb-grid" id="producerPhotoPreview"></div>
+                <label>Observaciones<textarea id="producer_notes"></textarea></label>
+              </div>
+            </details>
 
-            <div class="row">
-              <button class="btn small" type="button" id="m_modeManual">✍️ Manual</button>
-              <button class="btn small ghost" type="button" id="m_modeChatGPT">🪄 ChatGPT</button>
-              <span class="help" id="m_modeHint">Modo actual: ✍️ Manual</span>
+            <div class="row wrap padded bottom-actions">
+              <button class="btn primary" type="submit">💾 Guardar productor(a)</button>
+              <button class="btn ghost" id="producerResetBtn" type="button">🧽 Limpiar</button>
+              <button class="btn ghost" id="producerExportWordBtn" type="button">📄 Exportar Word actual</button>
+              <button class="btn ghost" id="producerExportExcelBtn" type="button">📊 Exportar Excel actual</button>
             </div>
-
-            <div class="sep"></div>
-
-            <form id="medForm" autocomplete="off">
-              <div class="grid">
-
-                <div class="grid cols-2">
-                  <div>
-                    <label for="m_brand">Nombre comercial *</label>
-                    <input id="m_brand" type="text" required placeholder="Ej. Ivomec" />
-                  </div>
-                  <div>
-                    <label for="m_active">Sustancia activa *</label>
-                    <input id="m_active" type="text" required placeholder="Ej. Ivermectina" />
-                  </div>
-                </div>
-
-                <div class="grid cols-4">
-                  <div>
-                    <label for="m_owner">Pertenece a *</label>
-                    <select id="m_owner">
-                      <option value="">— Selecciona —</option>
-                      <option value="DRA_ANA_ROSA">Dra. Ana Rosa</option>
-                      <option value="SERVICIOS">Servicios</option>
-                      <option value="OTRO">Otro</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="m_presentation">Presentación</label>
-                    <input id="m_presentation" type="text" placeholder="Ej. frasco 50 mL" />
-                  </div>
-                  <div>
-                    <label for="m_cost">Costo (MXN)</label>
-                    <input id="m_cost" type="number" min="0" step="0.01" placeholder="Ej. 320" />
-                  </div>
-                  <div>
-                    <label for="m_expiry">Caducidad</label>
-                    <input id="m_expiry" type="date" />
-                  </div>
-                </div>
-
-                <div class="grid cols-3">
-                  <div>
-                    <label for="m_totalQty">Cantidad total</label>
-                    <input id="m_totalQty" type="number" min="0" step="0.01" placeholder="Ej. 50" />
-                  </div>
-                  <div>
-                    <label for="m_unit">Unidad</label>
-                    <select id="m_unit">
-                      <option value="">— Selecciona —</option>
-                      <option value="mL">mL</option>
-                      <option value="tabletas">tabletas</option>
-                      <option value="cápsulas">cápsulas</option>
-                      <option value="sobres">sobres</option>
-                      <option value="g">g</option>
-                      <option value="kg">kg</option>
-                      <option value="L">L</option>
-                      <option value="dosis">dosis</option>
-                      <option value="otro">otro</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="m_unitCost">Costo unitario (auto)</label>
-                    <input id="m_unitCost" type="text" disabled placeholder="$ / unidad" />
-                  </div>
-                </div>
-
-                <details open>
-                  <summary>💉 Vacunas</summary>
-                  <div class="inner grid">
-                    <div class="grid cols-5">
-                      <div>
-                        <label for="m_vaxBrand">Marca vacuna</label>
-                        <input id="m_vaxBrand" type="text" placeholder="Ej. Triple aviar" />
-                      </div>
-                      <div>
-                        <label for="m_vaxExpiry">Caducidad</label>
-                        <input id="m_vaxExpiry" type="date" />
-                      </div>
-                      <div>
-                        <label for="m_vaxPrice">Precio</label>
-                        <input id="m_vaxPrice" type="number" min="0" step="0.01" />
-                      </div>
-                      <div>
-                        <label for="m_vaxCoverageAnimals">¿Para cuántos animales alcanza?</label>
-                        <input id="m_vaxCoverageAnimals" type="number" min="0" step="1" />
-                      </div>
-                      <div>
-                        <label for="m_vaxDiseases">¿Qué enfermedades cubre?</label>
-                        <input id="m_vaxDiseases" type="text" placeholder="Ej. Newcastle, viruela..." />
-                      </div>
-                    </div>
-                  </div>
-                </details>
-
-                <details open>
-                  <summary>📎 Evidencias (receta y compra)</summary>
-                  <div class="inner grid">
-                    <div class="grid cols-2">
-                      <div>
-                        <label>📄 Foto de receta</label>
-                        <div class="row">
-                          <input id="m_rx_take" type="file" accept="image/*" capture="environment" style="display:none" />
-                          <input id="m_rx_pick" type="file" accept="image/*" style="display:none" />
-                          <button class="btn small" type="button" id="m_btnRxTake">📸 Tomar</button>
-                          <button class="btn small" type="button" id="m_btnRxPick">🖼️ Elegir</button>
-                          <button class="btn small ghost" type="button" id="m_btnRxRemove">🗑️ Quitar</button>
-                        </div>
-                        <div class="row">
-                          <div class="thumb" id="m_rx_preview"><span>Sin<br/>receta</span></div>
-                          <div class="help">Se guarda local (base64).</div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label>🧾 Foto/captura del ticket de compra</label>
-                        <div class="row">
-                          <input id="m_tk_take" type="file" accept="image/*" capture="environment" style="display:none" />
-                          <input id="m_tk_pick" type="file" accept="image/*" style="display:none" />
-                          <button class="btn small" type="button" id="m_btnTkTake">📸 Tomar</button>
-                          <button class="btn small" type="button" id="m_btnTkPick">🖼️ Elegir</button>
-                          <button class="btn small ghost" type="button" id="m_btnTkRemove">🗑️ Quitar</button>
-                        </div>
-                        <div class="row">
-                          <div class="thumb" id="m_tk_preview"><span>Sin<br/>ticket</span></div>
-                          <div class="help">Se guarda local (base64).</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </details>
-
-                <details open>
-                  <summary>🧠 Ficha clínica</summary>
-                  <div class="inner grid">
-
-                    <div id="chatgptBlock" style="display:none;">
-                      <div>
-                        <label for="ai_english">Texto fuente (inglés)</label>
-                        <textarea id="ai_english" placeholder="Pega aquí el texto en inglés"></textarea>
-                      </div>
-
-                      <div class="row">
-                        <button class="btn primary" type="button" id="ai_makePrompt">🧾 Generar prompt</button>
-                        <button class="btn small ghost" type="button" id="ai_copyPrompt">📋 Copiar prompt</button>
-                        <button class="btn small ghost" type="button" id="ai_openChatGPT">🔗 Abrir ChatGPT</button>
-                        <button class="btn small ghost" type="button" id="ai_clearAll">🧽 Limpiar</button>
-                      </div>
-
-                      <div>
-                        <label for="ai_prompt">Prompt listo</label>
-                        <textarea id="ai_prompt" readonly></textarea>
-                        <div id="ai_status" class="help"></div>
-                      </div>
-
-                      <div>
-                        <label for="ai_result">Pega JSON de ChatGPT</label>
-                        <textarea id="ai_result"></textarea>
-                      </div>
-
-                      <div class="row">
-                        <button class="btn" type="button" id="ai_fillFromJson">✅ Rellenar ficha</button>
-                        <button class="btn ghost" type="button" id="ai_copyExample">🧪 Copiar ejemplo JSON</button>
-                      </div>
-
-                      <div class="sep"></div>
-                    </div>
-
-                    <div>
-                      <label for="m_use">¿Para qué se ocupa el medicamento? (ES)</label>
-                      <textarea id="m_use"></textarea>
-                    </div>
-
-                    <div class="grid cols-2">
-                      <div>
-                        <label for="m_mech">Mecanismo de acción (ES)</label>
-                        <textarea id="m_mech"></textarea>
-                      </div>
-                      <div>
-                        <label for="m_adverse">Efectos adversos (ES)</label>
-                        <textarea id="m_adverse"></textarea>
-                      </div>
-                    </div>
-
-                    <div class="grid cols-2">
-                      <div>
-                        <label for="m_preg">Seguridad gestación/lactancia (ES)</label>
-                        <textarea id="m_preg"></textarea>
-                      </div>
-                      <div>
-                        <label for="m_pk">Farmacocinética (ES)</label>
-                        <textarea id="m_pk"></textarea>
-                      </div>
-                    </div>
-
-                    <div class="grid cols-2">
-                      <div>
-                        <label for="m_overdose">Sobredosis (ES)</label>
-                        <textarea id="m_overdose"></textarea>
-                      </div>
-                      <div>
-                        <label for="m_interactions">Interacciones (ES)</label>
-                        <textarea id="m_interactions"></textarea>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label for="m_dosing">Dosificación (ES)</label>
-                      <textarea id="m_dosing"></textarea>
-                    </div>
-                  </div>
-                </details>
-
-                <div class="sep"></div>
-
-                <div class="row" style="justify-content:space-between;">
-                  <div class="row">
-                    <button class="btn primary" type="submit">💾 Guardar medicamento</button>
-                    <button class="btn ghost" type="button" id="m_btnClear">🧽 Limpiar</button>
-                  </div>
-                  <div style="max-width:420px;">
-                    <div id="m_msg" class="help"></div>
-                    <div id="m_err" class="error" style="display:none;"></div>
-                    <div id="m_ok" class="success" style="display:none;"></div>
-                  </div>
-                </div>
-
-              </div>
-            </form>
-          </div>
-        </section>
+          </form>
+        </article>
 
         <aside class="card">
-          <h2>📚 Biblioteca</h2>
-          <div class="content">
-            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <div class="help">Total: <b id="m_count">0</b></div>
-              <button class="btn small ghost" type="button" id="m_btnExport">⬇️ Exportar JSON</button>
-              <button class="btn small ghost" type="button" id="m_btnImport">⬆️ Importar JSON</button>
-              <button class="btn small ghost" type="button" id="m_btnExportExcel">📊 Exportar Excel</button>
-              <input id="m_importFile" type="file" accept="application/json" style="display:none;" />
-            </div>
-
-            <div class="row">
-              <input id="m_search" type="text" placeholder="🔎 Buscar por comercial o activo..." />
-            </div>
-
-            <div class="sep"></div>
-            <div class="list" id="m_list"></div>
+          <h2>Productores registrados</h2>
+          <div class="padded stack">
+            <input id="producerSearch" placeholder="Buscar productor(a)" />
+            <div id="producerList" class="entity-list"></div>
           </div>
         </aside>
-      </main>
+      </div>
     </section>
 
-    <!-- =====================================================
-         PÁGINA 4 · INSUMOS
-    ====================================================== -->
-    <section id="pageSupplies" class="page">
-      <main style="grid-template-columns:1.1fr .9fr;">
-        <section class="card">
-          <h2>🧰 Insumos (Módulo 5)</h2>
-          <div class="content">
-
-            <div class="row">
-              <button class="btn small" type="button" id="s_modeDisposable">🧴 Desechables</button>
-              <button class="btn small ghost" type="button" id="s_modeNonDisposable">🔧 No desechables</button>
-              <span class="help" id="s_modeHint">Modo actual: 🧴 Desechables</span>
+    <section class="page" id="tab-animales">
+      <div class="split two-col">
+        <article class="card">
+          <h2 id="animalFormTitle">Nuevo animal</h2>
+          <form id="animalForm" class="stack padded">
+            <div class="grid cols-3">
+              <label>Productor(a) *<select id="animal_producer" required></select></label>
+              <label>Nombre / identificación *<input id="animal_name" required /></label>
+              <label>Especie *
+                <select id="animal_species" required>
+                  <option value="">Selecciona</option>
+                  <option>Bovino</option>
+                  <option>Ovino</option>
+                  <option>Caprino</option>
+                  <option>Porcino</option>
+                  <option>Ave</option>
+                  <option>Equino</option>
+                  <option>Canino</option>
+                  <option>Felino</option>
+                  <option>Otro</option>
+                </select>
+              </label>
+              <label id="animal_speciesOther_wrap" class="hidden">Otra especie<input id="animal_speciesOther" /></label>
+              <label>Sexo<select id="animal_sex"><option value="">Selecciona</option><option>Hembra</option><option>Macho</option><option>Indeterminado</option></select></label>
+              <label>Edad<input id="animal_age" /></label>
+              <label>Etapa productiva<input id="animal_stage" /></label>
+              <label>Propósito / función<input id="animal_role" /></label>
+              <label>Estado actual<input id="animal_status" /></label>
             </div>
-
-            <div class="sep"></div>
-
-            <form id="supplyForm" autocomplete="off">
-              <div class="grid">
-
-                <div class="grid cols-2">
-                  <div>
-                    <label for="s_name">Nombre del insumo *</label>
-                    <input id="s_name" required placeholder="Ej. Jeringa 5 mL / Tubos / Termómetro" />
-                  </div>
-                  <div>
-                    <label for="s_acquired">Fecha de adquisición *</label>
-                    <input id="s_acquired" type="date" required />
-                  </div>
-                </div>
-
-                <div id="blockDisposable">
-                  <details open>
-                    <summary>🧴 Desechable</summary>
-                    <div class="inner grid">
-
-                      <div class="row" style="justify-content:space-between;">
-                        <label style="margin:0;">¿Fue donado?</label>
-                        <div class="row">
-                          <label class="radio">
-                            <input type="radio" name="s_donated" value="NO" checked />
-                            <span>❌ No</span>
-                          </label>
-                          <label class="radio">
-                            <input type="radio" name="s_donated" value="SI" />
-                            <span>🎁 Sí</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div id="s_priceBlock">
-                        <div class="grid cols-3">
-                          <div>
-                            <label for="s_presentation">Presentación</label>
-                            <input id="s_presentation" placeholder="Ej. Caja / Paquete" />
-                          </div>
-                          <div>
-                            <label for="s_qty">¿Cuántas trae?</label>
-                            <input id="s_qty" type="number" min="0" step="1" placeholder="Ej. 100" />
-                          </div>
-                          <div>
-                            <label for="s_price">Precio total (MXN)</label>
-                            <input id="s_price" type="number" min="0" step="0.01" placeholder="Ej. 250" />
-                          </div>
-                        </div>
-
-                        <div class="grid cols-2">
-                          <div>
-                            <label for="s_unitCost">Costo unitario (auto)</label>
-                            <input id="s_unitCost" disabled placeholder="$ / pieza" />
-                          </div>
-                          <div class="help" style="margin-top:22px;">
-                            Se calcula: precio total / cantidad.
-                          </div>
-                        </div>
-
-                        <details open>
-                          <summary>🧾 Ticket de compra</summary>
-                          <div class="inner grid">
-                            <div class="row">
-                              <input id="s_tk_take" type="file" accept="image/*" capture="environment" style="display:none" />
-                              <input id="s_tk_pick" type="file" accept="image/*" style="display:none" />
-                              <button class="btn small" type="button" id="s_btnTkTake">📸 Tomar</button>
-                              <button class="btn small" type="button" id="s_btnTkPick">🖼️ Elegir</button>
-                              <button class="btn small ghost" type="button" id="s_btnTkRemove">🗑️ Quitar</button>
-                            </div>
-                            <div class="row">
-                              <div class="thumb" id="s_tk_preview"><span>Sin<br/>ticket</span></div>
-                              <div class="help">Se guarda local (base64).</div>
-                            </div>
-                          </div>
-                        </details>
-                      </div>
-
-                    </div>
-                  </details>
-                </div>
-
-                <div id="blockNonDisposable" style="display:none;">
-                  <details open>
-                    <summary>🔧 No desechable</summary>
-                    <div class="inner grid">
-
-                      <div class="grid cols-2">
-                        <div>
-                          <label for="s_costAcq">Costo de adquisición (MXN) *</label>
-                          <input id="s_costAcq" type="number" min="0" step="0.01" placeholder="Ej. 1200" />
-                        </div>
-                        <div>
-                          <label for="s_lifeMonths">Vida útil (meses) *</label>
-                          <input id="s_lifeMonths" type="number" min="1" step="1" placeholder="Ej. 24" />
-                        </div>
-                      </div>
-
-                      <div class="grid cols-2">
-                        <div>
-                          <label for="s_estimatedUses">Usos estimados (opcional)</label>
-                          <input id="s_estimatedUses" type="number" min="0" step="1" placeholder="Ej. 300" />
-                        </div>
-                        <div>
-                          <label for="s_costMonth">Costo por mes (auto)</label>
-                          <input id="s_costMonth" disabled placeholder="$ / mes" />
-                        </div>
-                      </div>
-
-                      <div class="grid cols-2">
-                        <div>
-                          <label for="s_costUse">Costo por uso (auto)</label>
-                          <input id="s_costUse" disabled placeholder="$ / uso" />
-                        </div>
-                        <div class="help" style="margin-top:22px;">
-                          Te da base de recuperación por usar el equipo.
-                        </div>
-                      </div>
-
-                      <div>
-                        <label for="s_notes">Notas</label>
-                        <textarea id="s_notes" placeholder="Ej. mantenimiento, calibración..."></textarea>
-                      </div>
-
-                    </div>
-                  </details>
-                </div>
-
-                <div class="sep"></div>
-
-                <div class="row" style="justify-content:space-between;">
-                  <div class="row">
-                    <button class="btn primary" type="submit">💾 Guardar insumo</button>
-                    <button class="btn ghost" type="button" id="s_btnClear">🧽 Limpiar</button>
-                  </div>
-                  <div style="max-width:420px;">
-                    <div id="s_msg" class="help"></div>
-                    <div id="s_err" class="error" style="display:none;"></div>
-                    <div id="s_ok" class="success" style="display:none;"></div>
-                  </div>
-                </div>
-
-              </div>
-            </form>
-          </div>
-        </section>
-
+            <label>Señales particulares<textarea id="animal_notes"></textarea></label>
+            <div class="row wrap">
+              <label class="btn ghost upload-btn">📷 Foto animal<input id="animal_photo" type="file" accept="image/*" capture="environment" hidden /></label>
+              <button class="btn ghost" id="animal_photo_remove" type="button">🗑️ Quitar foto</button>
+            </div>
+            <div id="animalPhotoPreview" class="thumb-grid"></div>
+            <div id="animalProducerHint" class="help"></div>
+            <div class="row wrap">
+              <button class="btn primary" type="submit">💾 Guardar animal</button>
+              <button class="btn ghost" id="animalResetBtn" type="button">🧽 Limpiar</button>
+              <button class="btn ghost" id="animalExportExcelBtn" type="button">📊 Exportar Excel animales</button>
+            </div>
+          </form>
+        </article>
         <aside class="card">
-          <h2>📦 Biblioteca de insumos</h2>
-          <div class="content">
-            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <div class="help">Total: <b id="s_count">0</b></div>
-              <button class="btn small ghost" type="button" id="s_btnExport">⬇️ Exportar JSON</button>
-              <button class="btn small ghost" type="button" id="s_btnImport">⬆️ Importar JSON</button>
-              <button class="btn small ghost" type="button" id="s_btnExportExcel">📊 Exportar Excel</button>
-              <input id="s_importFile" type="file" accept="application/json" style="display:none;" />
-            </div>
-
-            <div class="row">
-              <input id="s_search" type="text" placeholder="🔎 Buscar por nombre..." />
-            </div>
-
-            <div class="sep"></div>
-            <div class="list" id="s_list"></div>
+          <h2>Animales registrados</h2>
+          <div class="padded stack">
+            <input id="animalSearch" placeholder="Buscar animal" />
+            <div id="animalList" class="entity-list"></div>
           </div>
         </aside>
-      </main>
+      </div>
     </section>
 
-    <!-- =====================================================
-         PÁGINA 5 · PROCEDIMIENTOS
-    ====================================================== -->
-    <section id="pageProcedures" class="page">
-      <main style="grid-template-columns:1.1fr .9fr;">
-        <section class="card">
-          <h2>🩺 Procedimientos veterinarios</h2>
-          <div class="content">
+    <section class="page" id="tab-medicamentos">
+      <div class="split two-col">
+        <article class="card">
+          <h2 id="medFormTitle">Nuevo medicamento</h2>
+          <form id="medForm" class="stack padded">
+            <div class="row wrap between">
+              <div class="help">Medicamentos completamente separados de vacunas.</div>
+              <div class="row wrap">
+                <button class="btn ghost" id="medChatModeBtn" type="button">🪄 ChatGPT</button>
+                <button class="btn ghost" id="medManualModeBtn" type="button">✍️ Manual</button>
+              </div>
+            </div>
+            <div id="medChatBlock" class="chat-box hidden">
+              <label>Prompt sugerido para ChatGPT<textarea id="med_chatPrompt" readonly></textarea></label>
+              <div class="row wrap">
+                <button class="btn" id="medCopyPromptBtn" type="button">📋 Copiar prompt</button>
+                <button class="btn" id="medOpenChatBtn" type="button">🔗 Abrir ChatGPT</button>
+              </div>
+              <label>Pega aquí el JSON sugerido por ChatGPT<textarea id="med_aiPaste"></textarea></label>
+              <button class="btn" id="medApplyAiBtn" type="button">⚙️ Aplicar JSON</button>
+            </div>
+            <div class="grid cols-3">
+              <label>Nombre *<input id="med_name" required /></label>
+              <label>Categoría<input id="med_category" /></label>
+              <label>Presentación<input id="med_presentation" /></label>
+              <label>Cantidad disponible *<input id="med_stock" type="number" min="0" step="0.01" required /></label>
+              <label>Unidad<input id="med_unit" placeholder="ml, frasco, tableta" /></label>
+              <label>Costo total<input id="med_totalCost" type="number" min="0" step="0.01" /></label>
+              <label>Costo unitario<input id="med_unitCost" type="number" min="0" step="0.01" /></label>
+              <label>Pertenencia
+                <select id="med_owner">
+                  <option value="">Selecciona</option>
+                  <option value="Dra. Ana Rosa">Dra. Ana Rosa</option>
+                  <option value="Servicios">Servicios</option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </label>
+              <label id="med_ownerOther_wrap" class="hidden">Otro propietario<input id="med_ownerOther" /></label>
+            </div>
+            <label>Notas<textarea id="med_notes"></textarea></label>
+            <div class="row wrap">
+              <label class="btn ghost upload-btn">📷 Foto / receta<input id="med_photo" type="file" accept="image/*" capture="environment" hidden /></label>
+              <button class="btn ghost" id="medPhotoRemove" type="button">🗑️ Quitar foto</button>
+            </div>
+            <div id="medPhotoPreview" class="thumb-grid"></div>
+            <div class="row wrap">
+              <button class="btn primary" type="submit">💾 Guardar medicamento</button>
+              <button class="btn ghost" id="medResetBtn" type="button">🧽 Limpiar</button>
+              <button class="btn ghost" id="medExportExcelBtn" type="button">📊 Exportar Excel</button>
+            </div>
+          </form>
+        </article>
+        <aside class="card"><h2>Inventario de medicamentos</h2><div class="padded stack"><input id="medSearch" placeholder="Buscar medicamento" /><div id="medList" class="entity-list"></div></div></aside>
+      </div>
+    </section>
 
-            <form id="procedureForm" autocomplete="off">
+    <section class="page" id="tab-vacunas">
+      <div class="split two-col">
+        <article class="card">
+          <h2 id="vaccineFormTitle">Nueva vacuna</h2>
+          <form id="vaccineForm" class="stack padded">
+            <div class="grid cols-3">
+              <label>Nombre *<input id="vaccine_name" required /></label>
+              <label>Lote<input id="vaccine_batch" /></label>
+              <label>Caducidad<input id="vaccine_expiry" type="date" /></label>
+              <label>Dosis disponibles *<input id="vaccine_stock" type="number" min="0" step="0.01" required /></label>
+              <label>Unidad<input id="vaccine_unit" placeholder="dosis, ml" /></label>
+              <label>Costo total<input id="vaccine_totalCost" type="number" min="0" step="0.01" /></label>
+            </div>
+            <label>Notas propias de vacuna<textarea id="vaccine_notes"></textarea></label>
+            <div class="row wrap">
+              <label class="btn ghost upload-btn">📷 Foto vacuna<input id="vaccine_photo" type="file" accept="image/*" capture="environment" hidden /></label>
+              <button class="btn ghost" id="vaccinePhotoRemove" type="button">🗑️ Quitar foto</button>
+            </div>
+            <div id="vaccinePhotoPreview" class="thumb-grid"></div>
+            <div class="row wrap">
+              <button class="btn primary" type="submit">💾 Guardar vacuna</button>
+              <button class="btn ghost" id="vaccineResetBtn" type="button">🧽 Limpiar</button>
+              <button class="btn ghost" id="vaccineExportExcelBtn" type="button">📊 Exportar Excel</button>
+            </div>
+          </form>
+        </article>
+        <aside class="card"><h2>Inventario de vacunas</h2><div class="padded stack"><input id="vaccineSearch" placeholder="Buscar vacuna" /><div id="vaccineList" class="entity-list"></div></div></aside>
+      </div>
+    </section>
 
-              <details open>
-                <summary>1. Datos generales del procedimiento</summary>
-                <div class="inner grid">
+    <section class="page" id="tab-insumos">
+      <div class="split two-col">
+        <article class="card">
+          <h2 id="supplyFormTitle">Nuevo insumo</h2>
+          <form id="supplyForm" class="stack padded">
+            <div class="grid cols-3">
+              <label>Nombre *<input id="supply_name" required /></label>
+              <label>Tipo
+                <select id="supply_type">
+                  <option>Desechable</option>
+                  <option>No desechable</option>
+                </select>
+              </label>
+              <label>Cantidad disponible<input id="supply_stock" type="number" min="0" step="0.01" /></label>
+              <label>Unidad<input id="supply_unit" placeholder="pieza, caja, jeringa" /></label>
+              <label>Costo unitario<input id="supply_unitCost" type="number" min="0" step="0.01" /></label>
+              <label id="supply_useCost_wrap">Costo por uso<input id="supply_useCost" type="number" min="0" step="0.01" /></label>
+              <label id="supply_lifeYears_wrap" class="hidden">Vida útil en años<input id="supply_lifeYears" type="number" min="0" step="0.1" /></label>
+            </div>
+            <label>Notas<textarea id="supply_notes"></textarea></label>
+            <div class="row wrap">
+              <button class="btn primary" type="submit">💾 Guardar insumo</button>
+              <button class="btn ghost" id="supplyResetBtn" type="button">🧽 Limpiar</button>
+              <button class="btn ghost" id="supplyExportExcelBtn" type="button">📊 Exportar Excel</button>
+            </div>
+          </form>
+        </article>
+        <aside class="card"><h2>Inventario de insumos</h2><div class="padded stack"><input id="supplySearch" placeholder="Buscar insumo" /><div id="supplyList" class="entity-list"></div></div></aside>
+      </div>
+    </section>
 
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_date">Fecha *</label>
-                      <input id="p_date" type="date" />
-                    </div>
-                    <div>
-                      <label for="p_type">Tipo de procedimiento *</label>
-                      <select id="p_type">
-                        <option value="">— Selecciona —</option>
-                        <option value="PREVENTIVA">Medicina preventiva</option>
-                        <option value="ZOOTECNIA">Asesoría zootécnica</option>
-                        <option value="CASO_CLINICO">Caso clínico</option>
-                        <option value="NECROPSIA">Necropsia</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="p_place">Lugar / comunidad</label>
-                      <input id="p_place" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_costTotal">Costo total sugerido / cobrado</label>
-                      <input id="p_costTotal" type="number" min="0" step="0.01" />
-                    </div>
-                  </div>
+    <section class="page" id="tab-laboratorio">
+      <div class="split two-col">
+        <article class="card">
+          <h2 id="labFormTitle">Nueva prueba de laboratorio</h2>
+          <form id="labForm" class="stack padded">
+            <div class="grid cols-3">
+              <label>Tipo de prueba *<input id="lab_type" required /></label>
+              <label>Fecha<input id="lab_date" type="date" /></label>
+              <label>Productor(a)<select id="lab_producer"></select></label>
+              <label>Animal<select id="lab_animal"></select></label>
+              <label>Vincular a procedimiento<select id="lab_procedure"></select></label>
+              <label>Resultado<input id="lab_result" /></label>
+            </div>
+            <label>Interpretación<textarea id="lab_interpretation"></textarea></label>
+            <label>Observaciones<textarea id="lab_observations"></textarea></label>
+            <div class="row wrap">
+              <label class="btn ghost upload-btn">📎 Archivo / imagen<input id="lab_file" type="file" accept="image/*,.pdf" hidden /></label>
+              <button class="btn ghost" id="labFileRemove" type="button">🗑️ Quitar archivo</button>
+            </div>
+            <div id="labFilePreview" class="thumb-grid"></div>
+            <div class="row wrap">
+              <button class="btn primary" type="submit">💾 Guardar prueba</button>
+              <button class="btn ghost" id="labResetBtn" type="button">🧽 Limpiar</button>
+              <button class="btn ghost" id="labExportExcelBtn" type="button">📊 Exportar Excel</button>
+            </div>
+          </form>
+        </article>
+        <aside class="card"><h2>Pruebas registradas</h2><div class="padded stack"><input id="labSearch" placeholder="Buscar prueba" /><div id="labList" class="entity-list"></div></div></aside>
+      </div>
+    </section>
 
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_producer">Productor(a) *</label>
-                      <select id="p_producer"></select>
-                    </div>
-                    <div>
-                      <label for="p_animalGroup">Animal / grupo animal *</label>
-                      <select id="p_animalGroup"></select>
-                    </div>
-                    <div>
-                      <label for="p_animalsQtyUsed">¿En cuántos animales se realizará?</label>
-                      <input id="p_animalsQtyUsed" type="number" min="1" step="1" />
-                    </div>
-                  </div>
+    <section class="page" id="tab-procedimientos">
+      <div class="split two-col procedure-layout">
+        <article class="card">
+          <h2 id="procedureFormTitle">Nuevo procedimiento</h2>
+          <form id="procedureForm" class="stack padded">
+            <div class="grid cols-4">
+              <label>Fecha *<input id="proc_date" type="date" required /></label>
+              <label>Tipo de procedimiento *
+                <select id="proc_type" required>
+                  <option value="">Selecciona</option>
+                  <option value="Medicina preventiva">Medicina preventiva</option>
+                  <option value="Atención clínica / zootécnica">Atención clínica / zootécnica</option>
+                  <option value="Cirugía">Cirugía</option>
+                  <option value="Caso clínico">Caso clínico</option>
+                  <option value="Necropsia">Necropsia</option>
+                </select>
+              </label>
+              <label>Productor(a) *<select id="proc_producer" required></select></label>
+              <label>Modalidad
+                <select id="proc_mode">
+                  <option value="individual">Individual</option>
+                  <option value="grupal">Grupal</option>
+                </select>
+              </label>
+            </div>
+            <div id="procProducerHint" class="help"></div>
+            <div class="grid cols-2">
+              <label>Animales disponibles<select id="proc_animals" multiple></select></label>
+              <div class="stack compact-stack">
+                <label>Cantidad de animales a intervenir<input id="proc_animalCount" type="number" min="1" value="1" /></label>
+                <div id="procCountMsg" class="help"></div>
+              </div>
+            </div>
 
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_species">Especie animal</label>
-                      <input id="p_species" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_identification">No. identificación animal</label>
-                      <input id="p_identification" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_weight">Peso (kg)</label>
-                      <input id="p_weight" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label for="p_temperature">Temperatura (°C)</label>
-                      <input id="p_temperature" type="number" min="0" step="0.1" />
-                    </div>
-                  </div>
+            <section class="module-card" id="modulePreventive">
+              <h3>Medicina preventiva</h3>
+              <div class="grid cols-3">
+                <label>Acciones preventivas<textarea id="proc_preventiveActions" placeholder="Vacunación, desparasitación, vitaminación u otras"></textarea></label>
+                <label>Recomendaciones<textarea id="proc_preventiveRecommendations"></textarea></label>
+                <label>Seguimiento<textarea id="proc_preventiveFollowup"></textarea></label>
+              </div>
+            </section>
 
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_generalState">Estado general</label>
-                      <select id="p_generalState">
-                        <option value="">— Selecciona —</option>
-                        <option>Sano</option>
-                        <option>Enfermo</option>
-                        <option>Convaleciente</option>
-                        <option>Crítico</option>
-                        <option>Delgado</option>
-                        <option>Deshidratado</option>
-                        <option>Otro</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="p_chargeStatus">Estado del cobro</label>
-                      <select id="p_chargeStatus">
-                        <option value="">— Selecciona —</option>
-                        <option>Pendiente</option>
-                        <option>Cobrado</option>
-                        <option>Parcial</option>
-                        <option>Donado</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="p_chargeNotes">Notas de cobro</label>
-                      <input id="p_chargeNotes" type="text" />
-                    </div>
-                  </div>
+            <section class="module-card" id="moduleClinicalCare">
+              <h3>Atención clínica / zootécnica</h3>
+              <div class="grid cols-3">
+                <label>Evaluación<textarea id="proc_careEvaluation"></textarea></label>
+                <label>Intervención realizada<textarea id="proc_careIntervention"></textarea></label>
+                <label>Plan de manejo<textarea id="proc_carePlan"></textarea></label>
+                <label>Recomendaciones<textarea id="proc_careRecommendations"></textarea></label>
+                <label>Seguimiento<textarea id="proc_careFollowup"></textarea></label>
+                <label>Observaciones<textarea id="proc_careObservations"></textarea></label>
+              </div>
+            </section>
 
-                  <div>
-                    <label for="p_notes">Notas generales del procedimiento</label>
-                    <textarea id="p_notes"></textarea>
-                  </div>
+            <section class="module-card" id="moduleSurgery">
+              <h3>Cirugía</h3>
+              <div class="grid cols-3">
+                <label>Datos prequirúrgicos<textarea id="proc_surgeryPre"></textarea></label>
+                <label>Procedimiento realizado<textarea id="proc_surgeryPerformed"></textarea></label>
+                <label>Anestesia / sedación<textarea id="proc_surgeryAnesthesia"></textarea></label>
+                <label>Hallazgos<textarea id="proc_surgeryFindings"></textarea></label>
+                <label>Complicaciones<textarea id="proc_surgeryComplications"></textarea></label>
+                <label>Tratamiento posquirúrgico<textarea id="proc_surgeryPost"></textarea></label>
+                <label>Pronóstico<textarea id="proc_surgeryPrognosis"></textarea></label>
+                <label>Seguimiento<textarea id="proc_surgeryFollowup"></textarea></label>
+              </div>
+            </section>
 
-                </div>
-              </details>
+            <section class="module-card" id="moduleCase">
+              <h3>Caso clínico ECOP veterinario</h3>
+              <div class="grid cols-3">
+                <label>Motivo de consulta<textarea id="proc_caseReason"></textarea></label>
+                <label>Anamnesis<textarea id="proc_caseAnamnesis"></textarea></label>
+                <label>Problemas clínicos enumerados<textarea id="proc_caseProblems"></textarea></label>
+                <label>Examen físico<textarea id="proc_caseExam"></textarea></label>
+                <label>Hallazgos<textarea id="proc_caseFindings"></textarea></label>
+                <label>Diagnósticos diferenciales<textarea id="proc_caseDifferentials"></textarea></label>
+                <label>Pruebas diagnósticas<textarea id="proc_caseDiagnostics"></textarea></label>
+                <label>Diagnóstico presuntivo<textarea id="proc_casePresumptive"></textarea></label>
+                <label>Tratamiento<textarea id="proc_caseTreatment"></textarea></label>
+                <label>Seguimiento con fechas<textarea id="proc_caseFollowup"></textarea></label>
+                <label>Evolución<textarea id="proc_caseEvolution"></textarea></label>
+                <label>Diagnóstico definitivo<textarea id="proc_caseDefinitive"></textarea></label>
+                <label>Pronóstico<textarea id="proc_casePrognosis"></textarea></label>
+                <label>Recomendaciones<textarea id="proc_caseRecommendations"></textarea></label>
+              </div>
+            </section>
 
-              <div class="sep"></div>
+            <section class="module-card" id="moduleNecropsy">
+              <h3>Necropsia</h3>
+              <div class="grid cols-3">
+                <label>Identificación<textarea id="proc_necropsyIdentification"></textarea></label>
+                <label>Hallazgos<textarea id="proc_necropsyFindings"></textarea></label>
+                <label>Órganos / sistemas<textarea id="proc_necropsySystems"></textarea></label>
+                <label>Diagnóstico morfopatológico<textarea id="proc_necropsyMorph"></textarea></label>
+                <label>Diagnóstico final<textarea id="proc_necropsyFinal"></textarea></label>
+                <label>Comentarios<textarea id="proc_necropsyComments"></textarea></label>
+                <label>Bibliografía<textarea id="proc_necropsyReferences"></textarea></label>
+                <label>Cobro si aplica<textarea id="proc_necropsyChargeNotes"></textarea></label>
+              </div>
+            </section>
 
-              <details open>
-                <summary>2. Inventario vinculado usado en el procedimiento</summary>
-                <div class="inner grid">
-
-                  <div class="help">
-                    Aquí se seleccionarán después medicamentos, vacunas e insumos para descontarlos automáticamente del inventario.
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_medSelect">Medicamento</label>
-                      <select id="p_medSelect"></select>
-                    </div>
-                    <div>
-                      <label for="p_medDoseKg">Dosis por kg / animal</label>
-                      <input id="p_medDoseKg" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label for="p_medUnitUsed">Unidad</label>
-                      <input id="p_medUnitUsed" type="text" placeholder="mL, tabletas..." />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="p_addMedUse">➕ Agregar medicamento usado</button>
-                  </div>
-                  <div class="list" id="p_medUseList"></div>
-
-                  <div class="sep"></div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_vaccineSelect">Vacuna</label>
-                      <select id="p_vaccineSelect"></select>
-                    </div>
-                    <div>
-                      <label for="p_vaccineAnimalsApplied">¿A cuántos animales se aplicó?</label>
-                      <input id="p_vaccineAnimalsApplied" type="number" min="0" step="1" />
-                    </div>
-                    <div>
-                      <label for="p_vaccineNotes">Notas</label>
-                      <input id="p_vaccineNotes" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="p_addVaccineUse">➕ Agregar vacuna usada</button>
-                  </div>
-                  <div class="list" id="p_vaccineUseList"></div>
-
-                  <div class="sep"></div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_supplySelect">Insumo</label>
-                      <select id="p_supplySelect"></select>
-                    </div>
-                    <div>
-                      <label for="p_supplyQtyUsed">Cantidad usada</label>
-                      <input id="p_supplyQtyUsed" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label for="p_supplyNotes">Notas</label>
-                      <input id="p_supplyNotes" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="p_addSupplyUse">➕ Agregar insumo usado</button>
-                  </div>
-                  <div class="list" id="p_supplyUseList"></div>
-
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>3. Caso clínico</summary>
-                <div class="inner grid">
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_cc_reason">Motivo de consulta</label>
-                      <textarea id="p_cc_reason"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_cc_anamnesis">Anamnesis</label>
-                      <textarea id="p_cc_anamnesis"></textarea>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_cc_bodyCondition">CC</label>
-                      <input id="p_cc_bodyCondition" type="text" placeholder="Ej. 2/5" />
-                    </div>
-                    <div>
-                      <label for="p_cc_mucosa">Mucosas</label>
-                      <input id="p_cc_mucosa" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_tllc">TLLC</label>
-                      <input id="p_cc_tllc" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_hydration">% Hidratación / deshidratación</label>
-                      <input id="p_cc_hydration" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_cc_fc">FC</label>
-                      <input id="p_cc_fc" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_fr">FR</label>
-                      <input id="p_cc_fr" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_temp">T°</label>
-                      <input id="p_cc_temp" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_weight2">Peso</label>
-                      <input id="p_cc_weight2" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_cc_exam">Examen físico / hallazgos</label>
-                      <textarea id="p_cc_exam"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_cc_presumptiveDx">Diagnóstico presuntivo</label>
-                      <textarea id="p_cc_presumptiveDx"></textarea>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_cc_treatment">Tratamiento</label>
-                      <textarea id="p_cc_treatment"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_cc_recommendations">Recomendaciones</label>
-                      <textarea id="p_cc_recommendations"></textarea>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="p_cc_followup">Seguimiento</label>
-                    <textarea id="p_cc_followup"></textarea>
-                  </div>
-
-                  <div>
-                    <label>📸 Fotos del caso clínico</label>
-                    <div class="row">
-                      <input id="p_cc_take" type="file" accept="image/*" capture="environment" multiple style="display:none" />
-                      <input id="p_cc_pick" type="file" accept="image/*" multiple style="display:none" />
-                      <button class="btn small" type="button" id="p_cc_btnTake">📸 Tomar</button>
-                      <button class="btn small" type="button" id="p_cc_btnPick">🖼️ Elegir</button>
-                      <button class="btn small ghost" type="button" id="p_cc_btnClear">🧹 Quitar todas</button>
-                    </div>
-                    <div class="help" id="p_cc_hint">Sin fotos todavía.</div>
-                    <div class="row" id="p_cc_preview"></div>
-                  </div>
-
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>4. Necropsia</summary>
-                <div class="inner grid">
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_nec_idAnimal">Identificación del animal</label>
-                      <input id="p_nec_idAnimal" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_species">Especie</label>
-                      <input id="p_nec_species" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_breed">Raza</label>
-                      <input id="p_nec_breed" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_sex">Sexo</label>
-                      <input id="p_nec_sex" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_nec_age">Edad</label>
-                      <input id="p_nec_age" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_sterilized">Esterilizado</label>
-                      <input id="p_nec_sterilized" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_color">Color</label>
-                      <input id="p_nec_color" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_weight">Peso</label>
-                      <input id="p_nec_weight" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_nec_birthDate">Fecha de nacimiento</label>
-                      <input id="p_nec_birthDate" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_deathDate">Fecha de muerte</label>
-                      <input id="p_nec_deathDate" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_timeDeathNec">Tiempo entre la muerte y la necropsia</label>
-                      <input id="p_nec_timeDeathNec" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_nec_sender">Nombre y dirección del remitente</label>
-                      <input id="p_nec_sender" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_nec_caseNumber">Necropsia caso No.</label>
-                      <input id="p_nec_caseNumber" type="text" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="p_nec_clinicalDx">Diagnóstico(s) clínico(s) relevantes</label>
-                    <textarea id="p_nec_clinicalDx"></textarea>
-                  </div>
-
-                  <div>
-                    <label for="p_nec_additionalData">Datos adicionales</label>
-                    <textarea id="p_nec_additionalData"></textarea>
-                  </div>
-
-                  <div>
-                    <label for="p_nec_externalInspection">Inspección externa</label>
-                    <textarea id="p_nec_externalInspection"></textarea>
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_nec_primaryIncision">Incisión primaria</label>
-                      <textarea id="p_nec_primaryIncision"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_nec_secondaryIncision">Incisión secundaria</label>
-                      <textarea id="p_nec_secondaryIncision"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_nec_organExtraction">Extracción de órganos</label>
-                      <textarea id="p_nec_organExtraction"></textarea>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_nec_respiratory">Sistema respiratorio</label>
-                      <textarea id="p_nec_respiratory"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_nec_heart">Corazón</label>
-                      <textarea id="p_nec_heart"></textarea>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_nec_spleen">Bazo</label>
-                      <textarea id="p_nec_spleen"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_nec_kidneys">Riñones</label>
-                      <textarea id="p_nec_kidneys"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_nec_stomach">Estómago</label>
-                      <textarea id="p_nec_stomach"></textarea>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="p_nec_preliminaryReport">Reporte preliminar</label>
-                    <textarea id="p_nec_preliminaryReport"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_nec_morphDx">Dx(s) morfopatológico(s)</label>
-                      <textarea id="p_nec_morphDx"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_nec_finalDx">Diagnóstico final</label>
-                      <textarea id="p_nec_finalDx"></textarea>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="p_nec_comments">Comentarios</label>
-                    <textarea id="p_nec_comments"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_nec_biblioSummary">Resumen bibliográfico</label>
-                      <textarea id="p_nec_biblioSummary"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_nec_bibliography">Bibliografía</label>
-                      <textarea id="p_nec_bibliography"></textarea>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label>📸 Fotos de necropsia</label>
-                    <div class="row">
-                      <input id="p_nec_take" type="file" accept="image/*" capture="environment" multiple style="display:none" />
-                      <input id="p_nec_pick" type="file" accept="image/*" multiple style="display:none" />
-                      <button class="btn small" type="button" id="p_nec_btnTake">📸 Tomar</button>
-                      <button class="btn small" type="button" id="p_nec_btnPick">🖼️ Elegir</button>
-                      <button class="btn small ghost" type="button" id="p_nec_btnClear">🧹 Quitar todas</button>
-                    </div>
-                    <div class="help" id="p_nec_hint">Sin fotos todavía.</div>
-                    <div class="row" id="p_nec_preview"></div>
-                  </div>
-
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <details open>
-                <summary>5. Cobro y evidencia</summary>
-                <div class="inner grid">
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_chargeCalculated">Monto calculado</label>
-                      <input id="p_chargeCalculated" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label for="p_chargeManual">Monto final cobrado</label>
-                      <input id="p_chargeManual" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label for="p_chargeReason">Razón / observación del cobro</label>
-                      <input id="p_chargeReason" type="text" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label>📸 Foto de hoja de cobro</label>
-                    <div class="row">
-                      <input id="p_charge_take" type="file" accept="image/*" capture="environment" style="display:none" />
-                      <input id="p_charge_pick" type="file" accept="image/*" style="display:none" />
-                      <button class="btn small" type="button" id="p_charge_btnTake">📸 Tomar</button>
-                      <button class="btn small" type="button" id="p_charge_btnPick">🖼️ Elegir</button>
-                      <button class="btn small ghost" type="button" id="p_charge_btnClear">🧹 Quitar</button>
-                    </div>
-                    <div class="row">
-                      <div class="thumb" id="p_charge_preview"><span>Sin<br/>foto</span></div>
-                      <div class="help">Se guarda local (base64).</div>
-                    </div>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
-              <div class="row" style="justify-content:space-between;">
-                <div class="row">
-                  <button class="btn primary" type="submit" id="p_save">💾 Guardar procedimiento</button>
-                  <button class="btn ghost" type="button" id="p_clear">🧽 Limpiar</button>
-                </div>
-                <div style="max-width:420px;">
-                  <div id="p_msg" class="help"></div>
-                  <div id="p_err" class="error" style="display:none;"></div>
-                  <div id="p_ok" class="success" style="display:none;"></div>
+            <section class="module-card">
+              <h3>Pruebas de laboratorio vinculables</h3>
+              <div class="grid cols-2">
+                <label>Seleccionar pruebas ya existentes<select id="proc_labLinks" multiple></select></label>
+                <div class="stack compact-stack">
+                  <button class="btn ghost" id="procCreateLabShortcut" type="button">➕ Crear nueva prueba desde Laboratorio</button>
+                  <div class="help">Puedes vincular caso clínico, cirugía, necropsia, atención clínica / zootécnica u otros.</div>
                 </div>
               </div>
+            </section>
 
-            </form>
-          </div>
-        </section>
+            <section class="module-card">
+              <h3>Inventario usado en el procedimiento</h3>
+              <div class="inventory-block">
+                <h4>1. Medicamentos usados</h4>
+                <div id="procMedRows"></div>
+                <button class="btn ghost" id="addProcMedRow" type="button">➕ Agregar medicamento usado</button>
+              </div>
+              <div class="inventory-block">
+                <h4>2. Vacunas usadas</h4>
+                <div id="procVaccineRows"></div>
+                <button class="btn ghost" id="addProcVaccineRow" type="button">➕ Agregar vacuna usada</button>
+              </div>
+              <div class="inventory-block">
+                <h4>3. Insumos desechables usados</h4>
+                <div id="procDisposableRows"></div>
+                <button class="btn ghost" id="addProcDisposableRow" type="button">➕ Agregar insumo desechable</button>
+              </div>
+              <div class="inventory-block">
+                <h4>4. Insumos no desechables usados</h4>
+                <div id="procReusableRows"></div>
+                <button class="btn ghost" id="addProcReusableRow" type="button">➕ Agregar insumo no desechable</button>
+              </div>
+            </section>
 
-        <aside class="card">
-          <h2>📋 Biblioteca de procedimientos</h2>
-          <div class="content">
-            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <div class="help">Total: <b id="p_count">0</b></div>
-              <button class="btn small ghost" type="button" id="p_btnExportJson">⬇️ Exportar JSON</button>
-              <button class="btn small ghost" type="button" id="p_btnImportJson">⬆️ Importar JSON</button>
-              <button class="btn small ghost" type="button" id="p_btnExportWord">📄 Exportar Word</button>
-              <input id="p_importFile" type="file" accept="application/json" style="display:none;" />
+            <section class="module-card">
+              <h3>Cobro y evidencia</h3>
+              <div class="grid cols-3">
+                <label>Costo base del procedimiento<input id="proc_chargeBase" type="number" min="0" step="0.01" value="0" /></label>
+                <label>Costo calculado automático<input id="proc_chargeAuto" type="number" readonly /></label>
+                <label>Monto final cobrado<input id="proc_chargeFinal" type="number" min="0" step="0.01" /></label>
+                <label>Razón / observación del cobro<textarea id="proc_chargeReason"></textarea></label>
+                <label>Resumen automático<textarea id="proc_chargeSummary" readonly></textarea></label>
+                <div>
+                  <label class="btn ghost upload-btn">📷 Hoja de cobro / evidencia<input id="proc_chargePhoto" type="file" accept="image/*" capture="environment" hidden /></label>
+                  <button class="btn ghost" id="procChargePhotoRemove" type="button">🗑️ Quitar evidencia</button>
+                </div>
+              </div>
+              <div id="procChargePreview" class="thumb-grid"></div>
+            </section>
+
+            <section class="module-card">
+              <h3>Fotos del procedimiento</h3>
+              <div class="row wrap">
+                <label class="btn ghost upload-btn">📷 Tomar / elegir fotos<input id="proc_casePhotos" type="file" accept="image/*" capture="environment" multiple hidden /></label>
+                <button class="btn ghost" id="procPhotosClear" type="button">🗑️ Quitar todas</button>
+              </div>
+              <div id="procPhotoPreview" class="thumb-grid"></div>
+            </section>
+
+            <div class="row wrap">
+              <button class="btn primary" type="submit">💾 Guardar procedimiento</button>
+              <button class="btn ghost" id="procResetBtn" type="button">🧽 Limpiar</button>
+              <button class="btn ghost" id="procExportWordBtn" type="button">📄 Exportar Word actual</button>
+              <button class="btn ghost" id="procExportExcelBtn" type="button">📊 Exportar Excel procedimientos</button>
             </div>
-
-            <div class="row">
-              <input id="p_search" type="text" placeholder="🔎 Buscar procedimiento..." />
-            </div>
-
-            <div class="sep"></div>
-            <div class="list" id="p_list"></div>
-          </div>
-        </aside>
-      </main>
+            <div id="procMsg" class="help"></div>
+          </form>
+        </article>
+        <aside class="card"><h2>Biblioteca de procedimientos</h2><div class="padded stack"><input id="procSearch" placeholder="Buscar procedimiento" /><div id="procedureList" class="entity-list"></div></div></aside>
+      </div>
     </section>
 
-  </div>
+    <section class="page" id="tab-panel">
+      <div class="split two-col">
+        <article class="card">
+          <h2>Resumen consolidado</h2>
+          <div class="padded stack" id="dashboardStats"></div>
+        </article>
+        <aside class="card">
+          <h2>Estado general</h2>
+          <div class="padded stack">
+            <div class="help">La app usa <strong>localStorage</strong>, exportación Word vía documento HTML descargable, exportación Excel vía CSV compatible, rutas relativas y configuración para Netlify.</div>
+            <div id="integrityChecklist" class="checklist"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
 
-  <script src="script.js"></script>
+  <template id="inventoryRowTemplate">
+    <div class="inventory-row grid cols-6">
+      <label>Elemento<select class="inv-item"></select></label>
+      <label>Cantidad usada<input class="inv-qty" type="number" min="0" step="0.01" value="0" /></label>
+      <label class="inv-dose-wrap hidden">Dosis<input class="inv-dose" /></label>
+      <label class="inv-unit-wrap hidden">Unidad<input class="inv-unit" /></label>
+      <label class="inv-target-wrap hidden">Aplicado a<input class="inv-target" /></label>
+      <label class="inv-animals-wrap hidden"># animales<input class="inv-animals" type="number" min="0" step="1" value="0" /></label>
+      <label class="inv-charge-wrap hidden">Cobrado al productor<input class="inv-charge" type="number" min="0" step="0.01" value="0" /></label>
+      <label class="inv-notes-wrap"><input class="inv-notes" placeholder="Notas" /></label>
+      <button class="btn bad inv-remove" type="button">Eliminar</button>
+      <div class="inv-status help"></div>
+    </div>
+  </template>
+
+  <script src="./script.js"></script>
 </body>
 </html>
