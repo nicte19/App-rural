@@ -23,6 +23,7 @@
     <button class="tab active" id="tabProducer" type="button">👤 Productor/a</button>
     <button class="tab" id="tabAnimals" type="button">🐾 Animales</button>
     <button class="tab" id="tabMeds" type="button">💊 Medicamentos</button>
+    <button class="tab" id="tabVaccines" type="button">💉 Vacunas</button>
     <button class="tab" id="tabSupplies" type="button">🧰 Insumos</button>
     <button class="tab" id="tabProcedures" type="button">🩺 Procedimientos</button>
   </nav>
@@ -298,10 +299,10 @@
                 <summary>Clasificación / trabajo con este productor(a)</summary>
                 <div class="inner grid">
 
-                  <div class="chips" id="chipsClasificacion" role="radiogroup">
-                    <div class="chip good" data-value="TRABAJAR" data-active="true">✅ Sí trabajar</div>
-                    <div class="chip warn" data-value="PENDIENTE" data-active="false">⏸️ Aún no sé</div>
-                    <div class="chip bad" data-value="NO_TRABAJAR" data-active="false">❌ No</div>
+                  <div class="chips" id="chipsClasificacion" role="radiogroup" aria-label="Clasificación de trabajo con productor(a)">
+                    <button class="chip good" type="button" data-value="TRABAJAR" aria-pressed="false">✅ Sí trabajar</button>
+                    <button class="chip warn" type="button" data-value="PENDIENTE" aria-pressed="false">⏸️ Aún no sé</button>
+                    <button class="chip bad" type="button" data-value="NO_TRABAJAR" aria-pressed="false">❌ No</button>
                   </div>
 
                   <div id="alertaWrap" style="display:none;">
@@ -1200,34 +1201,6 @@
                 </div>
 
                 <details open>
-                  <summary>💉 Vacunas</summary>
-                  <div class="inner grid">
-                    <div class="grid cols-5">
-                      <div>
-                        <label for="m_vaxBrand">Marca vacuna</label>
-                        <input id="m_vaxBrand" type="text" placeholder="Ej. Triple aviar" />
-                      </div>
-                      <div>
-                        <label for="m_vaxExpiry">Caducidad</label>
-                        <input id="m_vaxExpiry" type="date" />
-                      </div>
-                      <div>
-                        <label for="m_vaxPrice">Precio</label>
-                        <input id="m_vaxPrice" type="number" min="0" step="0.01" />
-                      </div>
-                      <div>
-                        <label for="m_vaxCoverageAnimals">¿Para cuántos animales alcanza?</label>
-                        <input id="m_vaxCoverageAnimals" type="number" min="0" step="1" />
-                      </div>
-                      <div>
-                        <label for="m_vaxDiseases">¿Qué enfermedades cubre?</label>
-                        <input id="m_vaxDiseases" type="text" placeholder="Ej. Newcastle, viruela..." />
-                      </div>
-                    </div>
-                  </div>
-                </details>
-
-                <details open>
                   <summary>📎 Evidencias (receta y compra)</summary>
                   <div class="inner grid">
                     <div class="grid cols-2">
@@ -1269,13 +1242,24 @@
                   <div class="inner grid">
 
                     <div id="chatgptBlock" style="display:none;">
+                      <div class="grid cols-2">
+                        <div>
+                          <label for="ai_apiKey">API key de OpenAI / OpenRouter</label>
+                          <input id="ai_apiKey" type="password" placeholder="sk-..." autocomplete="off" />
+                        </div>
+                        <div>
+                          <label for="ai_model">Modelo</label>
+                          <input id="ai_model" type="text" placeholder="gpt-4o-mini" value="gpt-4o-mini" />
+                        </div>
+                      </div>
                       <div>
-                        <label for="ai_english">Texto fuente (inglés)</label>
-                        <textarea id="ai_english" placeholder="Pega aquí el texto en inglés"></textarea>
+                        <label for="ai_english">Texto fuente (medicamento)</label>
+                        <textarea id="ai_english" placeholder="Pega aquí el texto del medicamento, prospecto o ficha técnica"></textarea>
                       </div>
 
                       <div class="row">
                         <button class="btn primary" type="button" id="ai_makePrompt">🧾 Generar prompt</button>
+                        <button class="btn primary" type="button" id="ai_runAnalysis">🤖 Analizar con ChatGPT</button>
                         <button class="btn small ghost" type="button" id="ai_copyPrompt">📋 Copiar prompt</button>
                         <button class="btn small ghost" type="button" id="ai_openChatGPT">🔗 Abrir ChatGPT</button>
                         <button class="btn small ghost" type="button" id="ai_clearAll">🧽 Limpiar</button>
@@ -1288,8 +1272,8 @@
                       </div>
 
                       <div>
-                        <label for="ai_result">Pega JSON de ChatGPT</label>
-                        <textarea id="ai_result"></textarea>
+                        <label for="ai_result">Respuesta JSON</label>
+                        <textarea id="ai_result" placeholder='{"use":"..."}'></textarea>
                       </div>
 
                       <div class="row">
@@ -1387,8 +1371,78 @@
       </main>
     </section>
 
+
     <!-- =====================================================
-         PÁGINA 4 · INSUMOS
+         PÁGINA 4 · VACUNAS
+    ====================================================== -->
+    <section id="pageVaccines" class="page">
+      <main style="grid-template-columns:1.1fr .9fr;">
+        <section class="card">
+          <h2>💉 Vacunas (módulo independiente)</h2>
+          <div class="content">
+            <div class="help">Página independiente con guardado, edición, inventario, evidencias y exportación propios.</div>
+            <div class="sep"></div>
+            <form id="vaccineForm" autocomplete="off">
+              <div class="grid">
+                <div class="grid cols-3">
+                  <div><label for="v_brand">Marca / nombre *</label><input id="v_brand" required type="text" /></div>
+                  <div><label for="v_owner">Pertenece a *</label><select id="v_owner"><option value="">— Selecciona —</option><option value="DRA_ANA_ROSA">Dra. Ana Rosa</option><option value="SERVICIOS">Servicios</option><option value="OTRO">Otro</option></select></div>
+                  <div><label for="v_expiry">Caducidad</label><input id="v_expiry" type="date" /></div>
+                </div>
+                <div class="grid cols-4">
+                  <div><label for="v_price">Costo total</label><input id="v_price" type="number" min="0" step="0.01" /></div>
+                  <div><label for="v_coverageAnimals">Cobertura animal total *</label><input id="v_coverageAnimals" type="number" min="0" step="1" required /></div>
+                  <div><label for="v_unit">Unidad</label><input id="v_unit" type="text" placeholder="dosis, frasco, mL..." /></div>
+                  <div><label for="v_unitCost">Costo unitario por animal (auto)</label><input id="v_unitCost" disabled type="text" /></div>
+                </div>
+                <div class="grid cols-2">
+                  <div><label for="v_diseases">Enfermedades que cubre</label><textarea id="v_diseases"></textarea></div>
+                  <div><label for="v_notes">Notas y observaciones</label><textarea id="v_notes"></textarea></div>
+                </div>
+                <div>
+                  <label>📸 Evidencia de vacuna / ticket</label>
+                  <div class="row">
+                    <input id="v_photo_take" type="file" accept="image/*" capture="environment" style="display:none" />
+                    <input id="v_photo_pick" type="file" accept="image/*" style="display:none" />
+                    <button class="btn small" type="button" id="v_btnTake">📸 Tomar</button>
+                    <button class="btn small" type="button" id="v_btnPick">🖼️ Elegir</button>
+                    <button class="btn small ghost" type="button" id="v_btnRemove">🧹 Quitar</button>
+                  </div>
+                  <div class="row"><div class="thumb" id="v_photo_preview"><span>Sin<br/>foto</span></div><div class="help">La imagen se guarda localmente para edición y exportación.</div></div>
+                </div>
+                <div class="row" style="justify-content:space-between;">
+                  <div class="row">
+                    <button class="btn primary" type="submit" id="v_save">💾 Guardar vacuna</button>
+                    <button class="btn ghost" type="button" id="v_clear">🧽 Limpiar</button>
+                  </div>
+                  <div style="max-width:420px;">
+                    <div id="v_msg" class="help"></div>
+                    <div id="v_err" class="error" style="display:none;"></div>
+                    <div id="v_ok" class="success" style="display:none;"></div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+        <aside class="card">
+          <h2>📦 Inventario de vacunas</h2>
+          <div class="content">
+            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <div class="help">Total: <b id="v_count">0</b></div>
+              <div class="row">
+                <button class="btn small ghost" type="button" id="btnVaccineWord">📝 Word</button>
+                <button class="btn small ghost" type="button" id="btnVaccineExcel">📊 Excel</button>
+              </div>
+            </div>
+            <div class="list" id="v_list"></div>
+          </div>
+        </aside>
+      </main>
+    </section>
+
+    <!-- =====================================================
+         PÁGINA 5 · INSUMOS
     ====================================================== -->
     <section id="pageSupplies" class="page">
       <main style="grid-template-columns:1.1fr .9fr;">
