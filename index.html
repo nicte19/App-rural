@@ -1,29 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="./style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pen</title>
-  </head>
-  <body>
-
-    <script src="./script.js"></script>
-  </body>
-</html>
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>App Rural · Productor/a · Animales · Medicamentos · Insumos · Procedimientos</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>App Rural Consolidada · Productor/a · Animales · Medicamentos · Vacunas · Insumos · Procedimientos</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
-    <h1>App Rural · 👤 Productor/a · 🐾 Animales · 💊 Medicamentos · 🧰 Insumos · 🩺 Procedimientos</h1>
-    <p>Guardado local (localStorage). Fotos y evidencias se guardan como base64.</p>
-  </header>
+    <h1>App Rural Consolidada · 👤 Productor/a · 🐾 Animales · 💊 Medicamentos · 💉 Vacunas · 🧰 Insumos · 🧪 Pruebas · 🩺 Procedimientos</h1>
+    <p>Guardado local (localStorage). Fotos, evidencias, exportación Word/Excel y relaciones entre productores, animales, inventario, pruebas y cobros.</p>
+    <div class="header-actions">
+    <button class="btn small ghost" type="button" id="btnExportAllWord">📝 Exportar resumen Word</button>
+    <button class="btn small ghost" type="button" id="btnExportAllExcel">📊 Exportar resumen Excel</button>
+    <button class="btn small ghost" type="button" id="btnBackupJson">💾 Respaldar JSON</button>
+    <label class="btn small ghost filelike" for="btnRestoreJsonInput">📥 Restaurar JSON</label>
+    <input id="btnRestoreJsonInput" type="file" accept="application/json" hidden />
+  </div>
+</header>
 
   <nav class="tabs">
     <button class="tab active" id="tabProducer" type="button">👤 Productor/a</button>
@@ -137,6 +131,19 @@
                       <label for="horario">12. Horario en el que se puede encontrar</label>
                       <input id="horario" type="text" placeholder="Ej. L-V 7-10 am y 6-8 pm" />
                     </div>
+
+                  <div class="full-span">
+                    <label>Horario visual por día</label>
+                    <div class="weekly-grid" id="weeklyScheduleGrid">
+                      <div><span>Lunes</span><input id="horario_lunes" type="time" /><input id="horario_lunes_fin" type="time" /></div>
+                      <div><span>Martes</span><input id="horario_martes" type="time" /><input id="horario_martes_fin" type="time" /></div>
+                      <div><span>Miércoles</span><input id="horario_miercoles" type="time" /><input id="horario_miercoles_fin" type="time" /></div>
+                      <div><span>Jueves</span><input id="horario_jueves" type="time" /><input id="horario_jueves_fin" type="time" /></div>
+                      <div><span>Viernes</span><input id="horario_viernes" type="time" /><input id="horario_viernes_fin" type="time" /></div>
+                      <div><span>Sábado</span><input id="horario_sabado" type="time" /><input id="horario_sabado_fin" type="time" /></div>
+                      <div><span>Domingo</span><input id="horario_domingo" type="time" /><input id="horario_domingo_fin" type="time" /></div>
+                    </div>
+                  </div>
                   </div>
 
                   <div class="grid cols-2">
@@ -403,6 +410,9 @@
                 <label for="animalsProducerSelect">👤 Trabajar con productor/a</label>
                 <select id="animalsProducerSelect"></select>
                 <div class="help" id="animalsProducerHint"></div>
+                <div class="row">
+                  <button class="btn small ghost" type="button" id="btnAnimalsSyncProducer">🔄 Cargar productor(a)</button>
+                </div>
               </div>
               <div class="row">
                 <button class="btn ghost" type="button" id="btnGoProducerFromAnimals">↩️ Ir a Productor/a</button>
@@ -460,6 +470,11 @@
                         <option>Trabajo</option>
                         <option>Otro</option>
                       </select>
+                    </div>
+
+                    <div>
+                      <label for="a_funcionOtro">Si eligió “otro”, especifique</label>
+                      <input id="a_funcionOtro" type="text" placeholder="Ej. animal de apoyo, guardia, recreación" />
                     </div>
 
                     <div>
@@ -539,7 +554,7 @@
                   </div>
 
                   <div>
-                    <label for="a_dondeEstanMayorTiempo">¿Dónde permanecen o dónde están normalmente los animales?</label>
+                    <label for="a_dondeEstanMayorTiempo">Campo eliminado por consolidación; usar solo instalaciones / dónde viven</label>
                     <textarea id="a_dondeEstanMayorTiempo"></textarea>
                   </div>
 
@@ -983,7 +998,7 @@
                   </div>
 
                   <div>
-                    <label for="a_saberesUtilidad">¿Todavía le sirven o le funcionan esas prácticas para el manejo de animales o del campo?</label>
+                    <label for="a_saberesUtilidad">¿Qué tanto las usa hoy y qué utilidad tienen en el manejo de animales o del campo?</label>
                     <select id="a_saberesUtilidad">
                       <option value="">— Selecciona —</option>
                       <option>Sí, mucho</option>
@@ -1078,12 +1093,12 @@
                   </div>
 
                   <div id="a_interestBirdsYesWrap">
-                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 5)</label>
+                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 4)</label>
                     <input id="a_interestBirdsYes" type="number" min="1" max="5" />
                   </div>
 
                   <div id="a_interestBirdsNoWrap">
-                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 5)</label>
+                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 4)</label>
                     <input id="a_interestBirdsNo" type="number" min="1" max="5" />
                   </div>
                 </div>
@@ -1365,6 +1380,7 @@
             </div>
 
             <div class="sep"></div>
+            <div class="row"><button class="btn small ghost" type="button" id="btnMedWord">📝 Exportar medicamentos/vacunas a Word</button><button class="btn small ghost" type="button" id="btnMedExcel">📊 Exportar medicamentos/vacunas a Excel</button></div>
             <div class="list" id="m_list"></div>
           </div>
         </aside>
@@ -1480,8 +1496,8 @@
                           <input id="s_costAcq" type="number" min="0" step="0.01" placeholder="Ej. 1200" />
                         </div>
                         <div>
-                          <label for="s_lifeMonths">Vida útil (meses) *</label>
-                          <input id="s_lifeMonths" type="number" min="1" step="1" placeholder="Ej. 24" />
+                          <label for="s_lifeYears">Vida útil (años) *</label>
+                          <input id="s_lifeYears" type="number" min="1" step="1" placeholder="Ej. 24" />
                         </div>
                       </div>
 
@@ -1491,7 +1507,7 @@
                           <input id="s_estimatedUses" type="number" min="0" step="1" placeholder="Ej. 300" />
                         </div>
                         <div>
-                          <label for="s_costMonth">Costo por mes (auto)</label>
+                          <label for="s_costMonth">Costo anual equivalente (auto)</label>
                           <input id="s_costMonth" disabled placeholder="$ / mes" />
                         </div>
                       </div>
@@ -1550,6 +1566,7 @@
             </div>
 
             <div class="sep"></div>
+            <div class="row"><button class="btn small ghost" type="button" id="btnSupplyWord">📝 Exportar insumos a Word</button><button class="btn small ghost" type="button" id="btnSupplyExcel">📊 Exportar insumos a Excel</button></div>
             <div class="list" id="s_list"></div>
           </div>
         </aside>
@@ -1581,7 +1598,8 @@
                       <select id="p_type">
                         <option value="">— Selecciona —</option>
                         <option value="PREVENTIVA">Medicina preventiva</option>
-                        <option value="ZOOTECNIA">Asesoría zootécnica</option>
+                        <option value="ZOOTECNIA">Atención clínica / zootécnica</option>
+                        <option value="CIRUGIA">Cirugía</option>
                         <option value="CASO_CLINICO">Caso clínico</option>
                         <option value="NECROPSIA">Necropsia</option>
                       </select>
@@ -1596,7 +1614,11 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-3">
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="p_scope">Modalidad</label>
+                      <select id="p_scope"><option value="INDIVIDUAL">Individual</option><option value="GRUPAL">Grupal</option></select>
+                    </div>
                     <div>
                       <label for="p_producer">Productor(a) *</label>
                       <select id="p_producer"></select>
@@ -2019,8 +2041,70 @@
 
               <div class="sep"></div>
 
+              
+              <div class="sep"></div>
+
               <details open>
-                <summary>5. Cobro y evidencia</summary>
+                <summary>5. Atención clínica / zootécnica</summary>
+                <div class="inner grid">
+                  <div class="grid cols-2">
+                    <div><label for="p_zoo_evaluation">Evaluación</label><textarea id="p_zoo_evaluation"></textarea></div>
+                    <div><label for="p_zoo_intervention">Intervención</label><textarea id="p_zoo_intervention"></textarea></div>
+                  </div>
+                  <div class="grid cols-2">
+                    <div><label for="p_zoo_plan">Plan</label><textarea id="p_zoo_plan"></textarea></div>
+                    <div><label for="p_zoo_followup">Seguimiento</label><textarea id="p_zoo_followup"></textarea></div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>6. Cirugía</summary>
+                <div class="inner grid">
+                  <div class="grid cols-2">
+                    <div><label for="p_sx_preop">Datos prequirúrgicos</label><textarea id="p_sx_preop"></textarea></div>
+                    <div><label for="p_sx_procedure">Procedimiento quirúrgico</label><textarea id="p_sx_procedure"></textarea></div>
+                  </div>
+                  <div class="grid cols-2">
+                    <div><label for="p_sx_anesthesia">Anestesia / sedación</label><textarea id="p_sx_anesthesia"></textarea></div>
+                    <div><label for="p_sx_findings">Hallazgos / complicaciones</label><textarea id="p_sx_findings"></textarea></div>
+                  </div>
+                  <div class="grid cols-2">
+                    <div><label for="p_sx_postop">Tratamiento posquirúrgico</label><textarea id="p_sx_postop"></textarea></div>
+                    <div><label for="p_sx_prognosis">Pronóstico y seguimiento</label><textarea id="p_sx_prognosis"></textarea></div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>7. Pruebas de laboratorio vinculables</summary>
+                <div class="inner grid">
+                  <div class="grid cols-4">
+                    <div><label for="lab_type">Tipo de prueba</label><input id="lab_type" type="text" /></div>
+                    <div><label for="lab_date">Fecha</label><input id="lab_date" type="date" /></div>
+                    <div><label for="lab_animal">Animal</label><input id="lab_animal" type="text" /></div>
+                    <div><label for="lab_result">Resultado</label><input id="lab_result" type="text" /></div>
+                  </div>
+                  <div class="grid cols-2">
+                    <div><label for="lab_interpretation">Interpretación</label><textarea id="lab_interpretation"></textarea></div>
+                    <div><label for="lab_notes">Observaciones</label><textarea id="lab_notes"></textarea></div>
+                  </div>
+                  <div class="row">
+                    <input id="lab_file" type="file" accept="image/*,.pdf" />
+                    <button class="btn small" type="button" id="lab_add">➕ Guardar prueba</button>
+                  </div>
+                  <div class="list" id="lab_list"></div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>8. Cobro y evidencia</summary>
                 <div class="inner grid">
                   <div class="grid cols-3">
                     <div>
@@ -2088,6 +2172,7 @@
             </div>
 
             <div class="sep"></div>
+            <div class="row"><button class="btn small ghost" type="button" id="btnProcedureWord">📝 Exportar procedimientos a Word</button><button class="btn small ghost" type="button" id="btnProcedureExcel">📊 Exportar procedimientos a Excel</button></div>
             <div class="list" id="p_list"></div>
           </div>
         </aside>
