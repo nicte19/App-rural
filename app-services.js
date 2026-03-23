@@ -16,6 +16,8 @@
     './icons/icon-512.svg'
   ];
 
+  const FIREBASE_REQUIRED_FIELDS = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+
   let dbPromise = null;
   let firebaseReady = false;
   let firestore = null;
@@ -124,10 +126,24 @@
     window.addEventListener('offline', notify);
   }
 
+  function getFirebaseConfigStatus() {
+    const config = window.APP_FIREBASE_CONFIG;
+    const missingFields = FIREBASE_REQUIRED_FIELDS.filter((field) => !config?.[field]);
+    return {
+      configured: Boolean(config) && missingFields.length === 0,
+      hasSdk: Boolean(window.firebase),
+      missingFields,
+      config,
+      configFile: 'firebase-config.js',
+      exampleFile: 'firebase-config.example.js'
+    };
+  }
+
   function initFirebase() {
     if (firebaseReady) return true;
-    const config = window.APP_FIREBASE_CONFIG;
-    if (!config || !window.firebase || !config.apiKey) return false;
+    const status = getFirebaseConfigStatus();
+    if (!status.configured || !status.hasSdk) return false;
+    const config = status.config;
     if (!firebase.apps.length) firebase.initializeApp(config);
     firestore = firebase.firestore();
     auth = firebase.auth();
@@ -148,7 +164,13 @@
   function notifySync(status) { emit(syncListeners, status); }
 
   async function signInWithGoogle() {
-    if (!initFirebase()) throw new Error('Firebase no configurado');
+    if (!initFirebase()) {
+      const status = getFirebaseConfigStatus();
+      const reason = !status.hasSdk
+        ? 'SDK de Firebase no disponible'
+        : `Faltan variables de Firebase: ${status.missingFields.join(', ')}`;
+      throw new Error(reason);
+    }
     return auth.signInWithPopup(googleProvider);
   }
   async function signOut() {
@@ -276,7 +298,9 @@
     if (syncInFlight) return { skipped: true };
     if (!state) return { skipped: true };
     if (!navigator.onLine) return { skipped: true, reason: 'offline' };
-    if (!initFirebase() || !currentUser) return { skipped: true, reason: 'auth' };
+    const firebaseStatus = getFirebaseConfigStatus();
+    if (!firebaseStatus.configured || !firebaseStatus.hasSdk) return { skipped: true, reason: 'firebase-config', firebaseStatus };
+    if (!initFirebase() || !currentUser) return { skipped: true, reason: 'auth', firebaseStatus };
     syncInFlight = true;
     notifySync({ phase: 'running', at: Date.now() });
     try {
@@ -323,6 +347,7 @@
     init,
     persistence: { loadState, saveState },
     auth: { signInWithGoogle, signOut, onAuthChanged, getCurrentUser: () => currentUser, isReady: () => firebaseReady },
+    firebase: { getStatus: getFirebaseConfigStatus },
     sync: { triggerSync, onSyncChanged },
     connectivity: { onChange: onOnlineChanged, isOnline: () => navigator.onLine },
     constants: { CORE_ASSETS }

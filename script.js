@@ -171,6 +171,56 @@ function updateAuthUi(user) {
   const text = $("#authStatusText");
   if (text) text.textContent = user ? `${user.displayName || user.email} · ${user.email || ''}` : "Sin sesión";
 }
+function formatFirebaseStatus(status = {}) {
+  const missing = Array.isArray(status.missingFields) ? status.missingFields : [];
+  if (!status.hasSdk) return 'SDK de Firebase no disponible.';
+  if (!status.configured) return missing.length ? `Faltan estas variables: ${missing.join(', ')}.` : 'Firebase aún no está configurado.';
+  return 'Firebase configurado. Puedes usar login con Google y sincronización en la nube.';
+}
+function updateFirebaseConfigUi(status = {}) {
+  const panel = $("#firebaseConfigNotice");
+  const title = $("#firebaseConfigTitle");
+  const body = $("#firebaseConfigBody");
+  const list = $("#firebaseMissingVars");
+  const location = $("#firebaseConfigLocation");
+  const example = $("#firebaseConfigExample");
+  const loginBtn = $("#btnGoogleLogin");
+  const syncBtn = $("#btnSyncNow");
+  const help = $("#syncHelp");
+  const missing = Array.isArray(status.missingFields) ? status.missingFields : [];
+  const configured = Boolean(status.configured);
+
+  if (panel) panel.hidden = configured;
+  if (title) title.textContent = configured ? 'Firebase listo' : 'Firebase no configurado para nube';
+  if (body) body.textContent = configured
+    ? 'La sincronización y el login en la nube están disponibles.'
+    : `${formatFirebaseStatus(status)} La app seguirá guardando datos en este dispositivo con IndexedDB/localStorage.`;
+  if (list) {
+    list.innerHTML = missing.length
+      ? missing.map((field) => `<li><code>${esc(field)}</code></li>`).join('')
+      : '<li><code>Sin faltantes detectados</code></li>';
+  }
+  if (location) location.textContent = `Configura estas credenciales en ${status.configFile || 'firebase-config.js'} o copia el bloque base desde ${status.exampleFile || 'firebase-config.example.js'}.`;
+  if (example) example.textContent = `window.APP_FIREBASE_CONFIG = {
+  apiKey: '',
+  authDomain: '',
+  projectId: '',
+  storageBucket: '',
+  messagingSenderId: '',
+  appId: ''
+};`;
+  if (loginBtn) {
+    loginBtn.disabled = !configured;
+    loginBtn.title = configured ? 'Iniciar sesión con Google' : 'Completa firebase-config.js para habilitar login en la nube';
+  }
+  if (syncBtn) {
+    syncBtn.disabled = !configured;
+    syncBtn.title = configured ? 'Sincronizar ahora' : 'Completa firebase-config.js para habilitar sincronización';
+  }
+  if (help) help.textContent = configured
+    ? 'La app guarda todo primero en IndexedDB. Firebase está activo para login y sincronización por cuenta.'
+    : 'Modo local activo: la captura, exportación y consulta siguen funcionando offline. Solo se desactivan login con Google y sincronización en la nube hasta completar firebase-config.js.';
+}
 function updateSyncUi(status = {}) {
   const syncText = $("#syncStatusText");
   const lastSync = $("#lastSyncText");
@@ -2629,7 +2679,11 @@ function bindGlobal() {
   $("#btnSyncNow")?.addEventListener("click", async () => {
     saveState();
     const result = await window.AppServices?.sync?.triggerSync?.(state);
-    if (result?.reason === 'auth') alert('Configura Firebase e inicia sesión con Google para sincronizar en la nube.');
+    if (result?.reason === 'firebase-config') {
+      updateFirebaseConfigUi(result.firebaseStatus || window.AppServices?.firebase?.getStatus?.() || {});
+      alert('Firebase no está completo. Revisa firebase-config.js o firebase-config.example.js para habilitar nube.');
+    }
+    if (result?.reason === 'auth') alert('Inicia sesión con Google para sincronizar en la nube.');
     updateSyncUi({ phase: result?.ok ? 'success' : result?.error ? 'error' : undefined, at: Date.now(), error: result?.error?.message || result?.error, conflicts: result?.conflicts || 0 });
     renderAll();
   });
@@ -2637,6 +2691,7 @@ function bindGlobal() {
 
 window.addEventListener("DOMContentLoaded", async () => {
   window.AppServices?.init?.();
+  updateFirebaseConfigUi(window.AppServices?.firebase?.getStatus?.() || {});
   await loadState();
   bindTabs();
   bindProducer();
@@ -2674,6 +2729,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   updateProducerConditionalFields();
   updateConnectivityBadge(window.AppServices?.connectivity?.isOnline?.() ?? navigator.onLine);
   updateAuthUi(window.AppServices?.auth?.getCurrentUser?.() || null);
+  updateFirebaseConfigUi(window.AppServices?.firebase?.getStatus?.() || {});
   updateSyncUi();
   saveState();
 });

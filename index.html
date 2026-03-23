@@ -25,6 +25,23 @@
         <button class="btn small ghost" type="button" id="btnSyncNow">☁️ Sincronizar ahora</button>
       </div>
       <div class="content"><p id="syncHelp" class="help">La app guarda todo primero en IndexedDB. Si configuras Firebase, podrá sincronizar por cuenta y resolver conflictos con estrategia last-write-wins más registro explícito de conflictos.</p></div>
+      <div class="content">
+        <section id="firebaseConfigNotice" class="firebase-config-notice" role="status" aria-live="polite">
+          <h3 id="firebaseConfigTitle">Firebase no configurado para nube</h3>
+          <p id="firebaseConfigBody" class="help"></p>
+          <div class="firebase-config-grid">
+            <div>
+              <strong>Variables faltantes</strong>
+              <ul id="firebaseMissingVars" class="firebase-missing-list"></ul>
+            </div>
+            <div>
+              <strong>Dónde configurarlo</strong>
+              <p id="firebaseConfigLocation" class="help"></p>
+              <pre id="firebaseConfigExample" class="firebase-config-code"></pre>
+            </div>
+          </div>
+        </section>
+      </div>
     </section>
     <div class="header-actions">
     <button class="btn small ghost" type="button" id="btnExportAllWord">📝 Exportar resumen Word</button>
