@@ -14,7 +14,7 @@ Aplicación estática lista para Netlify para captura y seguimiento de productor
 ## Configuración de Firebase
 
 1. Crea un proyecto Firebase.
-2. Edita `firebase-config.js` y reemplaza `null` por un objeto como este:
+2. Edita `firebase-config.js` (o toma como base `firebase-config.example.js`) y completa todas las variables requeridas:
 
 ```js
 window.APP_FIREBASE_CONFIG = {
@@ -36,3 +36,10 @@ window.APP_FIREBASE_CONFIG = {
 - Eliminaciones se guardan en `state.sync.deletedRecords` para borrar en la nube cuando vuelva la conexión.
 - Resolución de conflictos: **last write wins** con timestamps, dejando trazabilidad en `state.sync.conflicts`.
 - Las exportaciones Word/Excel siguen funcionando localmente y no dependen de Firebase.
+
+
+## Comportamiento cuando Firebase falta
+
+- La app **no se bloquea**: sigue funcionando en modo local con IndexedDB + respaldo en `localStorage`.
+- Se desactivan solamente **login con Google** y **sincronización en la nube**.
+- La interfaz muestra qué variables faltan exactamente y recuerda que deben configurarse en `firebase-config.js`.
