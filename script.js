@@ -88,6 +88,7 @@ function normalizeSyncMeta(record, scope, ownerUserId = null) {
       createdAt: previous.createdAt || now,
       updatedAt: changed ? now : previous.updatedAt || now,
       syncStatus: changed ? "pending" : previous.syncStatus || "local-only",
+      synced: changed ? false : Boolean(previous.synced),
       lastSyncedAt: previous.lastSyncedAt || null,
       deletedAt: previous.deletedAt || null,
       conflict: previous.conflict || null,
@@ -232,6 +233,7 @@ function friendlyAuthError(error) {
   if (code === 'firebase-sdk-missing') return 'La conexión con la nube no está disponible en este momento. Puedes seguir usando la app localmente.';
   if (code === 'auth/network-request-failed') return 'No fue posible conectar con Google en este momento. Revisa tu conexión e intenta de nuevo.';
   if (code === 'auth/popup-closed-by-user') return 'Se canceló el inicio de sesión antes de completarse.';
+  if (code === 'auth/popup-blocked') return 'Tu navegador bloqueó la ventana de Google. Intenta de nuevo y permite la ventana emergente.';
   return error?.message || 'No se pudo completar el inicio de sesión en este momento.';
 }
 function requestPhotoInput(inputSelector, modeLabel) {
@@ -250,7 +252,12 @@ function requestCurrentLocation(onSuccess) {
   }
   navigator.geolocation.getCurrentPosition(
     onSuccess,
-    (err) => show('msg', `No fue posible obtener tu ubicación. ${err.message}`, 'error'),
+    (err) => {
+      const readable = err?.code === err?.PERMISSION_DENIED
+        ? 'Activa el permiso de ubicación para completar este paso cuando lo necesites.'
+        : 'No fue posible obtener tu ubicación en este momento.';
+      show('msg', readable, 'warning');
+    },
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
@@ -259,8 +266,8 @@ function updateSyncUi(status = {}) {
   const lastSync = $("#lastSyncText");
   if (syncText && status.phase) syncText.textContent = {
     running: "Sincronizando…",
-    success: `Sincronizado${status.conflicts ? ` · conflictos: ${status.conflicts}` : ''}`,
-    error: `Error: ${status.error || 'falló la sincronización'}`,
+    success: `Sincronización al día${status.conflicts ? ` · conflictos: ${status.conflicts}` : ''}`,
+    error: 'Tus cambios siguen guardados localmente',
   }[status.phase] || "Solo local";
   const effectiveLastSync = status.at || state.sync?.lastSyncedAt;
   if (lastSync) lastSync.textContent = effectiveLastSync ? new Date(effectiveLastSync).toLocaleString('es-MX') : 'Pendiente';
