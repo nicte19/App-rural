@@ -42,4 +42,10 @@ window.APP_FIREBASE_CONFIG = {
 
 - La app **no se bloquea**: sigue funcionando en modo local con IndexedDB + respaldo en `localStorage`.
 - Se desactivan solamente **login con Google** y **sincronización en la nube**.
-- La interfaz muestra qué variables faltan exactamente y recuerda que deben configurarse en `firebase-config.js`.
+- La interfaz mantiene una experiencia simple: explica que los datos siguen guardándose en este dispositivo y que la nube quedará disponible al activar la configuración interna.
+
+## Preparación para móvil / PWA
+
+- La web solicita **ubicación** únicamente cuando la usuaria toca la acción para usar su ubicación.
+- La selección de **fotos/galería** y el uso de **cámara** se disparan solo al elegir esas acciones en los formularios.
+- Se incluye `capacitor.config.json` y `mobile/permissions-notes.md` como base para empaquetar la app sin romper el despliegue web actual.

@@ -19,26 +19,19 @@
         <div><strong>Última sincronización:</strong> <span id="lastSyncText">Pendiente</span></div>
         <div><strong>Estado de sincronización:</strong> <span id="syncStatusText">Solo local</span></div>
       </div>
-      <div class="content header-actions auth-actions">
-        <button class="btn small ghost" type="button" id="btnGoogleLogin">🔐 Iniciar con Google</button>
-        <button class="btn small ghost" type="button" id="btnGoogleLogout">🚪 Cerrar sesión</button>
-        <button class="btn small ghost" type="button" id="btnSyncNow">☁️ Sincronizar ahora</button>
+      <div class="content auth-actions auth-actions-primary">
+        <button class="btn" type="button" id="btnGoogleLogin">Iniciar sesión con Google</button>
+        <button class="btn small ghost" type="button" id="btnGoogleLogout" hidden>Cerrar sesión</button>
+        <button class="btn small ghost" type="button" id="btnSyncNow" hidden>☁️ Sincronizar ahora</button>
       </div>
-      <div class="content"><p id="syncHelp" class="help">La app guarda todo primero en IndexedDB. Si configuras Firebase, podrá sincronizar por cuenta y resolver conflictos con estrategia last-write-wins más registro explícito de conflictos.</p></div>
       <div class="content">
         <section id="firebaseConfigNotice" class="firebase-config-notice" role="status" aria-live="polite">
-          <h3 id="firebaseConfigTitle">Firebase no configurado para nube</h3>
-          <p id="firebaseConfigBody" class="help"></p>
-          <div class="firebase-config-grid">
-            <div>
-              <strong>Variables faltantes</strong>
-              <ul id="firebaseMissingVars" class="firebase-missing-list"></ul>
-            </div>
-            <div>
-              <strong>Dónde configurarlo</strong>
-              <p id="firebaseConfigLocation" class="help"></p>
-              <pre id="firebaseConfigExample" class="firebase-config-code"></pre>
-            </div>
+          <div class="cloud-card-copy">
+            <p class="eyebrow">Cuenta y respaldo</p>
+            <h3 id="firebaseConfigTitle">Tus datos siguen guardándose en este dispositivo</h3>
+            <p id="firebaseConfigBody" class="help">Al iniciar sesión podrás sincronizar y respaldar tu información entre dispositivos.</p>
+            <p id="firebaseLocalStatus" class="cloud-local-status">Modo local activo.</p>
+            <p id="syncHelp" class="help">Puedes seguir capturando, editando, exportando y consultando tu información aunque todavía no uses la nube.</p>
           </div>
         </section>
       </div>

@@ -169,57 +169,90 @@ function updateConnectivityBadge(isOnline) {
 }
 function updateAuthUi(user) {
   const text = $("#authStatusText");
-  if (text) text.textContent = user ? `${user.displayName || user.email} · ${user.email || ''}` : "Sin sesión";
+  const loginBtn = $("#btnGoogleLogin");
+  const logoutBtn = $("#btnGoogleLogout");
+  if (text) text.textContent = user ? `${user.displayName || user.email || 'Sesión iniciada'}${user.email ? ` · ${user.email}` : ''}` : "Sin sesión";
+  if (loginBtn) loginBtn.hidden = Boolean(user);
+  if (logoutBtn) logoutBtn.hidden = !user;
 }
-function formatFirebaseStatus(status = {}) {
-  const missing = Array.isArray(status.missingFields) ? status.missingFields : [];
-  if (!status.hasSdk) return 'SDK de Firebase no disponible.';
-  if (!status.configured) return missing.length ? `Faltan estas variables: ${missing.join(', ')}.` : 'Firebase aún no está configurado.';
-  return 'Firebase configurado. Puedes usar login con Google y sincronización en la nube.';
+function getCloudCopy(status = {}, user = window.AppServices?.auth?.getCurrentUser?.() || null) {
+  if (user) {
+    return {
+      title: 'Tu cuenta ya está conectada',
+      body: 'Tu información local puede respaldarse y sincronizarse con tu cuenta.',
+      local: 'Tus datos también siguen guardándose en este dispositivo.',
+      localClass: 'active',
+      help: 'Puedes seguir trabajando sin conexión. Cuando vuelvas a tener internet, podrás sincronizar tus cambios.'
+    };
+  }
+  if (status.configured) {
+    return {
+      title: 'Inicia sesión para respaldar tu información',
+      body: 'Al iniciar sesión podrás sincronizar y respaldar tu información entre dispositivos.',
+      local: 'Tus datos siguen guardándose en este dispositivo.',
+      localClass: 'active',
+      help: 'Tu trabajo local no se pierde. La nube solo agrega respaldo y sincronización por cuenta.'
+    };
+  }
+  return {
+    title: 'Tus datos siguen guardándose en este dispositivo',
+    body: 'Al iniciar sesión podrás sincronizar y respaldar tu información entre dispositivos cuando la nube esté activa.',
+    local: 'Respaldo en nube pendiente. Puedes seguir usando la app normalmente.',
+    localClass: 'pending',
+    help: 'Puedes capturar, editar, exportar y consultar tu información sin depender de la nube.'
+  };
 }
 function updateFirebaseConfigUi(status = {}) {
-  const panel = $("#firebaseConfigNotice");
   const title = $("#firebaseConfigTitle");
   const body = $("#firebaseConfigBody");
-  const list = $("#firebaseMissingVars");
-  const location = $("#firebaseConfigLocation");
-  const example = $("#firebaseConfigExample");
-  const loginBtn = $("#btnGoogleLogin");
+  const local = $("#firebaseLocalStatus");
   const syncBtn = $("#btnSyncNow");
   const help = $("#syncHelp");
-  const missing = Array.isArray(status.missingFields) ? status.missingFields : [];
-  const configured = Boolean(status.configured);
+  const cloudCopy = getCloudCopy(status);
+  const hasUser = Boolean(window.AppServices?.auth?.getCurrentUser?.());
 
-  if (panel) panel.hidden = configured;
-  if (title) title.textContent = configured ? 'Firebase listo' : 'Firebase no configurado para nube';
-  if (body) body.textContent = configured
-    ? 'La sincronización y el login en la nube están disponibles.'
-    : `${formatFirebaseStatus(status)} La app seguirá guardando datos en este dispositivo con IndexedDB/localStorage.`;
-  if (list) {
-    list.innerHTML = missing.length
-      ? missing.map((field) => `<li><code>${esc(field)}</code></li>`).join('')
-      : '<li><code>Sin faltantes detectados</code></li>';
+  if (title) title.textContent = cloudCopy.title;
+  if (body) body.textContent = cloudCopy.body;
+  if (local) {
+    local.textContent = cloudCopy.local;
+    local.className = `cloud-local-status ${cloudCopy.localClass || ''}`.trim();
   }
-  if (location) location.textContent = `Configura estas credenciales en ${status.configFile || 'firebase-config.js'} o copia el bloque base desde ${status.exampleFile || 'firebase-config.example.js'}.`;
-  if (example) example.textContent = `window.APP_FIREBASE_CONFIG = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: ''
-};`;
-  if (loginBtn) {
-    loginBtn.disabled = !configured;
-    loginBtn.title = configured ? 'Iniciar sesión con Google' : 'Completa firebase-config.js para habilitar login en la nube';
-  }
+  if (help) help.textContent = cloudCopy.help;
   if (syncBtn) {
-    syncBtn.disabled = !configured;
-    syncBtn.title = configured ? 'Sincronizar ahora' : 'Completa firebase-config.js para habilitar sincronización';
+    syncBtn.hidden = !(status.configured && hasUser);
+    syncBtn.disabled = !status.configured;
+    syncBtn.title = status.configured
+      ? 'Sincronizar ahora'
+      : 'La nube estará disponible cuando se complete la configuración interna';
   }
-  if (help) help.textContent = configured
-    ? 'La app guarda todo primero en IndexedDB. Firebase está activo para login y sincronización por cuenta.'
-    : 'Modo local activo: la captura, exportación y consulta siguen funcionando offline. Solo se desactivan login con Google y sincronización en la nube hasta completar firebase-config.js.';
+}
+function friendlyAuthError(error) {
+  const code = error?.code || '';
+  if (code === 'firebase-not-configured') return 'El respaldo en nube todavía no está activo. Mientras tanto, tus datos siguen guardándose en este dispositivo.';
+  if (code === 'firebase-sdk-missing') return 'La conexión con la nube no está disponible en este momento. Puedes seguir usando la app localmente.';
+  if (code === 'auth/network-request-failed') return 'No fue posible conectar con Google en este momento. Revisa tu conexión e intenta de nuevo.';
+  if (code === 'auth/popup-closed-by-user') return 'Se canceló el inicio de sesión antes de completarse.';
+  return error?.message || 'No se pudo completar el inicio de sesión en este momento.';
+}
+function requestPhotoInput(inputSelector, modeLabel) {
+  const input = $(inputSelector);
+  if (!input) return;
+  const message = modeLabel === 'camera'
+    ? 'Se abrirá la cámara para tomar una foto si tu dispositivo lo permite.'
+    : 'Selecciona una foto de tu dispositivo para adjuntarla.';
+  input.setAttribute('aria-label', message);
+  input.click();
+}
+function requestCurrentLocation(onSuccess) {
+  if (!navigator.geolocation) {
+    show('msg', 'La ubicación no está disponible en este dispositivo.', 'warning');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    onSuccess,
+    (err) => show('msg', `No fue posible obtener tu ubicación. ${err.message}`, 'error'),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
 }
 function updateSyncUi(status = {}) {
   const syncText = $("#syncStatusText");
@@ -695,33 +728,20 @@ function bindProducer() {
       e.target.value = "";
     }),
   );
-  $("#btnTakePhoto")?.addEventListener("click", () => $("#fotoTomar").click());
-  $("#btnPickPhoto")?.addEventListener("click", () => $("#fotoElegir").click());
+  $("#btnTakePhoto")?.addEventListener("click", () => requestPhotoInput("#fotoTomar", 'camera'));
+  $("#btnPickPhoto")?.addEventListener("click", () => requestPhotoInput("#fotoElegir", 'gallery'));
   $("#btnRemovePhoto")?.addEventListener("click", () => {
     state.draft.producerPhoto = null;
     setThumb("photoPreview", null, "Sin<br/>foto");
   });
   $("#btnGeo")?.addEventListener("click", () => {
-    if (!navigator.geolocation) {
-      show("msg", "Geolocalización no disponible.", "warning");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        $("#lat").value = pos.coords.latitude.toFixed(6);
-        $("#lng").value = pos.coords.longitude.toFixed(6);
-        const url = `https://www.google.com/maps?q=${$("#lat").value},${$("#lng").value}`;
-        $("#mapsUrl").value = url;
-        window.open(url, "_blank", "noopener");
-      },
-      (err) =>
-        show(
-          "msg",
-          `No fue posible obtener ubicación: ${err.message}`,
-          "error",
-        ),
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+    requestCurrentLocation((pos) => {
+      $("#lat").value = pos.coords.latitude.toFixed(6);
+      $("#lng").value = pos.coords.longitude.toFixed(6);
+      const url = `https://www.google.com/maps?q=${$("#lat").value},${$("#lng").value}`;
+      $("#mapsUrl").value = url;
+      window.open(url, "_blank", "noopener");
+    });
   });
   $("#btnGenMaps")?.addEventListener("click", () => {
     const lat = $("#lat").value.trim(),
@@ -916,10 +936,10 @@ async function bindAnimalPhotos() {
     }),
   );
   $("#a_btnInstTake")?.addEventListener("click", () =>
-    $("#a_instTake").click(),
+    requestPhotoInput("#a_instTake", 'camera'),
   );
   $("#a_btnInstPick")?.addEventListener("click", () =>
-    $("#a_instPick").click(),
+    requestPhotoInput("#a_instPick", 'gallery'),
   );
   $("#a_btnInstClear")?.addEventListener("click", () => {
     state.draft.animalPhotos = [];
@@ -1417,14 +1437,14 @@ function bindMeds() {
       e.target.value = "";
     }),
   );
-  $("#m_btnRxTake")?.addEventListener("click", () => $("#m_rx_take").click());
-  $("#m_btnRxPick")?.addEventListener("click", () => $("#m_rx_pick").click());
+  $("#m_btnRxTake")?.addEventListener("click", () => requestPhotoInput("#m_rx_take", 'camera'));
+  $("#m_btnRxPick")?.addEventListener("click", () => requestPhotoInput("#m_rx_pick", 'gallery'));
   $("#m_btnRxRemove")?.addEventListener("click", () => {
     state.draft.medRxPhoto = null;
     setThumb("m_rx_preview", null, "Sin<br/>receta");
   });
-  $("#m_btnTkTake")?.addEventListener("click", () => $("#m_tk_take").click());
-  $("#m_btnTkPick")?.addEventListener("click", () => $("#m_tk_pick").click());
+  $("#m_btnTkTake")?.addEventListener("click", () => requestPhotoInput("#m_tk_take", 'camera'));
+  $("#m_btnTkPick")?.addEventListener("click", () => requestPhotoInput("#m_tk_pick", 'gallery'));
   $("#m_btnTkRemove")?.addEventListener("click", () => {
     state.draft.medTicketPhoto = null;
     setThumb("m_tk_preview", null, "Sin<br/>ticket");
@@ -1568,8 +1588,8 @@ function bindVaccines() {
     setThumb("v_photo_preview", state.draft.vaccinePhoto, "Sin<br/>foto");
     e.target.value = "";
   }));
-  $("#v_btnTake")?.addEventListener("click", () => $("#v_photo_take").click());
-  $("#v_btnPick")?.addEventListener("click", () => $("#v_photo_pick").click());
+  $("#v_btnTake")?.addEventListener("click", () => requestPhotoInput("#v_photo_take", 'camera'));
+  $("#v_btnPick")?.addEventListener("click", () => requestPhotoInput("#v_photo_pick", 'gallery'));
   $("#v_btnRemove")?.addEventListener("click", () => { state.draft.vaccinePhoto = null; setThumb("v_photo_preview", null, "Sin<br/>foto"); });
   $("#v_clear")?.addEventListener("click", resetVaccine);
   $("#vaccineForm")?.addEventListener("submit", (e) => { e.preventDefault(); saveVaccine(); });
@@ -1731,8 +1751,8 @@ function bindSupplies() {
     setThumb("s_tk_preview", state.draft.supplyTicketPhoto, "Sin<br/>ticket");
     e.target.value = "";
   });
-  $("#s_btnTkTake")?.addEventListener("click", () => $("#s_tk_take").click());
-  $("#s_btnTkPick")?.addEventListener("click", () => $("#s_tk_pick").click());
+  $("#s_btnTkTake")?.addEventListener("click", () => requestPhotoInput("#s_tk_take", 'camera'));
+  $("#s_btnTkPick")?.addEventListener("click", () => requestPhotoInput("#s_tk_pick", 'gallery'));
   $("#s_btnTkRemove")?.addEventListener("click", () => {
     state.draft.supplyTicketPhoto = null;
     setThumb("s_tk_preview", null, "Sin<br/>ticket");
@@ -2324,27 +2344,27 @@ function bindProcedures() {
       e.target.value = "";
     }),
   );
-  $("#p_cc_btnTake")?.addEventListener("click", () => $("#p_cc_take").click());
-  $("#p_cc_btnPick")?.addEventListener("click", () => $("#p_cc_pick").click());
+  $("#p_cc_btnTake")?.addEventListener("click", () => requestPhotoInput("#p_cc_take", 'camera'));
+  $("#p_cc_btnPick")?.addEventListener("click", () => requestPhotoInput("#p_cc_pick", 'gallery'));
   $("#p_cc_btnClear")?.addEventListener("click", () => {
     state.draft.procedureCasePhotos = [];
     renderProcedureDraftLists();
   });
   $("#p_nec_btnTake")?.addEventListener("click", () =>
-    $("#p_nec_take").click(),
+    requestPhotoInput("#p_nec_take", 'camera'),
   );
   $("#p_nec_btnPick")?.addEventListener("click", () =>
-    $("#p_nec_pick").click(),
+    requestPhotoInput("#p_nec_pick", 'gallery'),
   );
   $("#p_nec_btnClear")?.addEventListener("click", () => {
     state.draft.procedureNecropsyPhotos = [];
     renderProcedureDraftLists();
   });
   $("#p_charge_btnTake")?.addEventListener("click", () =>
-    $("#p_charge_take").click(),
+    requestPhotoInput("#p_charge_take", 'camera'),
   );
   $("#p_charge_btnPick")?.addEventListener("click", () =>
-    $("#p_charge_pick").click(),
+    requestPhotoInput("#p_charge_pick", 'gallery'),
   );
   $("#p_charge_btnClear")?.addEventListener("click", () => {
     state.draft.procedureChargePhoto = null;
@@ -2663,9 +2683,11 @@ function bindGlobal() {
   });
   $("#btnGoogleLogin")?.addEventListener("click", async () => {
     try {
-      await window.AppServices?.auth?.signInWithGoogle?.();
+      const result = await window.AppServices?.auth?.signInWithGoogle?.();
+      if (result?.redirected) alert('Se abrirá Google para completar el inicio de sesión.');
     } catch (error) {
-      alert(error.message || "No se pudo iniciar sesión con Google");
+      updateFirebaseConfigUi(error?.firebaseStatus || window.AppServices?.firebase?.getStatus?.() || {});
+      alert(friendlyAuthError(error));
     }
   });
   $("#btnGoogleLogout")?.addEventListener("click", async () => {
@@ -2681,9 +2703,9 @@ function bindGlobal() {
     const result = await window.AppServices?.sync?.triggerSync?.(state);
     if (result?.reason === 'firebase-config') {
       updateFirebaseConfigUi(result.firebaseStatus || window.AppServices?.firebase?.getStatus?.() || {});
-      alert('Firebase no está completo. Revisa firebase-config.js o firebase-config.example.js para habilitar nube.');
+      alert('El respaldo en nube todavía no está activo. Tus datos siguen guardándose en este dispositivo.');
     }
-    if (result?.reason === 'auth') alert('Inicia sesión con Google para sincronizar en la nube.');
+    if (result?.reason === 'auth') alert('Inicia sesión con Google para respaldar y sincronizar tu información.');
     updateSyncUi({ phase: result?.ok ? 'success' : result?.error ? 'error' : undefined, at: Date.now(), error: result?.error?.message || result?.error, conflicts: result?.conflicts || 0 });
     renderAll();
   });
@@ -2712,6 +2734,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
   window.AppServices?.auth?.onAuthChanged?.((user) => {
     updateAuthUi(user);
+    updateFirebaseConfigUi(window.AppServices?.firebase?.getStatus?.() || {});
     saveState();
   });
   window.AppServices?.sync?.onSyncChanged?.((status) => {

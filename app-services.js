@@ -129,13 +129,15 @@
   function getFirebaseConfigStatus() {
     const config = window.APP_FIREBASE_CONFIG;
     const missingFields = FIREBASE_REQUIRED_FIELDS.filter((field) => !config?.[field]);
+    const configured = Boolean(config) && missingFields.length === 0;
     return {
-      configured: Boolean(config) && missingFields.length === 0,
+      configured,
       hasSdk: Boolean(window.firebase),
       missingFields,
       config,
       configFile: 'firebase-config.js',
-      exampleFile: 'firebase-config.example.js'
+      exampleFile: 'firebase-config.example.js',
+      mode: configured ? 'cloud-ready' : 'local-only'
     };
   }
 
@@ -163,15 +165,37 @@
   function onSyncChanged(cb) { syncListeners.add(cb); return () => syncListeners.delete(cb); }
   function notifySync(status) { emit(syncListeners, status); }
 
+  function isCompactAuthEnvironment() {
+    const ua = navigator.userAgent || '';
+    return /iPhone|iPad|iPod|Android/i.test(ua) || window.matchMedia?.('(display-mode: standalone)').matches;
+  }
+
   async function signInWithGoogle() {
-    if (!initFirebase()) {
-      const status = getFirebaseConfigStatus();
-      const reason = !status.hasSdk
-        ? 'SDK de Firebase no disponible'
-        : `Faltan variables de Firebase: ${status.missingFields.join(', ')}`;
-      throw new Error(reason);
+    const status = getFirebaseConfigStatus();
+    if (!status.hasSdk) {
+      const error = new Error('La conexión con la nube no está disponible en este momento.');
+      error.code = 'firebase-sdk-missing';
+      throw error;
     }
-    return auth.signInWithPopup(googleProvider);
+    if (!status.configured || !initFirebase()) {
+      const error = new Error('El respaldo en la nube todavía no está activo.');
+      error.code = 'firebase-not-configured';
+      error.firebaseStatus = status;
+      throw error;
+    }
+    try {
+      if (isCompactAuthEnvironment()) {
+        await auth.signInWithRedirect(googleProvider);
+        return { redirected: true };
+      }
+      return await auth.signInWithPopup(googleProvider);
+    } catch (error) {
+      if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/cancelled-popup-request' || error?.code === 'auth/popup-closed-by-user') {
+        await auth.signInWithRedirect(googleProvider);
+        return { redirected: true };
+      }
+      throw error;
+    }
   }
   async function signOut() {
     if (!auth) return;
@@ -340,7 +364,7 @@
     bindConnectivity();
     registerServiceWorker();
     initFirebase();
-    return { firebaseReady, currentUser, online: navigator.onLine, coreAssets: CORE_ASSETS };
+    return { firebaseReady, currentUser, online: navigator.onLine, coreAssets: CORE_ASSETS, firebaseStatus: getFirebaseConfigStatus() };
   }
 
   window.AppServices = {
