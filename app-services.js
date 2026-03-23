@@ -1,33 +1,35 @@
-import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import {
-  browserLocalPersistence,
-  getAuth,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  setPersistence,
-  signInWithPopup,
-  signInWithRedirect,
-  signOut as firebaseSignOut,
-  getRedirectResult,
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
-import {
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  getFirestore,
-  setDoc,
-  collection,
-  enableIndexedDbPersistence,
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
-import {
-  getDownloadURL,
-  getStorage,
-  ref,
-  uploadString,
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
-
 (function () {
+  const FIREBASE_VERSION = '10.12.5';
+  const FIREBASE_MODULES = {
+    app: `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`,
+    auth: `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-auth.js`,
+    firestore: `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`,
+    storage: `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-storage.js`
+  };
+
+  let firebaseSdkPromise = null;
+
+  async function loadFirebaseSdk() {
+    if (firebaseSdkPromise) return firebaseSdkPromise;
+    firebaseSdkPromise = Promise.all([
+      import(FIREBASE_MODULES.app),
+      import(FIREBASE_MODULES.auth),
+      import(FIREBASE_MODULES.firestore),
+      import(FIREBASE_MODULES.storage)
+    ])
+      .then(([appModule, authModule, firestoreModule, storageModule]) => ({
+        app: appModule,
+        auth: authModule,
+        firestore: firestoreModule,
+        storage: storageModule
+      }))
+      .catch((error) => {
+        firebaseSdkPromise = null;
+        throw error;
+      });
+    return firebaseSdkPromise;
+  }
+
   const DB_NAME = 'app_rural_offline_v2';
   const DB_VERSION = 1;
   const STORE_APP = 'appState';
@@ -46,6 +48,9 @@ import {
   ];
   const CLOUD_COLLECTIONS = ['producers', 'meds', 'vaccines', 'supplies', 'procedures', 'labTests'];
   const FIREBASE_REQUIRED_FIELDS = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+
+  let firebaseSdk = null;
+  let firebaseSdkError = null;
 
   let dbPromise = null;
   let firebaseReady = false;
@@ -167,7 +172,7 @@ import {
     const configured = missingFields.length === 0;
     return {
       configured,
-      hasSdk: true,
+      hasSdk: !firebaseSdkError,
       missingFields,
       config,
       configFile: 'firebase-config.js',
@@ -181,15 +186,24 @@ import {
     const status = getFirebaseConfigStatus();
     if (!status.configured) return false;
     const config = status.config;
-    firebaseApp = getApps().length ? getApp() : initializeApp(config);
-    auth = getAuth(firebaseApp);
-    firestore = getFirestore(firebaseApp);
-    storage = config.storageBucket ? getStorage(firebaseApp) : null;
-    googleProvider = new GoogleAuthProvider();
-    googleProvider.setCustomParameters({ prompt: 'select_account' });
-    await setPersistence(auth, browserLocalPersistence);
     try {
-      await enableIndexedDbPersistence(firestore);
+      firebaseSdk = firebaseSdk || await loadFirebaseSdk();
+      firebaseSdkError = null;
+    } catch (error) {
+      firebaseSdkError = error;
+      console.error('Firebase SDK load failed', error);
+      return false;
+    }
+    const { app, auth: authSdk, firestore: firestoreSdk, storage: storageSdk } = firebaseSdk;
+    firebaseApp = app.getApps().length ? app.getApp() : app.initializeApp(config);
+    auth = authSdk.getAuth(firebaseApp);
+    firestore = firestoreSdk.getFirestore(firebaseApp);
+    storage = config.storageBucket ? storageSdk.getStorage(firebaseApp) : null;
+    googleProvider = new authSdk.GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+    await authSdk.setPersistence(auth, authSdk.browserLocalPersistence);
+    try {
+      await firestoreSdk.enableIndexedDbPersistence(firestore);
     } catch (error) {
       if (error?.code !== 'failed-precondition' && error?.code !== 'unimplemented') {
         console.error('Firestore persistence failed', error);
@@ -197,8 +211,8 @@ import {
     }
     if (!redirectHandled) {
       redirectHandled = true;
-      getRedirectResult(auth).catch((error) => console.error('Redirect login failed', error));
-      onAuthStateChanged(auth, (user) => {
+      authSdk.getRedirectResult(auth).catch((error) => console.error('Redirect login failed', error));
+      authSdk.onAuthStateChanged(auth, (user) => {
         currentUser = user || null;
         emit(authListeners, currentUser);
         if (currentUser && navigator.onLine) triggerSync(window.__APP_STATE__ || null);
@@ -222,19 +236,19 @@ import {
     const status = getFirebaseConfigStatus();
     if (!status.configured || !(await initFirebase())) {
       const error = new Error('El respaldo en la nube todavía no está activo.');
-      error.code = 'firebase-not-configured';
+      error.code = firebaseSdkError ? 'firebase-sdk-missing' : 'firebase-not-configured';
       error.firebaseStatus = status;
       throw error;
     }
     try {
       if (isCompactAuthEnvironment()) {
-        await signInWithRedirect(auth, googleProvider);
+        await firebaseSdk.auth.signInWithRedirect(auth, googleProvider);
         return { redirected: true };
       }
-      return await signInWithPopup(auth, googleProvider);
+      return await firebaseSdk.auth.signInWithPopup(auth, googleProvider);
     } catch (error) {
       if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/cancelled-popup-request') {
-        await signInWithRedirect(auth, googleProvider);
+        await firebaseSdk.auth.signInWithRedirect(auth, googleProvider);
         return { redirected: true };
       }
       throw error;
@@ -243,7 +257,7 @@ import {
 
   async function signOut() {
     if (!auth) return;
-    return firebaseSignOut(auth);
+    return firebaseSdk?.auth?.signOut(auth);
   }
 
   function cleanForCloud(value) {
@@ -251,9 +265,9 @@ import {
   }
 
   async function uploadDataUrl(uid, path, value) {
-    const targetRef = ref(storage, `users/${uid}/${path}`);
-    await uploadString(targetRef, value, 'data_url');
-    return getDownloadURL(targetRef);
+    const targetRef = firebaseSdk.storage.ref(storage, `users/${uid}/${path}`);
+    await firebaseSdk.storage.uploadString(targetRef, value, 'data_url');
+    return firebaseSdk.storage.getDownloadURL(targetRef);
   }
 
   async function uploadFileIfNeeded(uid, collectionName, record, storageField) {
@@ -297,12 +311,12 @@ import {
   }
 
   function userCollection(uid, collectionName) {
-    return collection(firestore, 'users', uid, collectionName);
+    return firebaseSdk.firestore.collection(firestore, 'users', uid, collectionName);
   }
 
   async function syncCollection(uid, collectionName, records, deletedRecords, appState) {
     const collectionRef = userCollection(uid, collectionName);
-    const snapshot = await getDocs(collectionRef);
+    const snapshot = await firebaseSdk.firestore.getDocs(collectionRef);
     const remoteMap = new Map();
     snapshot.forEach((entry) => remoteMap.set(entry.id, entry.data()));
 
@@ -319,7 +333,7 @@ import {
 
       if (!remote) {
         const prepared = storage ? await uploadNestedImages(uid, collectionName, record) : cleanForCloud(record);
-        await setDoc(doc(collectionRef, record.id), prepared, { merge: true });
+        await firebaseSdk.firestore.setDoc(firebaseSdk.firestore.doc(collectionRef, record.id), prepared, { merge: true });
         nextRecords.push({ ...prepared, _sync: { ...prepared._sync, ownerUserId: uid, syncStatus: 'synced', synced: true, lastSyncedAt: Date.now(), conflict: null } });
         continue;
       }
@@ -332,7 +346,7 @@ import {
         conflicts.push({ collection: collectionName, id: record.id, winner, localUpdatedAt: localTime, remoteUpdatedAt: remoteTime, detectedAt: Date.now() });
         if (winner === 'local') {
           const prepared = storage ? await uploadNestedImages(uid, collectionName, record) : cleanForCloud(record);
-          await setDoc(doc(collectionRef, record.id), { ...prepared, _sync: { ...prepared._sync, ownerUserId: uid, conflict: 'resolved-local', lastConflictAt: Date.now() } }, { merge: true });
+          await firebaseSdk.firestore.setDoc(firebaseSdk.firestore.doc(collectionRef, record.id), { ...prepared, _sync: { ...prepared._sync, ownerUserId: uid, conflict: 'resolved-local', lastConflictAt: Date.now() } }, { merge: true });
           nextRecords.push({ ...prepared, _sync: { ...prepared._sync, ownerUserId: uid, syncStatus: 'synced', synced: true, lastSyncedAt: Date.now(), conflict: 'resolved-local' } });
         } else {
           nextRecords.push({ ...remote, _sync: { ...remote._sync, ownerUserId: uid, syncStatus: 'synced', synced: true, lastSyncedAt: Date.now(), conflict: 'resolved-remote' } });
@@ -342,7 +356,7 @@ import {
 
       if (localTime >= remoteTime) {
         const prepared = storage ? await uploadNestedImages(uid, collectionName, record) : cleanForCloud(record);
-        await setDoc(doc(collectionRef, record.id), prepared, { merge: true });
+        await firebaseSdk.firestore.setDoc(firebaseSdk.firestore.doc(collectionRef, record.id), prepared, { merge: true });
         nextRecords.push({ ...prepared, _sync: { ...prepared._sync, ownerUserId: uid, syncStatus: 'synced', synced: true, lastSyncedAt: Date.now(), conflict: null } });
       } else {
         nextRecords.push({ ...remote, _sync: { ...remote._sync, ownerUserId: uid, syncStatus: 'synced', synced: true, lastSyncedAt: Date.now(), conflict: null } });
@@ -354,7 +368,7 @@ import {
     }
 
     for (const deleted of deletedRecords || []) {
-      await deleteDoc(doc(collectionRef, deleted.id)).catch(() => {});
+      await firebaseSdk.firestore.deleteDoc(firebaseSdk.firestore.doc(collectionRef, deleted.id)).catch(() => {});
     }
 
     appState[collectionName] = nextRecords
@@ -364,10 +378,10 @@ import {
   }
 
   async function ensureUserProfile(uid) {
-    const profileRef = doc(firestore, 'users', uid);
-    const profileSnapshot = await getDoc(profileRef);
+    const profileRef = firebaseSdk.firestore.doc(firestore, 'users', uid);
+    const profileSnapshot = await firebaseSdk.firestore.getDoc(profileRef);
     if (!profileSnapshot.exists()) {
-      await setDoc(profileRef, {
+      await firebaseSdk.firestore.setDoc(profileRef, {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         email: currentUser?.email || '',
@@ -375,7 +389,7 @@ import {
       }, { merge: true });
       return;
     }
-    await setDoc(profileRef, {
+    await firebaseSdk.firestore.setDoc(profileRef, {
       updatedAt: Date.now(),
       email: currentUser?.email || profileSnapshot.data()?.email || '',
       displayName: currentUser?.displayName || profileSnapshot.data()?.displayName || '',
