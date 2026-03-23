@@ -1,5 +1,11 @@
 [build]
   publish = "."
+  command = "echo Static site ready for Netlify"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 [[headers]]
   for = "/*"
