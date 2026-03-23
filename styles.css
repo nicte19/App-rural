@@ -251,6 +251,11 @@ button:active {
   font-size: 0.9rem;
   line-height: 1.4;
 }
+.scale-help {
+  margin: -2px 0 8px;
+  color: #bfdbfe;
+  font-size: 0.88rem;
+}
 .error,
 .success,
 .warning {
