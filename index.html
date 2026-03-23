@@ -3,13 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>App Rural Consolidada · Productor/a · Animales · Medicamentos · Vacunas · Insumos · Procedimientos</title>
+  <title>App Rural Consolidada V2 · Offline-first</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f172a" />
 </head>
 <body>
   <header>
     <h1>App Rural Consolidada · 👤 Productor/a · 🐾 Animales · 💊 Medicamentos · 💉 Vacunas · 🧰 Insumos · 🧪 Pruebas · 🩺 Procedimientos</h1>
-    <p>Guardado local (localStorage). Fotos, evidencias, exportación Word/Excel y relaciones entre productores, animales, inventario, pruebas y cobros.</p>
+    <p>Offline-first con IndexedDB local, sincronización por cuenta con Firebase, PWA, fotos/evidencias, exportación Word/Excel y relaciones completas entre productores, animales, inventario, pruebas y cobros.</p>
+    <section class="status-bar card">
+      <div class="content status-grid">
+        <div><strong>Conectividad:</strong> <span id="onlineStatusBadge" class="pill offline">Sin conexión</span></div>
+        <div><strong>Sesión:</strong> <span id="authStatusText">Sin sesión</span></div>
+        <div><strong>Última sincronización:</strong> <span id="lastSyncText">Pendiente</span></div>
+        <div><strong>Estado de sincronización:</strong> <span id="syncStatusText">Solo local</span></div>
+      </div>
+      <div class="content header-actions auth-actions">
+        <button class="btn small ghost" type="button" id="btnGoogleLogin">🔐 Iniciar con Google</button>
+        <button class="btn small ghost" type="button" id="btnGoogleLogout">🚪 Cerrar sesión</button>
+        <button class="btn small ghost" type="button" id="btnSyncNow">☁️ Sincronizar ahora</button>
+      </div>
+      <div class="content"><p id="syncHelp" class="help">La app guarda todo primero en IndexedDB. Si configuras Firebase, podrá sincronizar por cuenta y resolver conflictos con estrategia last-write-wins más registro explícito de conflictos.</p></div>
+    </section>
     <div class="header-actions">
     <button class="btn small ghost" type="button" id="btnExportAllWord">📝 Exportar resumen Word</button>
     <button class="btn small ghost" type="button" id="btnExportAllExcel">📊 Exportar resumen Excel</button>
@@ -2203,5 +2219,11 @@
   </div>
 
   <script src="script.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="app-services.js"></script>
 </body>
 </html>

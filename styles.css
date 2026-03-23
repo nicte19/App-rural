@@ -452,3 +452,43 @@ summary::-webkit-details-marker {
     grid-template-columns: 1fr;
   }
 }
+
+.status-bar {
+  margin-top: 14px;
+}
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.pill.online {
+  background: rgba(34, 197, 94, 0.18);
+  color: #dcfce7;
+  border-color: rgba(34, 197, 94, 0.45);
+}
+.pill.offline {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+.auth-actions {
+  padding-top: 0;
+}
+@media (max-width: 920px) {
+  .status-grid,
+  main,
+  .grid.cols-2,
+  .grid.cols-3,
+  .grid.cols-4,
+  .grid.cols-5 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,4 +1,5 @@
 const STORAGE_KEY = "app_rural_consolidada_v2";
+const COLLECTION_KEYS = ["producers", "meds", "vaccines", "supplies", "procedures", "labTests"];
 const state = {
   producers: [],
   meds: [],
@@ -30,8 +31,22 @@ const state = {
     procedureSupplyUses: [],
     procedureLabIds: [],
   },
+  sync: {
+    lastSyncedAt: null,
+    lastSyncedUserId: null,
+    conflicts: [],
+    deletedRecords: {
+      producers: [],
+      meds: [],
+      vaccines: [],
+      supplies: [],
+      procedures: [],
+      labTests: [],
+    },
+  },
 };
 
+const syncHashes = {};
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = (p = "id") =>
@@ -49,21 +64,78 @@ const esc = (v) =>
     .replaceAll('"', "&quot;");
 const byId = (arr, id) => arr.find((x) => x.id === id);
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function stableClone(value) {
+  if (Array.isArray(value)) return value.map(stableClone);
+  if (!value || typeof value !== "object") return value;
+  return Object.keys(value)
+    .filter((key) => key !== "_sync")
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = stableClone(value[key]);
+      return acc;
+    }, {});
 }
-function loadState() {
+function normalizeSyncMeta(record, scope, ownerUserId = null) {
+  const now = Date.now();
+  const previous = record._sync || {};
+  const serialized = JSON.stringify(stableClone(record));
+  const cacheKey = `${scope}:${record.id}`;
+  const changed = syncHashes[cacheKey] !== serialized;
+  syncHashes[cacheKey] = serialized;
+  return {
+    ...record,
+    _sync: {
+      createdAt: previous.createdAt || now,
+      updatedAt: changed ? now : previous.updatedAt || now,
+      syncStatus: changed ? "pending" : previous.syncStatus || "local-only",
+      lastSyncedAt: previous.lastSyncedAt || null,
+      deletedAt: previous.deletedAt || null,
+      conflict: previous.conflict || null,
+      ownerUserId: ownerUserId || previous.ownerUserId || state.sync.lastSyncedUserId || null,
+      version: Number(previous.version || 0) + (changed ? 1 : 0),
+    },
+  };
+}
+function normalizeEntityCollections(ownerUserId = null) {
+  state.producers = (state.producers || []).map((producer) => {
+    const normalizedAnimals = (producer.animals || []).map((animal) => normalizeSyncMeta(animal, "animals", ownerUserId));
+    return normalizeSyncMeta({ ...producer, animals: normalizedAnimals, questionnaire: normalizeQuestionnaire(producer.questionnaire || {}) }, "producers", ownerUserId);
+  });
+  ["meds", "vaccines", "supplies", "procedures", "labTests"].forEach((key) => {
+    state[key] = (state[key] || []).map((record) => normalizeSyncMeta(record, key, ownerUserId));
+  });
+  state.sync = {
+    lastSyncedAt: state.sync?.lastSyncedAt || null,
+    lastSyncedUserId: ownerUserId || state.sync?.lastSyncedUserId || null,
+    conflicts: Array.isArray(state.sync?.conflicts) ? state.sync.conflicts : [],
+    deletedRecords: COLLECTION_KEYS.reduce((acc, key) => ({
+      ...acc,
+      [key]: Array.isArray(state.sync?.deletedRecords?.[key]) ? state.sync.deletedRecords[key] : [],
+    }), {}),
+  };
+}
+function saveState() {
+  normalizeEntityCollections(window.AppServices?.auth?.getCurrentUser?.()?.uid || null);
+  window.__APP_STATE__ = state;
+  if (window.AppServices?.persistence?.saveState) {
+    window.AppServices.persistence.saveState(state);
+  } else {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+}
+async function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("app_rural_consolidada_v1");
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
+    let parsed = null;
+    if (window.AppServices?.persistence?.loadState) {
+      parsed = await window.AppServices.persistence.loadState();
+    }
+    if (!parsed) {
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("app_rural_consolidada_v1");
+      parsed = raw ? JSON.parse(raw) : null;
+    }
+    if (!parsed) return;
     Object.assign(state, {
-      producers: Array.isArray(parsed.producers)
-        ? parsed.producers.map((producer) => ({
-            ...producer,
-            questionnaire: normalizeQuestionnaire(producer.questionnaire || {}),
-          }))
-        : [],
+      producers: Array.isArray(parsed.producers) ? parsed.producers : [],
       meds: Array.isArray(parsed.meds) ? parsed.meds : [],
       vaccines: Array.isArray(parsed.vaccines) ? parsed.vaccines : [],
       supplies: Array.isArray(parsed.supplies) ? parsed.supplies : [],
@@ -73,10 +145,42 @@ function loadState() {
       editing: { ...state.editing, ...(parsed.editing || {}) },
       ui: { ...state.ui, ...(parsed.ui || {}) },
       draft: { ...state.draft, ...(parsed.draft || {}) },
+      sync: { ...state.sync, ...(parsed.sync || {}) },
     });
+    normalizeEntityCollections(parsed.sync?.lastSyncedUserId || null);
+    window.__APP_STATE__ = state;
   } catch (err) {
     console.error(err);
   }
+}
+function queueDeletedRecord(collection, record) {
+  if (!record?.id || !state.sync?.deletedRecords?.[collection]) return;
+  state.sync.deletedRecords[collection].push({
+    id: record.id,
+    deletedAt: Date.now(),
+    ownerUserId: window.AppServices?.auth?.getCurrentUser?.()?.uid || state.sync.lastSyncedUserId || null,
+  });
+}
+function updateConnectivityBadge(isOnline) {
+  const badge = $("#onlineStatusBadge");
+  if (!badge) return;
+  badge.textContent = isOnline ? "En línea" : "Sin conexión";
+  badge.className = `pill ${isOnline ? "online" : "offline"}`;
+}
+function updateAuthUi(user) {
+  const text = $("#authStatusText");
+  if (text) text.textContent = user ? `${user.displayName || user.email} · ${user.email || ''}` : "Sin sesión";
+}
+function updateSyncUi(status = {}) {
+  const syncText = $("#syncStatusText");
+  const lastSync = $("#lastSyncText");
+  if (syncText && status.phase) syncText.textContent = {
+    running: "Sincronizando…",
+    success: `Sincronizado${status.conflicts ? ` · conflictos: ${status.conflicts}` : ''}`,
+    error: `Error: ${status.error || 'falló la sincronización'}`,
+  }[status.phase] || "Solo local";
+  const effectiveLastSync = status.at || state.sync?.lastSyncedAt;
+  if (lastSync) lastSync.textContent = effectiveLastSync ? new Date(effectiveLastSync).toLocaleString('es-MX') : 'Pendiente';
 }
 
 function fileToBase64(file) {
@@ -486,7 +590,10 @@ function renderProducerList() {
       );
     del.onclick = () => {
       if (confirm("¿Eliminar productor(a) y sus animales relacionados?")) {
+        queueDeletedRecord("producers", prod);
+        (state.procedures || []).filter((p) => p.producerId === prod.id).forEach((p) => queueDeletedRecord("procedures", p));
         state.producers = state.producers.filter((x) => x.id !== prod.id);
+        state.procedures = state.procedures.filter((p) => p.producerId !== prod.id);
         if (state.selectedProducerId === prod.id)
           state.selectedProducerId = state.producers[0]?.id || null;
         saveState();
@@ -803,6 +910,7 @@ function renderAnimalGroups() {
     del.onclick = () => {
       const prod = getProducer();
       prod.animals = prod.animals.filter((x) => x.id !== an.id);
+      (state.procedures || []).filter((p) => p.animalId === an.id).forEach((p) => queueDeletedRecord("procedures", p));
       state.procedures = state.procedures.filter((p) => p.animalId !== an.id);
       saveState();
       renderAll();
@@ -1176,6 +1284,8 @@ function renderMedList() {
         ),
       );
     del.onclick = () => {
+      queueDeletedRecord("meds", m);
+      state.vaccines.filter((x) => x.medId === m.id).forEach((v) => queueDeletedRecord("vaccines", v));
       state.meds = state.meds.filter((x) => x.id !== m.id);
       state.vaccines = state.vaccines.filter((x) => x.medId !== m.id);
       saveState();
@@ -1390,7 +1500,7 @@ function renderVaccineList() {
     edit.onclick = () => fillVaccine(v);
     w.onclick = () => exportWord(`vacuna_${slug(v.brand)}.doc`, vaccineWordHtml(v));
     e.onclick = () => exportExcel(`vacuna_${slug(v.brand)}.xls`, producerExcelSheets([], [], [], [v], []));
-    del.onclick = () => { state.vaccines = state.vaccines.filter((x) => x.id !== v.id); saveState(); renderAll(); };
+    del.onclick = () => { queueDeletedRecord("vaccines", v); state.vaccines = state.vaccines.filter((x) => x.id !== v.id); saveState(); renderAll(); };
     list.appendChild(item);
   });
 }
@@ -1521,6 +1631,7 @@ function renderSupplyList() {
         producerExcelSheets([], [], [], [], [s]),
       );
     del.onclick = () => {
+      queueDeletedRecord("supplies", s);
       state.supplies = state.supplies.filter((x) => x.id !== s.id);
       saveState();
       renderAll();
@@ -2122,6 +2233,7 @@ function renderProcedureList() {
         ),
       );
     del.onclick = () => {
+      queueDeletedRecord("procedures", p);
       state.procedures = state.procedures.filter((x) => x.id !== p.id);
       saveState();
       renderAll();
@@ -2479,16 +2591,19 @@ function bindGlobal() {
       "application/json",
     ),
   );
-  $("#btnRestoreJsonInput")?.addEventListener("change", (e) => {
+  $("#btnRestoreJsonInput")?.addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const fr = new FileReader();
-    fr.onload = () => {
+    fr.onload = async () => {
       try {
         const parsed = JSON.parse(fr.result);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-        loadState();
+        Object.assign(state, parsed);
+        normalizeEntityCollections(window.AppServices?.auth?.getCurrentUser?.()?.uid || null);
+        saveState();
+        await loadState();
         renderAll();
+        updateSyncUi();
       } catch (err) {
         alert("JSON inválido");
       }
@@ -2496,10 +2611,33 @@ function bindGlobal() {
     fr.readAsText(f);
     e.target.value = "";
   });
+  $("#btnGoogleLogin")?.addEventListener("click", async () => {
+    try {
+      await window.AppServices?.auth?.signInWithGoogle?.();
+    } catch (error) {
+      alert(error.message || "No se pudo iniciar sesión con Google");
+    }
+  });
+  $("#btnGoogleLogout")?.addEventListener("click", async () => {
+    try {
+      await window.AppServices?.auth?.signOut?.();
+      updateAuthUi(null);
+    } catch (error) {
+      alert(error.message || "No se pudo cerrar sesión");
+    }
+  });
+  $("#btnSyncNow")?.addEventListener("click", async () => {
+    saveState();
+    const result = await window.AppServices?.sync?.triggerSync?.(state);
+    if (result?.reason === 'auth') alert('Configura Firebase e inicia sesión con Google para sincronizar en la nube.');
+    updateSyncUi({ phase: result?.ok ? 'success' : result?.error ? 'error' : undefined, at: Date.now(), error: result?.error?.message || result?.error, conflicts: result?.conflicts || 0 });
+    renderAll();
+  });
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  loadState();
+window.addEventListener("DOMContentLoaded", async () => {
+  window.AppServices?.init?.();
+  await loadState();
   bindTabs();
   bindProducer();
   bindAnimals();
@@ -2508,9 +2646,34 @@ window.addEventListener("DOMContentLoaded", () => {
   bindSupplies();
   bindProcedures();
   bindGlobal();
+  window.AppServices?.connectivity?.onChange?.((online) => {
+    updateConnectivityBadge(online);
+    if (online) {
+      saveState();
+      window.AppServices?.sync?.triggerSync?.(state).then((result) => {
+        if (result?.ok) renderAll();
+      });
+    }
+  });
+  window.AppServices?.auth?.onAuthChanged?.((user) => {
+    updateAuthUi(user);
+    saveState();
+  });
+  window.AppServices?.sync?.onSyncChanged?.((status) => {
+    if (status?.phase === 'success') {
+      state.sync.lastSyncedAt = status.at;
+      saveState();
+      renderAll();
+    }
+    updateSyncUi(status);
+  });
   if (!state.selectedProducerId && state.producers[0])
     state.selectedProducerId = state.producers[0].id;
   renderAll();
   activateTab("Producer");
   updateProducerConditionalFields();
+  updateConnectivityBadge(window.AppServices?.connectivity?.isOnline?.() ?? navigator.onLine);
+  updateAuthUi(window.AppServices?.auth?.getCurrentUser?.() || null);
+  updateSyncUi();
+  saveState();
 });
