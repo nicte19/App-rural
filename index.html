@@ -1319,6 +1319,15 @@
                       <label for="m_dosing">Dosificación (ES)</label>
                       <textarea id="m_dosing"></textarea>
                     </div>
+
+                    <div>
+                      <label>Dosis estructurada por especie para procedimientos</label>
+                      <div class="help">Configura aquí la dosis por especie para que los procedimientos usen el módulo de medicamentos y calculen dosis reales por animal según especie y peso.</div>
+                      <div class="row">
+                        <button class="btn small" type="button" id="m_addSpeciesDose">➕ Agregar dosis por especie</button>
+                      </div>
+                      <div class="list" id="m_speciesDoseList"></div>
+                    </div>
                   </div>
                 </details>
 
@@ -1821,7 +1830,7 @@
                       <label for="p_medMarginOverride">Margen manual opcional (%)</label>
                       <input id="p_medMarginOverride" type="number" min="0" step="0.01" placeholder="Usa la estadística si se deja vacío" />
                     </div>
-                    <div class="help">El sistema mostrará dosis teórica, margen operativo estimado y cantidad cobrable por medicamento.</div>
+                    <div class="help">El sistema mostrará dosis teórica, margen operativo estimado y cantidad final del medicamento por procedimiento.</div>
                   </div>
 
                   <div class="row">
