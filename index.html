@@ -51,6 +51,7 @@
     <button class="tab" id="tabMeds" type="button">💊 Medicamentos</button>
     <button class="tab" id="tabVaccines" type="button">💉 Vacunas</button>
     <button class="tab" id="tabSupplies" type="button">🧰 Insumos</button>
+    <button class="tab" id="tabLab" type="button">🧪 Laboratorio</button>
     <button class="tab" id="tabProcedures" type="button">🩺 Procedimientos</button>
   </nav>
 
@@ -1630,7 +1631,203 @@
     </section>
 
     <!-- =====================================================
-         PÁGINA 5 · PROCEDIMIENTOS
+         PÁGINA 5 · LABORATORIO
+    ====================================================== -->
+    <section id="pageLab" class="page">
+      <main style="grid-template-columns:1.1fr .9fr;">
+        <section class="card">
+          <h2>🧪 Pruebas de laboratorio</h2>
+          <div class="content">
+            <div class="help">Módulo independiente con relación a productor(a), animales, inventario, resultados, imágenes, cobro y vínculo opcional con procedimientos existentes.</div>
+
+            <form id="labStandaloneForm" autocomplete="off">
+              <details open>
+                <summary>1. Relación con productor(a), animales y tipo de prueba</summary>
+                <div class="inner grid">
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="lab_producer">Productor(a) *</label>
+                      <select id="lab_producer"></select>
+                    </div>
+                    <div>
+                      <label for="lab_sampleDate">Fecha de toma de muestra *</label>
+                      <input id="lab_sampleDate" type="date" />
+                    </div>
+                    <div>
+                      <label for="lab_resultDate">Fecha de resultados</label>
+                      <input id="lab_resultDate" type="date" />
+                    </div>
+                    <div>
+                      <label for="lab_costPerAnimal">Costo por prueba / animal *</label>
+                      <input id="lab_costPerAnimal" type="number" min="0" step="0.01" />
+                    </div>
+                  </div>
+
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="lab_typeSelect">Tipo de prueba *</label>
+                      <input id="lab_typeSelect" list="labTypeCatalog" type="text" placeholder="Ej. Brucelosis, coproparasitoscópico" />
+                      <datalist id="labTypeCatalog">
+                        <option value="Biometría hemática"></option>
+                        <option value="Química sanguínea"></option>
+                        <option value="Coproparasitoscópico"></option>
+                        <option value="Brucelosis"></option>
+                        <option value="Mastitis"></option>
+                        <option value="Rabia"></option>
+                      </datalist>
+                    </div>
+                    <div>
+                      <label for="lab_status">Estado del registro</label>
+                      <select id="lab_status">
+                        <option value="PENDIENTE_RESULTADOS">Pendiente de resultados</option>
+                        <option value="RESULTADOS_CAPTURADOS">Resultados capturados</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="lab_chargeStatusStandalone">Estado del cobro</label>
+                      <select id="lab_chargeStatusStandalone">
+                        <option value="">— Selecciona —</option>
+                        <option>Pendiente</option>
+                        <option>Cobrado</option>
+                        <option>Parcial</option>
+                        <option>Donado</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label>Animales registrados del productor(a) *</label>
+                    <div class="help" id="lab_animalsHint">Selecciona primero un productor(a) para cargar únicamente sus animales.</div>
+                    <div class="list" id="lab_animalChecklist"></div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>2. Insumos y cálculo automático del cobro</summary>
+                <div class="inner grid">
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="lab_supplySelectStandalone">Insumo</label>
+                      <select id="lab_supplySelectStandalone"></select>
+                    </div>
+                    <div>
+                      <label for="lab_supplyQtyStandalone">Cantidad usada</label>
+                      <input id="lab_supplyQtyStandalone" type="number" min="0" step="0.01" />
+                    </div>
+                    <div>
+                      <label for="lab_supplyNotesStandalone">Notas</label>
+                      <input id="lab_supplyNotesStandalone" type="text" />
+                    </div>
+                  </div>
+                  <div class="row">
+                    <button class="btn small" type="button" id="lab_addSupplyStandalone">➕ Agregar insumo</button>
+                  </div>
+                  <div class="list" id="lab_supplyUseListStandalone"></div>
+
+                  <div class="grid cols-5">
+                    <div><label>Animales seleccionados</label><input id="lab_animalsCount" type="text" disabled /></div>
+                    <div><label>Subtotal pruebas</label><input id="lab_subtotalTests" type="text" disabled /></div>
+                    <div><label>Total insumos</label><input id="lab_suppliesTotal" type="text" disabled /></div>
+                    <div><label>Total final automático</label><input id="lab_totalFinal" type="text" disabled /></div>
+                    <div><label for="lab_chargeNotesStandalone">Notas de cobro</label><input id="lab_chargeNotesStandalone" type="text" /></div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>3. Resultados, observaciones e imágenes</summary>
+                <div class="inner grid">
+                  <div class="grid cols-2">
+                    <div>
+                      <label for="lab_resultsText">Resultados</label>
+                      <textarea id="lab_resultsText" placeholder="Puede dejarse vacío y editarse después."></textarea>
+                    </div>
+                    <div>
+                      <label for="lab_interpretationStandalone">Interpretación / observaciones</label>
+                      <textarea id="lab_interpretationStandalone"></textarea>
+                    </div>
+                  </div>
+                  <div>
+                    <label>📸 Imágenes / evidencias de resultados</label>
+                    <div class="row">
+                      <input id="lab_images_take" type="file" accept="image/*" capture="environment" multiple style="display:none" />
+                      <input id="lab_images_pick" type="file" accept="image/*" multiple style="display:none" />
+                      <button class="btn small" type="button" id="lab_btnTakeImage">📸 Tomar</button>
+                      <button class="btn small" type="button" id="lab_btnPickImage">🖼️ Elegir</button>
+                      <button class="btn small ghost" type="button" id="lab_btnClearImages">🧹 Quitar todas</button>
+                    </div>
+                    <div class="help" id="lab_imagesHint">Sin imágenes todavía.</div>
+                    <div class="row" id="lab_imagesPreview"></div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>4. Vinculación opcional con procedimientos</summary>
+                <div class="inner grid">
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="lab_linkProcedureDecision">¿Desea vincular esta prueba con un procedimiento?</label>
+                      <select id="lab_linkProcedureDecision">
+                        <option value="NO">No</option>
+                        <option value="SI">Sí</option>
+                      </select>
+                    </div>
+                    <div id="lab_linkProcedureWrap" style="display:none;">
+                      <label for="lab_linkProcedureSelect">Procedimiento existente</label>
+                      <select id="lab_linkProcedureSelect"></select>
+                    </div>
+                    <div>
+                      <label for="lab_notesStandalone">Notas internas</label>
+                      <input id="lab_notesStandalone" type="text" />
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <div class="row" style="justify-content:space-between;">
+                <div class="row">
+                  <button class="btn primary" type="submit" id="lab_saveStandalone">💾 Guardar prueba</button>
+                  <button class="btn ghost" type="button" id="lab_clearStandalone">🧽 Limpiar</button>
+                </div>
+                <div style="max-width:420px;">
+                  <div id="lab_msgStandalone" class="help"></div>
+                  <div id="lab_errStandalone" class="error" style="display:none;"></div>
+                  <div id="lab_okStandalone" class="success" style="display:none;"></div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <aside class="card">
+          <h2>📋 Biblioteca de pruebas de laboratorio</h2>
+          <div class="content">
+            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <div class="help">Total: <b id="lab_countStandalone">0</b></div>
+            </div>
+            <div class="row">
+              <button class="btn small ghost" type="button" id="btnLabWord">📝 Exportar laboratorio a Word</button>
+              <button class="btn small ghost" type="button" id="btnLabExcel">📊 Exportar laboratorio a Excel</button>
+            </div>
+            <div class="sep"></div>
+            <div class="list" id="lab_listStandalone"></div>
+          </div>
+        </aside>
+      </main>
+    </section>
+
+    <!-- =====================================================
+         PÁGINA 6 · PROCEDIMIENTOS
     ====================================================== -->
     <section id="pageProcedures" class="page">
       <main style="grid-template-columns:1.1fr .9fr;">

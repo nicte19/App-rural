@@ -14,6 +14,7 @@ const state = {
     medId: null,
     vaccineId: null,
     supplyId: null,
+    labTestId: null,
     procedureId: null,
     traditionalId: null,
   },
@@ -32,6 +33,8 @@ const state = {
     procedureSupplyUses: [],
     procedureLabIds: [],
     procedureAnimalEntries: [],
+    labImages: [],
+    labSupplyUses: [],
   },
   sync: {
     lastSyncedAt: null,
@@ -364,6 +367,20 @@ function inventoryUsage() {
         (supplies[i.itemId] = (supplies[i.itemId] || 0) + Number(i.qty || 0)),
     );
   });
+  state.labTests.forEach((lab) => {
+    (lab.inventory?.meds || []).forEach(
+      (i) => (meds[i.itemId] = (meds[i.itemId] || 0) + Number(i.chargeableQty || i.qty || 0)),
+    );
+    (lab.inventory?.vaccines || []).forEach(
+      (i) =>
+        (vaccines[i.itemId] =
+          (vaccines[i.itemId] || 0) + Number(i.animalsApplied || 0)),
+    );
+    (lab.inventory?.supplies || []).forEach(
+      (i) =>
+        (supplies[i.itemId] = (supplies[i.itemId] || 0) + Number(i.qty || 0)),
+    );
+  });
   return { meds, vaccines, supplies };
 }
 function medRemaining(med) {
@@ -397,6 +414,7 @@ function activateTab(name) {
     Meds: "pageMeds",
     Vaccines: "pageVaccines",
     Supplies: "pageSupplies",
+    Lab: "pageLab",
     Procedures: "pageProcedures",
   };
   Object.entries(map).forEach(([tab, page]) => {
@@ -408,7 +426,7 @@ function activateTab(name) {
 }
 
 function bindTabs() {
-  ["Producer", "Animals", "Meds", "Vaccines", "Supplies", "Procedures"].forEach((tab) =>
+  ["Producer", "Animals", "Meds", "Vaccines", "Supplies", "Lab", "Procedures"].forEach((tab) =>
     $(`#tab${tab}`)?.addEventListener("click", () => activateTab(tab)),
   );
 }
@@ -1957,7 +1975,8 @@ function renderProcedureAnimalSelect() {
 function populateInventorySelects() {
   const medSel = $("#p_medSelect"),
     vaxSel = $("#p_vaccineSelect"),
-    supSel = $("#p_supplySelect");
+    supSel = $("#p_supplySelect"),
+    labSupSel = $("#lab_supplySelectStandalone");
   medSel.innerHTML =
     '<option value="">— Selecciona —</option>' +
     state.meds
@@ -1982,6 +2001,16 @@ function populateInventorySelects() {
           `<option value="${s.id}">${esc(s.name)} (${esc(supplyRemaining(s))})</option>`,
       )
       .join("");
+  if (labSupSel) {
+    labSupSel.innerHTML =
+      '<option value="">— Selecciona —</option>' +
+      state.supplies
+        .map(
+          (s) =>
+            `<option value="${s.id}">${esc(s.name)} (${esc(supplyRemaining(s))})</option>`,
+        )
+        .join("");
+  }
 }
 function renderProcedureType() {
   const type = $("#p_type").value;
@@ -2784,6 +2813,11 @@ function renderAll() {
   renderMedList();
   renderVaccineList();
   renderSupplyList();
+  renderLabProducerSelect();
+  renderLabProcedureSelect();
+  renderLabSupplyList();
+  renderLabImagePreview();
+  renderLabListStandalone();
   renderProcedureProducerSelect();
   renderProcedureAnimalSelect();
   populateInventorySelects();
@@ -2795,7 +2829,7 @@ function bindGlobal() {
   $("#btnExportAllWord")?.addEventListener("click", () =>
     exportWord(
       "app_rural_resumen.doc",
-      `<h1>Resumen App Rural</h1>${state.producers.map(fullProducerSection).join('<div style="page-break-after:always"></div>')}<div style="page-break-after:always"></div>${medSummaryHtml()}<div style="page-break-after:always"></div>${vaccineSummaryHtml()}<div style="page-break-after:always"></div>${supplySummaryHtml()}<div style="page-break-after:always"></div>${procedureSummaryHtml()}`,
+      `<h1>Resumen App Rural</h1>${state.producers.map(fullProducerSection).join('<div style="page-break-after:always"></div>')}<div style="page-break-after:always"></div>${medSummaryHtml()}<div style="page-break-after:always"></div>${vaccineSummaryHtml()}<div style="page-break-after:always"></div>${supplySummaryHtml()}<div style="page-break-after:always"></div>${labSummaryHtml()}<div style="page-break-after:always"></div>${procedureSummaryHtml()}`,
     ),
   );
   $("#btnExportAllExcel")?.addEventListener("click", () =>
@@ -2868,6 +2902,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   bindMeds();
   bindVaccines();
   bindSupplies();
+  bindLabStandalone();
   bindProcedures();
   bindGlobal();
   window.AppServices?.connectivity?.onChange?.((online) => {
@@ -3410,8 +3445,8 @@ function renderProcedureList() {
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillProcedure(p);
     w.onclick = () => exportWord(`procedimiento_${slug(p.id)}.doc`, procedureWordHtml(p));
-    e.onclick = () => exportExcel(`procedimiento_${slug(p.id)}.xls`, producerExcelSheets([], [], [], [], [], [p], state.labTests.filter((l) => (p.labIds || []).includes(l.id))));
-    del.onclick = () => { queueDeletedRecord("procedures", p); state.procedures = state.procedures.filter((x) => x.id !== p.id); saveState(); renderAll(); };
+    e.onclick = () => exportExcel(`procedimiento_${slug(p.id)}.xls`, producerExcelSheets([], [], [], [], [], [p], state.labTests.filter((l) => (p.labIds || []).includes(l.id) || l.linkedProcedureId === p.id)));
+    del.onclick = () => { state.labTests.forEach((lab) => { if (lab.linkedProcedureId === p.id) lab.linkedProcedureId = null; }); queueDeletedRecord("procedures", p); state.procedures = state.procedures.filter((x) => x.id !== p.id); saveState(); renderAll(); };
     list.appendChild(item);
   });
 }
@@ -3422,7 +3457,7 @@ function procedureAnimalsTable(animals = []) {
   return `<table><tr><th>Identificación</th><th>Especie</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>PT</th><th>LC</th><th>Medicamento</th><th>Dosis</th><th>Vacuna</th><th>Examen físico</th><th>Observaciones</th></tr>${animals.map((a) => `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${a.chestGirth || ""}</td><td>${a.bodyLength || ""}</td><td>${esc(byId(state.meds, a.medicationId)?.brand || "")}</td><td>${esc(a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : a.doseSummary || "")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.generalState, a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc(a.notes || "")}</td></tr>`).join("")}</table>`;
 }
 function procedureWordHtml(p) {
-  const prod = byId(state.producers, p.producerId); const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id));
+  const prod = byId(state.producers, p.producerId); const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id) || l.linkedProcedureId === p.id);
   return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Modalidad:</b> ${esc(p.scope)}</p><p><b>Animales incluidos:</b> ${(p.animals || []).length}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, alcance: p.scope, lugar: p.place, productor: prod?.basic?.name || "", cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_general: p.generalState, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes })}<h2>Animales tratados</h2>${procedureAnimalsTable(p.animals || [])}<h2>Inventario usado</h2>${medicationBreakdownTable(p.inventory?.meds || [])}<table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Cirugía</h2>${objectEntriesTable(p.surgery || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
 }
 function procedureSummaryHtml() { return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`; }
@@ -3430,6 +3465,23 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
   const animalRows = animals.length ? animals : producers.flatMap((p) => (p.animals || []).map((a) => ({ producer: p.basic.name, ...a })));
   const procedureRows = procedures.flatMap((p) => (p.animals || []).length ? (p.animals || []).map((a) => [p.date, p.type, p.scope, producerName(p.producerId), a.identification || a.sourceLabel || "", a.species || "", a.weightMethod || "", Number(a.weightRecordedKg || 0).toFixed(2), a.chestGirth || "", a.bodyLength || "", byId(state.meds, a.medicationId)?.brand || "", a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "", byId(state.vaccines, a.vaccineId)?.brand || "", a.examIncluded ? "Sí" : "No", a.exam?.findings || "", procedureAnimalSummaryText({ animals:[a] })]) : [[p.date, p.type, p.scope, producerName(p.producerId), p.identification || "", p.species || "", "", p.weight || "", "", "", "", "", "", "", "", ""]]);
   const medRows = procedures.flatMap((p) => (p.inventory?.meds || []).map((m) => [p.date, p.type, producerName(p.producerId), m.name, m.calculationMode || "", m.calculationSummary || "", Number(m.theoreticalQty || 0).toFixed(2), `${Number(m.marginQty || 0).toFixed(2)} (${Number(m.marginPct || 0).toFixed(2)}%)`, Number(m.chargeableQty || 0).toFixed(2), Number(m.unitCost || 0).toFixed(2), money(Number(m.chargeableQty || 0) * Number(m.unitCost || 0)), m.marginRationale || ""]));
+  const labRows = labs.map((lab) => [
+    producerName(lab.producerId) || lab.producerName || "",
+    (lab.animals || []).map((animal) => animal.label).join(", ") || lab.animal || "",
+    lab.type,
+    lab.sampleDate || lab.date || "",
+    lab.resultDate || "",
+    Number(lab.charge?.unitCost || 0).toFixed(2),
+    lab.charge?.animalCount || (lab.animalIds || []).length || 0,
+    Number(lab.charge?.subtotal || 0).toFixed(2),
+    Number(lab.charge?.supplies || 0).toFixed(2),
+    Number(lab.charge?.total || 0).toFixed(2),
+    (lab.inventory?.supplies || []).map((item) => `${item.name} (${item.qty})`).join(" | "),
+    lab.results || lab.result || "",
+    lab.interpretation || "",
+    (lab.images || (lab.file ? [lab.file] : [])).length ? "Sí" : "No",
+    lab.linkedProcedureId || "",
+  ]);
   return [
     { name: "Productores", rows: [["Nombre","Celular","Localidad","Municipio","Estado","Clasificación","Razones no trabajar","Nota extra","Maps","Notas"], ...producers.map((p) => [p.basic.name,p.basic.celular,p.basic.localidad,p.basic.municipio,p.basic.estado,p.classification?.value || "",p.classification?.alerta || "",p.classification?.notaExtraPersona || "",p.location?.mapsUrl || "",p.notes || ""])] },
     { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, (a.function || []).join(", "), a.functionOther || ""])] },
@@ -3439,10 +3491,240 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "Procedimientos", rows: [["Fecha","Tipo","Modalidad","Productor(a)","Identificación animal","Especie","Método peso","Peso utilizable (kg)","PT","LC","Medicamento","Dosis por animal","Vacuna","Examen físico","Hallazgos","Resumen animal"], ...procedureRows] },
     { name: "MedicamentosProc", rows: [["Fecha","Procedimiento","Productor(a)","Medicamento","Base cálculo","Detalle cálculo","Dosis teórica","Margen operativo","Cantidad final","Costo unitario","Costo calculado","Justificación"], ...medRows] },
     { name: "CobrosProc", rows: [["Fecha","Tipo","Productor(a)","Cobro procedimiento","Costo medicamentos","Cobro vacunas","Cobro insumos","Subtotal","Total","Cobro final","Observaciones"], ...procedures.map((p) => [p.date,p.type,producerName(p.producerId),p.charge?.base,p.charge?.meds,p.charge?.vaccines,p.charge?.supplies,p.charge?.subtotal,p.charge?.total,p.charge?.manual,p.charge?.reason || p.charge?.notes || ""])] },
-    { name: "PruebasLab", rows: [["Tipo","Fecha","Animal","Resultado","Interpretación","Procedimiento"], ...labs.map((l) => [l.type,l.date,l.animal,l.result,l.interpretation,l.linkedProcedureId || ""])] },
+    { name: "PruebasLab", rows: [["Productor(a)","Animales","Tipo","Fecha toma muestra","Fecha resultados","Costo unitario","Núm. animales","Subtotal","Insumos","Total","Detalle insumos","Resultados","Interpretación","Imágenes","Procedimiento"], ...labRows] },
     { name: "CuestionarioAnimales", rows: [["Productor(a)","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
     { name: "MedicinaTradicional", rows: [["Productor(a)","Nombre","Tipo","Uso","Parte","Animales donde se usa"], ...producers.flatMap((prod) => getProducerQuestionnaireSkeleton(prod).traditional.map((item) => [prod.basic?.name || "", item.name || "", item.type || "", item.use || "", item.part || "", item.targetAnimals || ""]))] },
   ];
+}
+function renderLabProducerSelect() {
+  const sel = $("#lab_producer");
+  if (!sel) return;
+  const prev = sel.value || state.selectedProducerId || "";
+  sel.innerHTML = '<option value="">— Selecciona productor(a) —</option>' + state.producers.map((p) => `<option value="${p.id}">${esc(p.basic?.name || "Sin nombre")}</option>`).join("");
+  sel.value = prev;
+  renderLabAnimalChecklist();
+}
+function renderLabAnimalChecklist() {
+  const producerId = $("#lab_producer")?.value || "";
+  const prod = byId(state.producers, producerId);
+  const box = $("#lab_animalChecklist");
+  const hint = $("#lab_animalsHint");
+  if (!box || !hint) return;
+  const selected = new Set((state.draft.labSelectedAnimalIds || []).map(String));
+  const animals = prod?.animals || [];
+  hint.textContent = prod ? `Se muestran únicamente animales de ${prod.basic?.name || "este productor(a)"}. Registros disponibles: ${animals.length}.` : "Selecciona primero un productor(a) para cargar únicamente sus animales.";
+  if (!prod) {
+    box.innerHTML = '<div class="help">Sin productor(a) seleccionado.</div>';
+    updateLabTotals();
+    return;
+  }
+  if (!animals.length) {
+    box.innerHTML = '<div class="help">Este productor(a) todavía no tiene animales registrados.</div>';
+    updateLabTotals();
+    return;
+  }
+  box.innerHTML = animals.map((animal) => `<label class="item" style="display:flex;gap:10px;align-items:flex-start;"><input type="checkbox" data-lab-animal="${animal.id}" ${selected.has(String(animal.id)) ? "checked" : ""} /><span><b>${esc(animalLabel(animal))}</b><br><small>${esc(animal.species || "")}${animal.breed ? ` · ${esc(animal.breed)}` : ""}</small></span></label>`).join("");
+  box.querySelectorAll("[data-lab-animal]").forEach((input) => input.addEventListener("change", () => {
+    state.draft.labSelectedAnimalIds = Array.from(box.querySelectorAll("[data-lab-animal]:checked")).map((node) => node.getAttribute("data-lab-animal"));
+    updateLabTotals();
+  }));
+  updateLabTotals();
+}
+function renderLabProcedureSelect() {
+  const sel = $("#lab_linkProcedureSelect");
+  if (!sel) return;
+  const selectedProducerId = $("#lab_producer")?.value || "";
+  const procedures = state.procedures.filter((p) => !selectedProducerId || p.producerId === selectedProducerId);
+  const prev = sel.value || "";
+  sel.innerHTML = '<option value="">— Selecciona procedimiento —</option>' + procedures.map((p) => `<option value="${p.id}">${esc(p.date || "")} · ${esc(p.type || "")} · ${esc(producerName(p.producerId))}</option>`).join("");
+  sel.value = prev;
+}
+function toggleLabProcedureLink() {
+  const wrap = $("#lab_linkProcedureWrap");
+  const showWrap = $("#lab_linkProcedureDecision")?.value === "SI";
+  if (wrap) wrap.style.display = showWrap ? "block" : "none";
+  if (!showWrap && $("#lab_linkProcedureSelect")) $("#lab_linkProcedureSelect").value = "";
+}
+function renderLabSupplyList() {
+  renderSimpleList("#lab_supplyUseListStandalone", state.draft.labSupplyUses || [], (item) => `${item.name} · ${item.qty} ${item.type === "NON_DISPOSABLE" ? "usos" : "pzas"} · ${money(Number(item.qty || 0) * Number(item.unitCost || 0))}`);
+}
+function renderLabImagePreview() {
+  const box = $("#lab_imagesPreview");
+  const hint = $("#lab_imagesHint");
+  if (!box || !hint) return;
+  const images = state.draft.labImages || [];
+  box.innerHTML = images.length ? images.map((src, index) => `<div class="preview-mini" style="position:relative;"><img src="${src}" alt="laboratorio ${index + 1}"><button class="btn small bad" type="button" data-lab-remove-image="${index}" style="position:absolute;right:4px;bottom:4px;">✕</button></div>`).join("") : '<div class="preview-box"><span>Sin<br/>imágenes</span></div>';
+  hint.textContent = images.length ? `${images.length} imagen(es) en borrador.` : "Sin imágenes todavía.";
+  box.querySelectorAll("[data-lab-remove-image]").forEach((btn) => btn.addEventListener("click", () => {
+    const index = Number(btn.getAttribute("data-lab-remove-image"));
+    state.draft.labImages.splice(index, 1);
+    renderLabImagePreview();
+  }));
+}
+function calculateLabCharge() {
+  const unitCost = Number($("#lab_costPerAnimal")?.value || 0);
+  const animalCount = (state.draft.labSelectedAnimalIds || []).length;
+  const subtotal = unitCost * animalCount;
+  const supplies = (state.draft.labSupplyUses || []).reduce((acc, item) => acc + Number(item.qty || 0) * Number(item.unitCost || 0), 0);
+  return { unitCost, animalCount, subtotal, supplies, total: subtotal + supplies };
+}
+function updateLabTotals() {
+  const breakdown = calculateLabCharge();
+  if ($("#lab_animalsCount")) $("#lab_animalsCount").value = String(breakdown.animalCount);
+  if ($("#lab_subtotalTests")) $("#lab_subtotalTests").value = money(breakdown.subtotal);
+  if ($("#lab_suppliesTotal")) $("#lab_suppliesTotal").value = money(breakdown.supplies);
+  if ($("#lab_totalFinal")) $("#lab_totalFinal").value = money(breakdown.total);
+}
+function addLabSupplyUseStandalone() {
+  const supply = byId(state.supplies, $("#lab_supplySelectStandalone")?.value);
+  const qty = Number($("#lab_supplyQtyStandalone")?.value || 0);
+  if (!supply || !qty) return show("lab_msgStandalone", "Selecciona insumo y cantidad.", "warning");
+  if (supply.type === "DISPOSABLE" && qty > supplyRemaining(supply)) return show("lab_errStandalone", "No hay disponibilidad suficiente del insumo seleccionado.", "error");
+  state.draft.labSupplyUses = state.draft.labSupplyUses || [];
+  state.draft.labSupplyUses.push({ id: uid("lsup"), itemId: supply.id, name: supply.name, qty, notes: $("#lab_supplyNotesStandalone")?.value.trim() || "", type: supply.type, unitCost: supplyDisplayCost(supply) });
+  $("#lab_supplyQtyStandalone").value = "";
+  $("#lab_supplyNotesStandalone").value = "";
+  renderLabSupplyList();
+  updateLabTotals();
+}
+function collectLabTestStandalone() {
+  const producerId = $("#lab_producer")?.value || "";
+  const producer = byId(state.producers, producerId);
+  const animalIds = state.draft.labSelectedAnimalIds || [];
+  const selectedAnimals = (producer?.animals || []).filter((animal) => animalIds.includes(animal.id));
+  const charge = calculateLabCharge();
+  return {
+    id: state.editing.labTestId || uid("lab"),
+    producerId,
+    producerName: producer?.basic?.name || "",
+    animalIds: [...animalIds],
+    animals: selectedAnimals.map((animal) => ({ id: animal.id, label: animalLabel(animal), species: animal.species || "", breed: animal.breed || "", quantity: animal.quantity || "" })),
+    animal: selectedAnimals.map((animal) => animalLabel(animal)).join(", "),
+    type: $("#lab_typeSelect")?.value.trim() || "",
+    date: $("#lab_sampleDate")?.value || "",
+    sampleDate: $("#lab_sampleDate")?.value || "",
+    resultDate: $("#lab_resultDate")?.value || "",
+    result: $("#lab_resultsText")?.value.trim() || "",
+    results: $("#lab_resultsText")?.value.trim() || "",
+    interpretation: $("#lab_interpretationStandalone")?.value.trim() || "",
+    notes: $("#lab_notesStandalone")?.value.trim() || "",
+    status: $("#lab_status")?.value || "PENDIENTE_RESULTADOS",
+    chargeStatus: $("#lab_chargeStatusStandalone")?.value || "",
+    chargeNotes: $("#lab_chargeNotesStandalone")?.value.trim() || "",
+    images: [...(state.draft.labImages || [])],
+    file: (state.draft.labImages || [])[0] || null,
+    inventory: { supplies: [...(state.draft.labSupplyUses || [])] },
+    charge,
+    linkedProcedureId: $("#lab_linkProcedureDecision")?.value === "SI" ? $("#lab_linkProcedureSelect")?.value || null : null,
+  };
+}
+function saveLabStandalone() {
+  const lab = collectLabTestStandalone();
+  if (!lab.producerId || !lab.type || !lab.sampleDate) return show("lab_errStandalone", "Productor(a), tipo de prueba y fecha de toma de muestra son obligatorios.", "error");
+  if (!lab.animals.length) return show("lab_errStandalone", "Selecciona al menos un animal del productor(a).", "error");
+  const idx = state.labTests.findIndex((item) => item.id === lab.id);
+  const previous = idx >= 0 ? state.labTests[idx] : null;
+  if (idx >= 0) state.labTests[idx] = lab; else state.labTests.unshift(lab);
+  if (previous?.linkedProcedureId && previous.linkedProcedureId !== lab.linkedProcedureId) {
+    const oldProcedure = byId(state.procedures, previous.linkedProcedureId);
+    if (oldProcedure) oldProcedure.labIds = (oldProcedure.labIds || []).filter((id) => id !== lab.id);
+  }
+  if (lab.linkedProcedureId) {
+    const procedure = byId(state.procedures, lab.linkedProcedureId);
+    if (procedure) {
+      procedure.labIds = Array.isArray(procedure.labIds) ? procedure.labIds : [];
+      if (!procedure.labIds.includes(lab.id)) procedure.labIds.push(lab.id);
+    }
+  }
+  saveState();
+  renderAll();
+  resetLabStandalone();
+  show("lab_okStandalone", "Prueba de laboratorio guardada.", "success");
+}
+function resetLabStandalone() {
+  state.editing.labTestId = null;
+  state.draft.labImages = [];
+  state.draft.labSupplyUses = [];
+  state.draft.labSelectedAnimalIds = [];
+  $("#labStandaloneForm")?.reset();
+  toggleLabProcedureLink();
+  renderLabProducerSelect();
+  renderLabProcedureSelect();
+  renderLabSupplyList();
+  renderLabImagePreview();
+  updateLabTotals();
+}
+function fillLabStandalone(lab) {
+  resetLabStandalone();
+  state.editing.labTestId = lab.id;
+  Object.entries({ lab_producer: lab.producerId, lab_sampleDate: lab.sampleDate || lab.date, lab_resultDate: lab.resultDate, lab_costPerAnimal: lab.charge?.unitCost || "", lab_typeSelect: lab.type, lab_status: lab.status || ((lab.results || lab.result) ? "RESULTADOS_CAPTURADOS" : "PENDIENTE_RESULTADOS"), lab_chargeStatusStandalone: lab.chargeStatus || "", lab_chargeNotesStandalone: lab.chargeNotes || "", lab_resultsText: lab.results || lab.result || "", lab_interpretationStandalone: lab.interpretation || "", lab_notesStandalone: lab.notes || "", lab_linkProcedureDecision: lab.linkedProcedureId ? "SI" : "NO" }).forEach(([id, value]) => { if ($("#" + id)) $("#" + id).value = safe(value); });
+  state.draft.labSelectedAnimalIds = [...(lab.animalIds || [])];
+  state.draft.labImages = [...(lab.images || (lab.file ? [lab.file] : []))];
+  state.draft.labSupplyUses = [...(lab.inventory?.supplies || [])];
+  renderLabProducerSelect();
+  renderLabProcedureSelect();
+  toggleLabProcedureLink();
+  if ($("#lab_linkProcedureSelect")) $("#lab_linkProcedureSelect").value = lab.linkedProcedureId || "";
+  renderLabSupplyList();
+  renderLabImagePreview();
+  updateLabTotals();
+}
+function deleteLabStandalone(lab) {
+  if (lab.linkedProcedureId) {
+    const procedure = byId(state.procedures, lab.linkedProcedureId);
+    if (procedure) procedure.labIds = (procedure.labIds || []).filter((id) => id !== lab.id);
+  }
+  queueDeletedRecord("labTests", lab);
+  state.labTests = state.labTests.filter((item) => item.id !== lab.id);
+  saveState();
+  renderAll();
+}
+function labWordHtml(lab) {
+  return `<section><h1>Prueba de laboratorio: ${esc(lab.type)}</h1><p><b>Productor(a):</b> ${esc(producerName(lab.producerId) || lab.producerName || "")}</p><p><b>Animales:</b> ${esc((lab.animals || []).map((animal) => animal.label).join(", ") || lab.animal || "")}</p><p><b>Fecha toma de muestra:</b> ${esc(lab.sampleDate || lab.date || "")}</p><p><b>Fecha de resultados:</b> ${esc(lab.resultDate || "")}</p><p><b>Procedimiento vinculado:</b> ${esc(lab.linkedProcedureId || "Sin vínculo")}</p><h2>Resumen</h2>${objectEntriesTable({ tipo_prueba: lab.type, productor: producerName(lab.producerId) || lab.producerName || "", animales: (lab.animals || []).map((animal) => animal.label).join(", "), fecha_toma_muestra: lab.sampleDate || lab.date || "", fecha_resultados: lab.resultDate || "", costo_unitario: money(lab.charge?.unitCost), numero_animales: lab.charge?.animalCount, subtotal_pruebas: money(lab.charge?.subtotal), total_insumos: money(lab.charge?.supplies), total_final: money(lab.charge?.total), estado_registro: lab.status || "", estado_cobro: lab.chargeStatus || "", notas_cobro: lab.chargeNotes || "", resultado: lab.results || lab.result || "", interpretacion: lab.interpretation || "", observaciones: lab.notes || "", procedimiento_vinculado: lab.linkedProcedureId || "" })}<h2>Insumos</h2><table><tr><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(lab.inventory?.supplies || []).map((item) => `<tr><td>${esc(item.name)}</td><td>${esc(item.qty)}</td><td>${money(Number(item.qty || 0) * Number(item.unitCost || 0))}</td><td>${esc(item.notes || "")}</td></tr>`).join("")}</table>${(lab.images || (lab.file ? [lab.file] : [])).map((src, index) => imageHtml(src, `Imagen laboratorio ${index + 1}`)).join("")}</section>`;
+}
+function labSummaryHtml() {
+  return `<h1>Pruebas de laboratorio</h1>${state.labTests.map(labWordHtml).join('<div style="page-break-after:always"></div>')}`;
+}
+function renderLabListStandalone() {
+  const list = $("#lab_listStandalone");
+  if (!list) return;
+  list.innerHTML = "";
+  if ($("#lab_countStandalone")) $("#lab_countStandalone").textContent = state.labTests.length;
+  state.labTests.forEach((lab) => {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<h4>${esc(lab.type)} · ${esc(producerName(lab.producerId) || lab.producerName || "")}</h4><div class="line"><b>Toma de muestra:</b> ${esc(lab.sampleDate || lab.date || "")}</div><div class="line"><b>Fecha de resultados:</b> ${esc(lab.resultDate || "Pendiente")}</div><div class="line"><b>Animales:</b> ${esc((lab.animals || []).map((animal) => animal.label).join(", ") || lab.animal || "")}</div><div class="line"><b>Total final:</b> ${money(lab.charge?.total)}</div><div class="line"><b>Procedimiento vinculado:</b> ${esc(lab.linkedProcedureId || "Sin vínculo")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, word, excel, del] = item.querySelectorAll("button");
+    edit.onclick = () => fillLabStandalone(lab);
+    word.onclick = () => exportWord(`laboratorio_${slug(lab.id)}.doc`, labWordHtml(lab));
+    excel.onclick = () => exportExcel(`laboratorio_${slug(lab.id)}.xls`, producerExcelSheets([], [], [], [], [], [], [lab]));
+    del.onclick = () => deleteLabStandalone(lab);
+    list.appendChild(item);
+  });
+}
+function bindLabStandalone() {
+  $("#lab_producer")?.addEventListener("change", () => {
+    state.selectedProducerId = $("#lab_producer").value || state.selectedProducerId;
+    state.draft.labSelectedAnimalIds = [];
+    renderLabAnimalChecklist();
+    renderLabProcedureSelect();
+  });
+  $("#lab_costPerAnimal")?.addEventListener("input", updateLabTotals);
+  $("#lab_linkProcedureDecision")?.addEventListener("change", toggleLabProcedureLink);
+  $("#lab_addSupplyStandalone")?.addEventListener("click", addLabSupplyUseStandalone);
+  ["lab_images_take", "lab_images_pick"].forEach((id) => $("#" + id)?.addEventListener("change", async (e) => {
+    state.draft.labImages = state.draft.labImages || [];
+    for (const file of Array.from(e.target.files || [])) state.draft.labImages.push(await fileToBase64(file));
+    renderLabImagePreview();
+    e.target.value = "";
+  }));
+  $("#lab_btnTakeImage")?.addEventListener("click", () => requestPhotoInput("#lab_images_take", "camera"));
+  $("#lab_btnPickImage")?.addEventListener("click", () => requestPhotoInput("#lab_images_pick", "gallery"));
+  $("#lab_btnClearImages")?.addEventListener("click", () => { state.draft.labImages = []; renderLabImagePreview(); });
+  $("#labStandaloneForm")?.addEventListener("submit", (e) => { e.preventDefault(); saveLabStandalone(); });
+  $("#lab_clearStandalone")?.addEventListener("click", resetLabStandalone);
+  $("#btnLabWord")?.addEventListener("click", () => exportWord("laboratorio.doc", labSummaryHtml()));
+  $("#btnLabExcel")?.addEventListener("click", () => exportExcel("laboratorio.xls", producerExcelSheets([], [], [], [], [], [], state.labTests)));
 }
 function bindProcedures() {
   renderProcedureType();
