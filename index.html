@@ -794,8 +794,14 @@
                     </div>
                   </div>
 
+                  <div>
+                    <label for="a_tradAnimales">¿En qué animales utiliza este remedio o planta?</label>
+                    <textarea id="a_tradAnimales" rows="2" placeholder="Ej. gallinas, perros, todos, becerros..."></textarea>
+                  </div>
+
                   <div class="row">
                     <button class="btn small" type="button" id="a_addTrad">➕ Agregar producto/remedio</button>
+                    <button class="btn small ghost" type="button" id="a_clearTrad">Limpiar captura</button>
                   </div>
                   <div class="list" id="a_tradList"></div>
 
@@ -1084,16 +1090,10 @@
                     Esta parte es para conocer lo que saben y poder dar información sobre aves; no significa que se les van a regalar o vender animales.
                   </div>
 
-                  <div id="a_interestBirdsYesWrap">
-                    <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 4)</label>
+                  <div id="a_interestBirdsWrap">
+                    <label for="a_interestBirds" id="a_interestBirdsLabel">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 4)</label>
                     <div class="help scale-help">Escala visible: 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho.</div>
-                    <input id="a_interestBirdsYes" type="number" min="1" max="4" />
-                  </div>
-
-                  <div id="a_interestBirdsNoWrap">
-                    <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 4)</label>
-                    <div class="help scale-help">Escala visible: 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho.</div>
-                    <input id="a_interestBirdsNo" type="number" min="1" max="4" />
+                    <input id="a_interestBirds" type="number" min="1" max="4" />
                   </div>
                 </div>
               </details>
