@@ -1,0 +1,1 @@
+window.APP_FIREBASE_CONFIG = window.APP_FIREBASE_CONFIG || null;
