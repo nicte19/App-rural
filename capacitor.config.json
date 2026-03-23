@@ -1,0 +1,19 @@
+{
+  "appId": "com.apprural.consolidada",
+  "appName": "App Rural Consolidada",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Geolocation": {
+      "permissionsPrompt": true
+    },
+    "Camera": {
+      "promptLabelHeader": "Permisos de cámara y fotos",
+      "promptLabelPhoto": "Elegir de galería",
+      "promptLabelPicture": "Tomar foto"
+    }
+  }
+}
