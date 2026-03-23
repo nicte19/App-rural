@@ -15,6 +15,7 @@ const state = {
     vaccineId: null,
     supplyId: null,
     procedureId: null,
+    traditionalId: null,
   },
   ui: { medMode: "MANUAL", supplyMode: "DISPOSABLE" },
   draft: {
@@ -506,7 +507,6 @@ function normalizeQuestionnaire(questionnaire = {}) {
     diseases: Array.isArray(questionnaire.diseases) ? questionnaire.diseases : [],
     vaccines: Array.isArray(questionnaire.vaccines) ? questionnaire.vaccines : [],
     deworming: Array.isArray(questionnaire.deworming) ? questionnaire.deworming : [],
-    traditional: Array.isArray(questionnaire.traditional) ? questionnaire.traditional : [],
     genderAnimals: Array.isArray(questionnaire.genderAnimals) ? questionnaire.genderAnimals : [],
     genderActivities: Array.isArray(questionnaire.genderActivities) ? questionnaire.genderActivities : [],
     importantAnimals: questionnaire.importantAnimals || [],
@@ -549,13 +549,45 @@ function normalizeQuestionnaire(questionnaire = {}) {
     noRumiantsReason: questionnaire.noRumiantsReason || "",
     rumiantAdvice: questionnaire.rumiantAdvice || "",
     rumiantNeed: questionnaire.rumiantNeed || "",
-    birdsInterestYes: questionnaire.birdsInterestYes || "",
-    birdsInterestNo: questionnaire.birdsInterestNo || "",
+    birdsInterest: questionnaire.birdsInterest || questionnaire.birdsInterestYes || questionnaire.birdsInterestNo || "",
+    traditional: (Array.isArray(questionnaire.traditional) ? questionnaire.traditional : []).map((item) => ({
+      ...item,
+      targetAnimals: item?.targetAnimals || item?.animals || "",
+    })),
   };
 }
 
 function getProducerQuestionnaireSkeleton(prod) {
   return normalizeQuestionnaire(prod?.questionnaire || {});
+}
+function normalizeAnimalText(value = "") {
+  return safe(value)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+function producerHasRegisteredBirds(prod = getProducer()) {
+  return (prod?.animals || []).some((animal) => {
+    const haystack = [animal?.species, animal?.breed, animal?.functionOther]
+      .map(normalizeAnimalText)
+      .join(" ");
+    return /(aves? de corral|otras? aves?|aves? de pelea|gall(?:ina|inas|o|os)|pollo|pollos|guajolote|guajolotes|pato|patos|ganso|gansos|codorniz|codornices|ave)/.test(haystack);
+  });
+}
+function birdInterestPrompt(hasBirds) {
+  return hasBirds
+    ? "Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para mejorar la crianza y manejo de sus aves? (1 a 4)"
+    : "Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 4)";
+}
+function resetTraditionalForm() {
+  state.editing.traditionalId = null;
+  ["a_tradNombre", "a_tradTipo", "a_tradUso", "a_tradParte", "a_tradAnimales"].forEach((id) => {
+    if ($("#" + id)) $("#" + id).value = "";
+  });
+  if ($("#a_addTrad")) {
+    $("#a_addTrad").textContent = "➕ Agregar producto/remedio";
+  }
 }
 function collectFamilyRows() {
   return $$("#familyTbody tr").map((tr) => ({
@@ -921,11 +953,10 @@ function renderAnimalBasedSelects() {
       ).join("");
     genderAnimalSelect.value = prev;
   }
-  const hasBirds = animals.some((a) =>
-    /ave|pollo|gallina|guajolote|pato|codorniz/i.test(a.species || ""),
-  );
-  $("#a_interestBirdsYesWrap").style.display = hasBirds ? "block" : "none";
-  $("#a_interestBirdsNoWrap").style.display = hasBirds ? "none" : "block";
+  const hasBirds = producerHasRegisteredBirds(getProducer());
+  if ($("#a_interestBirdsLabel")) {
+    $("#a_interestBirdsLabel").textContent = birdInterestPrompt(hasBirds);
+  }
   const hasRumiants = animals.some((a) =>
     /borrego|oveja|cabra|chivo/i.test(a.species || ""),
   );
@@ -1015,6 +1046,37 @@ function renderSimpleList(listId, arr, titleFn) {
     list.appendChild(div);
   });
 }
+function renderTraditionalList(items) {
+  const list = $("#a_tradList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!items.length) resetTraditionalForm();
+  items.forEach((item) => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `<h4>${esc(item.name || "Sin nombre")}</h4><div class="line"><b>Tipo:</b> ${esc(item.type || "")}</div><div class="line"><b>Uso:</b> ${esc(item.use || "")}</div><div class="line"><b>Parte:</b> ${esc(item.part || "")}</div><div class="line"><b>Animales:</b> ${esc(item.targetAnimals || "")}</div><div class="actions"><button class="btn small" type="button">Editar</button><button class="btn small bad" type="button">Eliminar</button></div>`;
+    const [editBtn, deleteBtn] = div.querySelectorAll("button");
+    editBtn.onclick = () => {
+      state.editing.traditionalId = item.id;
+      $("#a_tradNombre").value = safe(item.name);
+      $("#a_tradTipo").value = safe(item.type);
+      $("#a_tradUso").value = safe(item.use);
+      $("#a_tradParte").value = safe(item.part);
+      $("#a_tradAnimales").value = safe(item.targetAnimals);
+      $("#a_addTrad").textContent = "💾 Guardar producto/remedio";
+    };
+    deleteBtn.onclick = () => {
+      const prod = getProducer();
+      if (!prod) return;
+      prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+      prod.questionnaire.traditional = prod.questionnaire.traditional.filter((entry) => entry.id !== item.id);
+      if (state.editing.traditionalId === item.id) resetTraditionalForm();
+      saveState();
+      renderAll();
+    };
+    list.appendChild(div);
+  });
+}
 function saveAnimalQuestionnaireFull() {
   const prod = getProducer();
   if (!prod) {
@@ -1063,8 +1125,7 @@ function saveAnimalQuestionnaireFull() {
     noRumiantsReason: $("#a_noRumiantsWhy").value.trim(),
     rumiantAdvice: $("#a_rumiantsAdvice").value,
     rumiantNeed: $("#a_rumiantsNeed").value.trim(),
-    birdsInterestYes: $("#a_interestBirdsYes").value,
-    birdsInterestNo: $("#a_interestBirdsNo").value,
+    birdsInterest: $("#a_interestBirds").value,
     diseases: getProducerQuestionnaireSkeleton(prod).diseases,
     vaccines: getProducerQuestionnaireSkeleton(prod).vaccines,
     deworming: getProducerQuestionnaireSkeleton(prod).deworming,
@@ -1119,8 +1180,7 @@ function fillAnimalQuestionnaire() {
     a_noRumiantsWhy: q.noRumiantsReason,
     a_rumiantsAdvice: q.rumiantAdvice,
     a_rumiantsNeed: q.rumiantNeed,
-    a_interestBirdsYes: q.birdsInterestYes,
-    a_interestBirdsNo: q.birdsInterestNo,
+    a_interestBirds: q.birdsInterest,
   };
   Object.entries(map).forEach(([k, v]) => {
     if ($("#" + k)) $("#" + k).value = safe(v);
@@ -1141,11 +1201,8 @@ function fillAnimalQuestionnaire() {
     q.deworming || [],
     (x) => `${x.date || ""} · ${x.animal || ""} · ${x.product || ""}`,
   );
-  renderSimpleList(
-    "#a_tradList",
-    q.traditional || [],
-    (x) => `${x.name || ""} · ${x.use || ""}`,
-  );
+  renderTraditionalList(q.traditional || []);
+  if (!state.editing.traditionalId) resetTraditionalForm();
   renderSimpleList(
     "#a_genderAnimalList",
     q.genderAnimals || [],
@@ -1199,15 +1256,30 @@ function bindAnimals() {
       who: $("#a_dewormWho").value,
     }),
   );
-  $("#a_addTrad")?.addEventListener("click", () =>
-    addQuestionnaireItem("traditional", {
-      id: uid("trad"),
-      name: $("#a_tradNombre").value,
+  $("#a_addTrad")?.addEventListener("click", () => {
+    const prod = getProducer();
+    if (!prod) return;
+    const item = {
+      id: state.editing.traditionalId || uid("trad"),
+      name: $("#a_tradNombre").value.trim(),
       type: $("#a_tradTipo").value,
-      use: $("#a_tradUso").value,
-      part: $("#a_tradParte").value,
-    }),
-  );
+      use: $("#a_tradUso").value.trim(),
+      part: $("#a_tradParte").value.trim(),
+      targetAnimals: $("#a_tradAnimales").value.trim(),
+    };
+    prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+    if (state.editing.traditionalId) {
+      prod.questionnaire.traditional = prod.questionnaire.traditional.map((entry) =>
+        entry.id === state.editing.traditionalId ? item : entry,
+      );
+      saveState();
+      renderAll();
+    } else {
+      addQuestionnaireItem("traditional", item);
+    }
+    resetTraditionalForm();
+  });
+  $("#a_clearTrad")?.addEventListener("click", resetTraditionalForm);
   $("#a_addGenderAnimal")?.addEventListener("click", () =>
     addQuestionnaireItem("genderAnimals", {
       id: uid("ga"),
@@ -2440,9 +2512,24 @@ function vaccineWordHtml(v) {
 function vaccineSummaryHtml() {
   return `<h1>Vacunas</h1>${state.vaccines.map(vaccineWordHtml).join('<div style="page-break-after:always"></div>')}`;
 }
+function traditionalRemediesTable(items = []) {
+  if (!items.length) return '<p>Sin registros de medicina tradicional.</p>';
+  return `<table><tr><th>Nombre</th><th>Tipo</th><th>Uso</th><th>Parte</th><th>Animales</th></tr>${items.map((item) => `<tr><td>${esc(item.name || "")}</td><td>${esc(item.type || "")}</td><td>${esc(item.use || "")}</td><td>${esc(item.part || "")}</td><td>${esc(item.targetAnimals || "")}</td></tr>`).join("")}</table>`;
+}
+function questionnaireExportRows(prod) {
+  const q = getProducerQuestionnaireSkeleton(prod);
+  return [[
+    prod.basic?.name || "",
+    producerHasRegisteredBirds(prod) ? "Sí" : "No",
+    q.birdsInterest || "",
+    q.traditional.length,
+    q.traditional.map((item) => item.name || "").filter(Boolean).join(", "),
+    q.traditional.map((item) => item.targetAnimals || "").filter(Boolean).join(" | "),
+  ]];
+}
 function fullProducerSection(prod) {
   const q = getProducerQuestionnaireSkeleton(prod);
-  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable(a)}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable(q)}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
+  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable(a)}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
 }
 function producerWordHtml(prod) {
   return fullProducerSection(prod);
@@ -3195,6 +3282,8 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "MedicamentosProc", rows: [["Fecha","Procedimiento","Productor(a)","Medicamento","Base cálculo","Detalle cálculo","Dosis teórica","Margen operativo","Cantidad cobro","Costo unitario","Costo calculado","Justificación"], ...medRows] },
     { name: "CobrosProc", rows: [["Fecha","Tipo","Productor(a)","Cobro procedimiento","Cobro medicamentos","Cobro vacunas","Cobro insumos","Subtotal","Total","Cobro final","Observaciones"], ...procedures.map((p) => [p.date,p.type,producerName(p.producerId),p.charge?.base,p.charge?.meds,p.charge?.vaccines,p.charge?.supplies,p.charge?.subtotal,p.charge?.total,p.charge?.manual,p.charge?.reason || p.charge?.notes || ""])] },
     { name: "PruebasLab", rows: [["Tipo","Fecha","Animal","Resultado","Interpretación","Procedimiento"], ...labs.map((l) => [l.type,l.date,l.animal,l.result,l.interpretation,l.linkedProcedureId || ""])] },
+    { name: "CuestionarioAnimales", rows: [["Productor(a)","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
+    { name: "MedicinaTradicional", rows: [["Productor(a)","Nombre","Tipo","Uso","Parte","Animales donde se usa"], ...producers.flatMap((prod) => getProducerQuestionnaireSkeleton(prod).traditional.map((item) => [prod.basic?.name || "", item.name || "", item.type || "", item.use || "", item.part || "", item.targetAnimals || ""]))] },
   ];
 }
 function bindProcedures() {
