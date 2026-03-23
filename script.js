@@ -58,7 +58,12 @@ function loadState() {
     if (!raw) return;
     const parsed = JSON.parse(raw);
     Object.assign(state, {
-      producers: Array.isArray(parsed.producers) ? parsed.producers : [],
+      producers: Array.isArray(parsed.producers)
+        ? parsed.producers.map((producer) => ({
+            ...producer,
+            questionnaire: normalizeQuestionnaire(producer.questionnaire || {}),
+          }))
+        : [],
       meds: Array.isArray(parsed.meds) ? parsed.meds : [],
       vaccines: Array.isArray(parsed.vaccines) ? parsed.vaccines : [],
       supplies: Array.isArray(parsed.supplies) ? parsed.supplies : [],
@@ -284,17 +289,78 @@ function collectProducerForm() {
     animals: getProducer()?.animals || [],
   };
 }
+const FIXED_GENDER_ANIMAL_OPTIONS = [
+  "Vacas",
+  "Pequeños rumiantes (borregos y cabras)",
+  "Caballos",
+  "Burros, mulas",
+  "Aves de corral",
+  "Guajolotes",
+  "Aves de pelea",
+  "Cerdos",
+  "Perros",
+  "Gatos",
+  "Conejos",
+  "Abejas",
+  "Peces",
+  "Otro",
+];
+
+function normalizeQuestionnaire(questionnaire = {}) {
+  return {
+    diseases: Array.isArray(questionnaire.diseases) ? questionnaire.diseases : [],
+    vaccines: Array.isArray(questionnaire.vaccines) ? questionnaire.vaccines : [],
+    deworming: Array.isArray(questionnaire.deworming) ? questionnaire.deworming : [],
+    traditional: Array.isArray(questionnaire.traditional) ? questionnaire.traditional : [],
+    genderAnimals: Array.isArray(questionnaire.genderAnimals) ? questionnaire.genderAnimals : [],
+    genderActivities: Array.isArray(questionnaire.genderActivities) ? questionnaire.genderActivities : [],
+    importantAnimals: questionnaire.importantAnimals || [],
+    importanceDetail: questionnaire.importanceDetail || "",
+    tieneMilpa: questionnaire.tieneMilpa || "",
+    queSiembra: questionnaire.queSiembra || "",
+    escasezForraje: questionnaire.escasezForraje || "",
+    lastSick: questionnaire.lastSick || "",
+    recommendWho: questionnaire.recommendWho || "",
+    curadorExiste: questionnaire.curadorExiste || "",
+    curadorQuien: questionnaire.curadorQuien || "",
+    curadorEdad: questionnaire.curadorEdad || "",
+    curadorEspecies: questionnaire.curadorEspecies || "",
+    curadorTiempo: questionnaire.curadorTiempo || "",
+    curadorServicios: questionnaire.curadorServicios || "",
+    practicasAsesoria: questionnaire.practicasAsesoria || "",
+    programaRegistro: questionnaire.programaRegistro || "",
+    programaNombre: questionnaire.programaNombre || "",
+    programaFolioTiene: questionnaire.programaFolioTiene || "",
+    folio: questionnaire.folio || "",
+    futureCalls: questionnaire.futureCalls || "",
+    huntingCommon: questionnaire.huntingCommon || "",
+    huntingTime: questionnaire.huntingTime || "",
+    huntedAnimals: questionnaire.huntedAnimals || "",
+    huntingPlaces: questionnaire.huntingPlaces || "",
+    huntingSeason: questionnaire.huntingSeason || "",
+    huntingReasons: questionnaire.huntingReasons || "",
+    wildProblems: questionnaire.wildProblems || "",
+    wildProblemsDetail: questionnaire.wildProblemsDetail || "",
+    riverUse: questionnaire.riverUse || "",
+    riverUseFor: questionnaire.riverUseFor || "",
+    riverMeaning: questionnaire.riverMeaning || "",
+    riverProblems: questionnaire.riverProblems || "",
+    localKnowledgeExists: questionnaire.localKnowledgeExists || "",
+    localKnowledgeWho: questionnaire.localKnowledgeWho || "",
+    localKnowledgeUseful: questionnaire.localKnowledgeUseful || "",
+    rumiantInterest: questionnaire.rumiantInterest || "",
+    rumiantInterestWhy: questionnaire.rumiantInterestWhy || "",
+    hadRumiantsBefore: questionnaire.hadRumiantsBefore || "",
+    noRumiantsReason: questionnaire.noRumiantsReason || "",
+    rumiantAdvice: questionnaire.rumiantAdvice || "",
+    rumiantNeed: questionnaire.rumiantNeed || "",
+    birdsInterestYes: questionnaire.birdsInterestYes || "",
+    birdsInterestNo: questionnaire.birdsInterestNo || "",
+  };
+}
+
 function getProducerQuestionnaireSkeleton(prod) {
-  return (
-    prod?.questionnaire || {
-      diseases: [],
-      vaccines: [],
-      deworming: [],
-      traditional: [],
-      genderAnimals: [],
-      genderActivities: [],
-    }
-  );
+  return normalizeQuestionnaire(prod?.questionnaire || {});
 }
 function collectFamilyRows() {
   return $$("#familyTbody tr").map((tr) => ({
@@ -642,9 +708,9 @@ function renderAnimalBasedSelects() {
   const animals = prod?.animals || [];
   [
     "#a_animalesImportantes",
+    "#a_enfAnimal",
     "#a_vaxAnimal",
     "#a_dewormAnimal",
-    "#a_genderAnimal",
   ].forEach((sel) => {
     const el = $(sel);
     if (!el) return;
@@ -660,6 +726,16 @@ function renderAnimalBasedSelects() {
     if (el.multiple) setMulti(el, prev);
     else el.value = prev;
   });
+  const genderAnimalSelect = $("#a_genderAnimal");
+  if (genderAnimalSelect) {
+    const prev = genderAnimalSelect.value;
+    genderAnimalSelect.innerHTML =
+      '<option value="">— Selecciona —</option>' +
+      FIXED_GENDER_ANIMAL_OPTIONS.map(
+        (animal) => `<option value="${esc(animal)}">${esc(animal)}</option>`,
+      ).join("");
+    genderAnimalSelect.value = prev;
+  }
   const hasBirds = animals.some((a) =>
     /ave|pollo|gallina|guajolote|pato|codorniz/i.test(a.species || ""),
   );
@@ -774,8 +850,6 @@ function saveAnimalQuestionnaireFull() {
     curadorEspecies: $("#a_curadorEspecies").value.trim(),
     curadorTiempo: $("#a_curadorTiempo").value.trim(),
     curadorServicios: $("#a_curadorServicios").value.trim(),
-    practicas: $("#a_practicas").value,
-    practicasQuien: $("#a_practicasQuien").value.trim(),
     practicasAsesoria: $("#a_practicasAsesoria").value,
     programaRegistro: $("#a_programaRegistro").value,
     programaNombre: $("#a_programaNombre").value,
@@ -802,8 +876,6 @@ function saveAnimalQuestionnaireFull() {
     hadRumiantsBefore: $("#a_hadRumiantsBefore").value,
     noRumiantsReason: $("#a_noRumiantsWhy").value.trim(),
     rumiantAdvice: $("#a_rumiantsAdvice").value,
-    rumiantOthers: $("#a_rumiantsOthers").value,
-    rumiantWomen: $("#a_rumiantsWomen").value,
     rumiantNeed: $("#a_rumiantsNeed").value.trim(),
     birdsInterestYes: $("#a_interestBirdsYes").value,
     birdsInterestNo: $("#a_interestBirdsNo").value,
@@ -834,8 +906,6 @@ function fillAnimalQuestionnaire() {
     a_curadorEspecies: q.curadorEspecies,
     a_curadorTiempo: q.curadorTiempo,
     a_curadorServicios: q.curadorServicios,
-    a_practicas: q.practicas,
-    a_practicasQuien: q.practicasQuien,
     a_practicasAsesoria: q.practicasAsesoria,
     a_programaRegistro: q.programaRegistro,
     a_programaNombre: q.programaNombre,
@@ -862,8 +932,6 @@ function fillAnimalQuestionnaire() {
     a_hadRumiantsBefore: q.hadRumiantsBefore,
     a_noRumiantsWhy: q.noRumiantsReason,
     a_rumiantsAdvice: q.rumiantAdvice,
-    a_rumiantsOthers: q.rumiantOthers,
-    a_rumiantsWomen: q.rumiantWomen,
     a_rumiantsNeed: q.rumiantNeed,
     a_interestBirdsYes: q.birdsInterestYes,
     a_interestBirdsNo: q.birdsInterestNo,

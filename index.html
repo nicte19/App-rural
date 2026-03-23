@@ -723,21 +723,6 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_practicas">¿Realizan prácticas como descole, castración o marcaje?</label>
-                      <select id="a_practicas">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="a_practicasQuien">¿Quién realiza normalmente estos procedimientos?</label>
-                      <input id="a_practicasQuien" />
-                    </div>
-                  </div>
-
                   <div>
                     <label for="a_practicasAsesoria">¿Reciben asesoría veterinaria para realizarlos?</label>
                     <select id="a_practicasAsesoria">
@@ -984,7 +969,7 @@
 
                   <div class="grid cols-2">
                     <div>
-                      <label for="a_saberesLocales">En su comunidad, ¿hay formas de cuidar animales o cultivos que se hayan aprendido de personas mayores y que se sigan usando hasta hoy?</label>
+                      <label for="a_saberesLocales">En su comunidad, ¿todavía usan formas o conocimientos que aprendieron de personas mayores para cuidar a los animales o trabajar el campo?</label>
                       <select id="a_saberesLocales">
                         <option value="">— Selecciona —</option>
                         <option>Sí</option>
@@ -1057,26 +1042,6 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_rumiantsOthers">¿Conoce a otras personas en la comunidad que también estén interesadas?</label>
-                      <select id="a_rumiantsOthers">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="a_rumiantsWomen">¿Cree que las mujeres estarían interesadas en criar borregos o cabras si tuvieran oportunidad o recursos?</label>
-                      <select id="a_rumiantsWomen">
-                        <option value="">— Selecciona —</option>
-                        <option>Sí</option>
-                        <option>No</option>
-                        <option>No sabe</option>
-                      </select>
-                    </div>
-                    <div>
                       <label for="a_rumiantsNeed">¿Qué necesitarían para poder hacerlo?</label>
                       <input id="a_rumiantsNeed" />
                     </div>
@@ -1095,12 +1060,14 @@
 
                   <div id="a_interestBirdsYesWrap">
                     <label for="a_interestBirdsYes">Si actualmente tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender más sobre su crianza y mejorar su producción? (1 a 4)</label>
-                    <input id="a_interestBirdsYes" type="number" min="1" max="5" />
+                    <div class="help scale-help">Escala visible: 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho.</div>
+                    <input id="a_interestBirdsYes" type="number" min="1" max="4" />
                   </div>
 
                   <div id="a_interestBirdsNoWrap">
                     <label for="a_interestBirdsNo">Si actualmente no tiene aves, ¿qué tanto interés tendría en participar en actividades para aprender cómo iniciar la crianza de aves? (1 a 4)</label>
-                    <input id="a_interestBirdsNo" type="number" min="1" max="5" />
+                    <div class="help scale-help">Escala visible: 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho.</div>
+                    <input id="a_interestBirdsNo" type="number" min="1" max="4" />
                   </div>
                 </div>
               </details>
