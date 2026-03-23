@@ -1734,32 +1734,94 @@
                     <textarea id="p_notes"></textarea>
                   </div>
 
+                  <div class="help">Los procedimientos grupales conservan el procedimiento principal, pero ahora permiten capturar subregistros individuales por animal tratado con peso, método, examen físico opcional y observaciones.</div>
+
                 </div>
               </details>
 
               <div class="sep"></div>
 
               <details open>
-                <summary>2. Inventario vinculado usado en el procedimiento</summary>
+                <summary>2. Animales incluidos y captura individual</summary>
+                <div class="inner grid">
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="p_groupAnimalSelect">Agregar animal del productor(a)</label>
+                      <select id="p_groupAnimalSelect"></select>
+                    </div>
+                    <div>
+                      <label for="p_groupAnimalIdentification">Identificación individual para este procedimiento</label>
+                      <input id="p_groupAnimalIdentification" type="text" placeholder="Ej. Arete, nombre, lote" />
+                    </div>
+                    <div>
+                      <label for="p_groupAnimalObs">Observaciones individuales</label>
+                      <input id="p_groupAnimalObs" type="text" placeholder="Opcional" />
+                    </div>
+                    <div style="display:flex;align-items:flex-end;">
+                      <button class="btn small" type="button" id="p_addGroupAnimal">➕ Agregar animal al procedimiento</button>
+                    </div>
+                  </div>
+                  <div class="help" id="p_animalsHelper">Selecciona animales existentes del productor(a) y completa su captura individual dentro del mismo procedimiento.</div>
+                  <div class="list" id="p_groupAnimalList"></div>
+                </div>
+              </details>
+
+              <div class="sep"></div>
+
+              <details open>
+                <summary>3. Inventario vinculado usado en el procedimiento</summary>
                 <div class="inner grid">
 
                   <div class="help">
                     Aquí se seleccionarán después medicamentos, vacunas e insumos para descontarlos automáticamente del inventario.
                   </div>
 
-                  <div class="grid cols-3">
+                  <div class="grid cols-4">
                     <div>
                       <label for="p_medSelect">Medicamento</label>
                       <select id="p_medSelect"></select>
                     </div>
                     <div>
-                      <label for="p_medDoseKg">Dosis por kg / animal</label>
+                      <label for="p_medCalculationMode">Base de cálculo</label>
+                      <select id="p_medCalculationMode">
+                        <option value="MANUAL">Cantidad manual total</option>
+                        <option value="PER_KG">Dosis por kg</option>
+                        <option value="PER_ANIMAL">Dosis fija por animal</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="p_medDoseKg">Cantidad / dosis base</label>
                       <input id="p_medDoseKg" type="number" min="0" step="0.01" />
                     </div>
                     <div>
                       <label for="p_medUnitUsed">Unidad</label>
                       <input id="p_medUnitUsed" type="text" placeholder="mL, tabletas..." />
                     </div>
+                  </div>
+
+                  <div class="grid cols-4">
+                    <div>
+                      <label for="p_medApplicationType">Tipo de aplicación</label>
+                      <select id="p_medApplicationType">
+                        <option value="INYECTABLE">Inyectable</option>
+                        <option value="ORAL">Oral</option>
+                        <option value="TOPICA">Tópica / externa</option>
+                        <option value="OTRA">Otra</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="p_medMarginProfile">Perfil de margen operativo</label>
+                      <select id="p_medMarginProfile">
+                        <option value="ESTANDAR">Estándar</option>
+                        <option value="CONSERVADOR">Conservador</option>
+                        <option value="AMPLIO">Amplio</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="p_medMarginOverride">Margen manual opcional (%)</label>
+                      <input id="p_medMarginOverride" type="number" min="0" step="0.01" placeholder="Usa la estadística si se deja vacío" />
+                    </div>
+                    <div class="help">El sistema mostrará dosis teórica, margen operativo estimado y cantidad cobrable por medicamento.</div>
                   </div>
 
                   <div class="row">
@@ -1817,7 +1879,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>3. Caso clínico</summary>
+                <summary>4. Caso clínico</summary>
                 <div class="inner grid">
 
                   <div class="grid cols-2">
@@ -1915,7 +1977,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>4. Necropsia</summary>
+                <summary>5. Necropsia</summary>
                 <div class="inner grid">
 
                   <div class="grid cols-4">
@@ -2092,7 +2154,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>5. Atención clínica / zootécnica</summary>
+                <summary>6. Atención clínica / zootécnica</summary>
                 <div class="inner grid">
                   <div class="grid cols-2">
                     <div><label for="p_zoo_evaluation">Evaluación</label><textarea id="p_zoo_evaluation"></textarea></div>
@@ -2108,7 +2170,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>6. Cirugía</summary>
+                <summary>7. Cirugía</summary>
                 <div class="inner grid">
                   <div class="grid cols-2">
                     <div><label for="p_sx_preop">Datos prequirúrgicos</label><textarea id="p_sx_preop"></textarea></div>
@@ -2128,7 +2190,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>7. Pruebas de laboratorio vinculables</summary>
+                <summary>8. Pruebas de laboratorio vinculables</summary>
                 <div class="inner grid">
                   <div class="grid cols-4">
                     <div><label for="lab_type">Tipo de prueba</label><input id="lab_type" type="text" /></div>
@@ -2151,7 +2213,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>8. Cobro y evidencia</summary>
+                <summary>9. Cobro y evidencia</summary>
                 <div class="inner grid">
                   <div class="grid cols-3">
                     <div>
