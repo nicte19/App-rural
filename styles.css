@@ -251,6 +251,13 @@ button:active {
   font-size: 0.9rem;
   line-height: 1.4;
 }
+.procedure-animal-card {
+  border: 1px solid rgba(56, 189, 248, 0.18);
+}
+.stacked-dose-row {
+  display: grid;
+  gap: 10px;
+}
 .scale-help {
   margin: -2px 0 8px;
   color: #bfdbfe;
