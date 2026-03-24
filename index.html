@@ -1242,6 +1242,42 @@
                 </div>
                 <div class="help" id="m_stockTypeHelp">Para medicamento nuevo, existencia total = contenido por presentación × número de presentaciones/envases.</div>
 
+                <div class="grid cols-4">
+                  <div>
+                    <label for="m_concentrationActiveAmount">Concentración: cantidad de principio activo</label>
+                    <input id="m_concentrationActiveAmount" type="number" min="0" step="0.0001" placeholder="Ej. 2" />
+                  </div>
+                  <div>
+                    <label for="m_concentrationActiveUnit">Unidad de principio activo</label>
+                    <select id="m_concentrationActiveUnit">
+                      <option value="">— Selecciona —</option>
+                      <option value="mcg">mcg</option>
+                      <option value="mg">mg</option>
+                      <option value="g">g</option>
+                      <option value="kg">kg</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="m_concentrationPerAmount">Por cantidad física</label>
+                    <input id="m_concentrationPerAmount" type="number" min="0" step="0.0001" placeholder="Ej. 1" value="1" />
+                  </div>
+                  <div>
+                    <label for="m_concentrationPerUnit">Unidad física de referencia</label>
+                    <select id="m_concentrationPerUnit">
+                      <option value="">— Selecciona —</option>
+                      <option value="mL">mL</option>
+                      <option value="L">L</option>
+                      <option value="tableta">tableta</option>
+                      <option value="cápsula">cápsula</option>
+                      <option value="sobre">sobre</option>
+                      <option value="dosis">dosis</option>
+                      <option value="g">g</option>
+                      <option value="kg">kg</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="help">La concentración/equivalencia es independiente de la dosis terapéutica por especie. Ejemplo: 2 mg por 1 mL, 50 mg por 1 tableta.</div>
+
                 <details open>
                   <summary>📎 Evidencias (receta y compra)</summary>
                   <div class="inner grid">
