@@ -1878,6 +1878,14 @@ function normalizeSpeciesRef(value = "") {
     .trim()
     .toLowerCase();
 }
+function isUniversalSpeciesDoseLabel(value = "") {
+  const ref = normalizeSpeciesRef(value).replace(/\s+/g, " ");
+  if (!ref) return false;
+  return ref === "*"
+    || /(^| )(cualquier|cualquiera|todas|todo)( |$)/.test(ref)
+    || /especie/.test(ref) && /(universal|general|any)/.test(ref)
+    || /(any species|all species|universal)/.test(ref);
+}
 function doseRuleDenominator(mode = "") {
   return mode === "PER_KG" ? "kg"
     : mode === "PER_ANIMAL" ? "animal"
@@ -1989,6 +1997,17 @@ function calculateConvertedMedicationDose({
   const lines = [line1];
   if (basisLabel) lines.push(basisLabel);
   lines.push(`Dosis total teórica: ${Number(theoretical).toFixed(4).replace(/\.?0+$/, "")} ${unit || med?.unit || "u"}`);
+  if (med?.useTherapeuticDoseOnly) {
+    return {
+      convertedQty: theoretical,
+      convertedUnit: unit || med?.unit || "",
+      requiredActiveQty: null,
+      requiredActiveUnit: "",
+      warning: "",
+      explanation: `${lines.join(" · ")} · Modo sin concentración estructurada: se usa solo dosis terapéutica por especie.`,
+      conversionApplied: false,
+    };
+  }
   if (!activeAmount || !perAmount || !activeUnit || !perUnit) {
     return {
       convertedQty: theoretical,
@@ -2085,7 +2104,30 @@ function renderMedicationSpeciesDoseRows(rows = []) {
   );
 }
 function getMedicationDoseProfile(med, species = "") {
-  return (med?.speciesDoses || []).find((row) => speciesMatchesDose(species, row.species)) || null;
+  const rows = med?.speciesDoses || [];
+  const specific = rows.find((row) => !isUniversalSpeciesDoseLabel(row.species) && speciesMatchesDose(species, row.species));
+  if (specific) return specific;
+  return rows.find((row) => isUniversalSpeciesDoseLabel(row.species)) || null;
+}
+function usesStructuredConcentration(med = {}) {
+  return !med?.useTherapeuticDoseOnly;
+}
+function renderMedicationConcentrationMode() {
+  const onlyDose = checked("m_useTherapeuticDoseOnly");
+  const block = $("#m_concentrationBlock");
+  const help = $("#m_concentrationHelp");
+  const modeHelp = $("#m_useTherapeuticDoseOnlyHelp");
+  if (block) block.style.display = onlyDose ? "none" : "";
+  if (help) {
+    help.textContent = onlyDose
+      ? "Este medicamento usará solo dosis terapéutica por especie."
+      : "La concentración/equivalencia es independiente de la dosis terapéutica por especie. Ejemplo: 2 mg por 1 mL, 50 mg por 1 tableta.";
+  }
+  if (modeHelp) {
+    modeHelp.textContent = onlyDose
+      ? "Modo activo: este medicamento se calculará con dosis terapéutica por especie, sin exigir concentración estructurada."
+      : "Activa este modo para medicamentos multiactivos o cuando no deseas capturar concentración/equivalencia detallada.";
+  }
 }
 function medStockType() {
   return $("#m_stockType")?.value || "NUEVO";
@@ -2153,6 +2195,7 @@ function collectMed() {
     unit: $("#m_unit")?.value.trim() || "",
     unitCost: costBasisQty ? effectiveCost / costBasisQty : 0,
     route: $("#m_route")?.value.trim() || "",
+    useTherapeuticDoseOnly: checked("m_useTherapeuticDoseOnly"),
     stockType,
     stockMeta: isUsed
       ? { originalQty, originalCost, remainingQty }
@@ -2215,7 +2258,7 @@ function saveMed() {
   }
   const conc = med.concentration || {};
   const concFilled = [conc.activeAmount, conc.activeUnit, conc.perAmount, conc.perUnit].some((v) => String(v || "").trim() !== "");
-  if (concFilled) {
+  if (!med.useTherapeuticDoseOnly && concFilled) {
     if (!(Number(conc.activeAmount || 0) > 0) || !conc.activeUnit || !(Number(conc.perAmount || 0) > 0) || !conc.perUnit) {
       show("m_err", "Si capturas concentración/equivalencia debes completar cantidad, unidad de activo, cantidad física y unidad física.", "error");
       return;
@@ -2234,9 +2277,11 @@ function resetMed() {
   $("#medForm").reset();
   if ($("#m_packageCount")) $("#m_packageCount").value = "1";
   if ($("#m_stockType")) $("#m_stockType").value = "NUEVO";
+  if ($("#m_useTherapeuticDoseOnly")) $("#m_useTherapeuticDoseOnly").checked = false;
   if ($("#m_concentrationPerAmount")) $("#m_concentrationPerAmount").value = "1";
   renderMedicationSpeciesDoseRows([]);
   renderMedStockType();
+  renderMedicationConcentrationMode();
   state.draft.medRxPhoto = null;
   state.draft.medTicketPhoto = null;
   setThumb("m_rx_preview", null, "Sin<br/>receta");
@@ -2259,6 +2304,7 @@ function fillMed(m) {
     m_unit: m.unit,
     m_unitCost: m.unitCost,
     m_route: m.route || "",
+    m_useTherapeuticDoseOnly: m.useTherapeuticDoseOnly ? "1" : "",
     m_stockType: m.stockType || "NUEVO",
     m_originalQty: m.stockMeta?.originalQty || "",
     m_originalCost: m.stockMeta?.originalCost || "",
@@ -2276,9 +2322,13 @@ function fillMed(m) {
     m_interactions: m.clinical?.interactions,
     m_dosing: m.clinical?.dosing,
   }).forEach(([k, v]) => {
-    if ($("#" + k)) $("#" + k).value = safe(v);
+    const el = $("#" + k);
+    if (!el) return;
+    if (el.type === "checkbox") el.checked = Boolean(v);
+    else el.value = safe(v);
   });
   renderMedStockType();
+  renderMedicationConcentrationMode();
   renderMedicationSpeciesDoseRows(m.speciesDoses || []);
   state.draft.medRxPhoto = m.photos?.rx || null;
   state.draft.medTicketPhoto = m.photos?.ticket || null;
@@ -2299,7 +2349,7 @@ function renderMedList() {
   state.meds.forEach((m) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div><div class="line"><b>Concentración / equivalencia:</b> ${esc(medicationConcentrationSummary(m) || "Sin captura")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div><div class="line"><b>Concentración / equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillMed(m);
     w.onclick = () =>
@@ -2333,6 +2383,7 @@ function bindMeds() {
   renderMedMode();
   renderMedicationSpeciesDoseRows([]);
   renderMedStockType();
+  renderMedicationConcentrationMode();
   $("#m_modeManual")?.addEventListener("click", () => {
     state.ui.medMode = "MANUAL";
     renderMedMode();
@@ -2363,6 +2414,7 @@ function bindMeds() {
     $("#" + id)?.addEventListener("input", refreshUsedMedCalc);
     $("#" + id)?.addEventListener("change", refreshUsedMedCalc);
   });
+  $("#m_useTherapeuticDoseOnly")?.addEventListener("change", renderMedicationConcentrationMode);
   $("#ai_makePrompt")?.addEventListener("click", () => {
     const source = $("#ai_english").value.trim();
     const prompt = `Analiza este texto de medicamento veterinario y devuelve exclusivamente JSON válido con las llaves use, mech, adverse, preg, pk, overdose, interactions, dosing. Resume en español, conserva dosis prácticas y advertencias. Texto fuente: ${source}`;
@@ -3602,7 +3654,7 @@ function producerWordHtml(prod) {
 }
 function medSummaryHtml() {
   return `<h1>Medicamentos</h1>${state.meds
-    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "")} ${esc(m.unit)} · <b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</p><p><b>Concentración/equivalencia:</b> ${esc(medicationConcentrationSummary(m) || "Sin captura")}</p><p><b>Existencia total calculada:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
+    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p><p><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "")} ${esc(m.unit)} · <b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</p><p><b>Concentración/equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</p><p><b>Existencia total calculada:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
 }
 function supplySummaryHtml() {
   return `<h1>Insumos</h1>${state.supplies.map((s) => `<section><h2>${esc(s.name)}</h2><p><b>Tipo:</b> ${esc(s.type)}</p><p><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</p><p><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</p>${objectEntriesTable(s)}${imageHtml(s.ticket, "Ticket insumo")}</section>`).join('<div style="page-break-after:always"></div>')}`;
@@ -3689,6 +3741,8 @@ function producerExcelSheets(
           "Costo por presentación",
           "Costo unitario",
           "Vía administración",
+          "Modo cálculo",
+          "Concentración",
         ],
         ...meds.map((m) => [
           m.brand,
@@ -3702,6 +3756,8 @@ function producerExcelSheets(
           m.cost,
           m.unitCost,
           m.route || "Sin vía de administración registrada",
+          usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie",
+          usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)",
         ]),
       ],
     },
@@ -4706,7 +4762,7 @@ function renderProcedureAnimalCards() {
       <div class="grid cols-4">
         <div><label>Vía de administración</label><input type="text" value="${esc(byId(state.meds, entry.medicationId)?.route || "Sin vía de administración registrada")}" disabled></div>
         <div><label>Caducidad</label><input type="text" value="${esc(byId(state.meds, entry.medicationId)?.expiry || "Sin fecha de caducidad registrada")}" disabled></div>
-        <div><label>Concentración registrada</label><input type="text" value="${esc(medicationConcentrationSummary(byId(state.meds, entry.medicationId)) || "Sin concentración registrada")}" disabled></div>
+        <div><label>Concentración registrada</label><input type="text" value="${esc(usesStructuredConcentration(byId(state.meds, entry.medicationId)) ? (medicationConcentrationSummary(byId(state.meds, entry.medicationId)) || "Sin concentración registrada") : "Modo sin concentración estructurada")}" disabled></div>
         <div><label>Estado de caducidad</label><span class="chip expiry-badge ${esc(medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).css)}">${esc(medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).text)}</span></div>
       </div>
       <div class="grid cols-4">

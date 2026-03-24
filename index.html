@@ -1242,7 +1242,17 @@
                 </div>
                 <div class="help" id="m_stockTypeHelp">Para medicamento nuevo, existencia total = contenido por presentación × número de presentaciones/envases.</div>
 
-                <div class="grid cols-4">
+                <div class="grid cols-2">
+                  <div style="display:flex;align-items:flex-end;gap:8px;">
+                    <label style="display:flex;gap:8px;align-items:center;margin:0;">
+                      <input id="m_useTherapeuticDoseOnly" type="checkbox" />
+                      Usar solo dosis terapéutica (sin concentración estructurada)
+                    </label>
+                  </div>
+                </div>
+                <div class="help" id="m_useTherapeuticDoseOnlyHelp">Activa este modo para medicamentos multiactivos o cuando no deseas capturar concentración/equivalencia detallada.</div>
+
+                <div id="m_concentrationBlock" class="grid cols-4">
                   <div>
                     <label for="m_concentrationActiveAmount">Concentración: cantidad de principio activo</label>
                     <input id="m_concentrationActiveAmount" type="number" min="0" step="0.0001" placeholder="Ej. 2" />
@@ -1276,7 +1286,7 @@
                     </select>
                   </div>
                 </div>
-                <div class="help">La concentración/equivalencia es independiente de la dosis terapéutica por especie. Ejemplo: 2 mg por 1 mL, 50 mg por 1 tableta.</div>
+                <div class="help" id="m_concentrationHelp">La concentración/equivalencia es independiente de la dosis terapéutica por especie. Ejemplo: 2 mg por 1 mL, 50 mg por 1 tableta.</div>
 
                 <details open>
                   <summary>📎 Evidencias (receta y compra)</summary>
