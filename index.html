@@ -37,6 +37,20 @@
     <button class="tab" id="tabProcedures" type="button">🩺 Procedimientos</button>
   </nav>
 
+  <aside class="card debt-sidebar" id="anaRosaDebtSidebar">
+    <h2>💸 Deuda con Dra. Ana Rosa</h2>
+    <div class="content">
+      <div class="line"><b>Total activo:</b> <span id="anaRosaDebtTotal">$0.00</span></div>
+      <div class="help">Se genera solo cuando realmente se usa un medicamento con origen "Dra. Ana Rosa" en un procedimiento.</div>
+      <div class="sep"></div>
+      <h3>Deuda activa</h3>
+      <div class="list" id="anaRosaDebtActiveList"></div>
+      <div class="sep"></div>
+      <h3>Historial pagado</h3>
+      <div class="list" id="anaRosaDebtPaidList"></div>
+    </div>
+  </aside>
+
   <div class="pages">
 
     <!-- =====================================================
@@ -1161,6 +1175,12 @@
                     <input id="m_expiry" type="date" />
                   </div>
                 </div>
+                <div class="grid cols-2">
+                  <div>
+                    <label for="m_route">Vía de administración</label>
+                    <input id="m_route" type="text" placeholder="Ej. Oral, Intramuscular, Subcutánea..." />
+                  </div>
+                </div>
 
                 <div class="grid cols-3">
                   <div>
@@ -1196,10 +1216,6 @@
                       <option value="NUEVO">Nuevo</option>
                       <option value="USADO">Usado</option>
                     </select>
-                  </div>
-                  <div>
-                    <label for="m_anaRosaCharge">Cobrado por medicamento Ana Rosa</label>
-                    <input id="m_anaRosaCharge" type="number" min="0" step="0.01" placeholder="Ej. 0" />
                   </div>
                 </div>
                 <div class="grid cols-3" id="m_usedFields" style="display:none;">
