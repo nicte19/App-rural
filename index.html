@@ -1182,10 +1182,18 @@
                   </div>
                 </div>
 
-                <div class="grid cols-3">
+                <div class="grid cols-5">
                   <div>
-                    <label for="m_totalQty">Cantidad total</label>
-                    <input id="m_totalQty" type="number" min="0" step="0.01" placeholder="Ej. 50" />
+                    <label for="m_contentPerPresentation">Contenido por presentación</label>
+                    <input id="m_contentPerPresentation" type="number" min="0" step="0.01" placeholder="Ej. 100" />
+                  </div>
+                  <div>
+                    <label for="m_packageCount">Número de presentaciones / envases</label>
+                    <input id="m_packageCount" type="number" min="1" step="1" placeholder="Ej. 3" />
+                  </div>
+                  <div>
+                    <label for="m_totalQty">Existencia total calculada (auto)</label>
+                    <input id="m_totalQty" type="number" min="0" step="0.01" placeholder="Ej. 300" readonly />
                   </div>
                   <div>
                     <label for="m_unit">Unidad</label>
@@ -1232,7 +1240,7 @@
                     <input id="m_remainingQty" type="number" min="0" step="0.01" placeholder="Ej. 12" />
                   </div>
                 </div>
-                <div class="help" id="m_stockTypeHelp">Para medicamento nuevo, el inventario inicial usa la cantidad total capturada.</div>
+                <div class="help" id="m_stockTypeHelp">Para medicamento nuevo, existencia total = contenido por presentación × número de presentaciones/envases.</div>
 
                 <details open>
                   <summary>📎 Evidencias (receta y compra)</summary>

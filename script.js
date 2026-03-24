@@ -1894,6 +1894,22 @@ function getMedicationDoseProfile(med, species = "") {
 function medStockType() {
   return $("#m_stockType")?.value || "NUEVO";
 }
+function getMedPackageCount() {
+  return Math.max(1, Number($("#m_packageCount")?.value || 1));
+}
+function getMedContentPerPresentation() {
+  return Number($("#m_contentPerPresentation")?.value || 0);
+}
+function computeMedTotalExistence() {
+  return getMedPackageCount() * getMedContentPerPresentation();
+}
+function refreshMedicationTotals() {
+  const isUsed = medStockType() === "USADO";
+  const total = isUsed
+    ? Number($("#m_remainingQty")?.value || 0)
+    : computeMedTotalExistence();
+  if ($("#m_totalQty")) $("#m_totalQty").value = total > 0 ? String(total) : "";
+}
 function renderMedStockType() {
   const type = medStockType();
   const used = type === "USADO";
@@ -1903,13 +1919,16 @@ function renderMedStockType() {
   if (help) {
     help.textContent = used
       ? "Para medicamento usado, disponibilidad inicial = lo que sobra actualmente. Costo unitario = costo original / contenido original."
-      : "Para medicamento nuevo, el inventario inicial usa la cantidad total capturada.";
+      : "Para medicamento nuevo, existencia total = contenido por presentación × número de presentaciones/envases.";
   }
+  refreshMedicationTotals();
 }
 function collectMed() {
   const id = state.editing.medId || uid("med");
   const stockType = medStockType();
   const totalQty = Number($("#m_totalQty")?.value || 0);
+  const contentPerPresentation = getMedContentPerPresentation();
+  const packageCount = getMedPackageCount();
   const cost = Number($("#m_cost")?.value || 0);
   const originalQty = Number($("#m_originalQty")?.value || 0);
   const originalCost = Number($("#m_originalCost")?.value || 0);
@@ -1917,7 +1936,7 @@ function collectMed() {
   const isUsed = stockType === "USADO";
   const effectiveQty = isUsed ? remainingQty : totalQty;
   const effectiveCost = isUsed ? originalCost : cost;
-  const costBasisQty = isUsed ? originalQty : totalQty;
+  const costBasisQty = isUsed ? originalQty : contentPerPresentation;
   return {
     id,
     brand: $("#m_brand")?.value.trim() || "",
@@ -1927,6 +1946,8 @@ function collectMed() {
     cost: effectiveCost,
     expiry: $("#m_expiry")?.value || "",
     totalQty: effectiveQty,
+    contentPerPresentation,
+    packageCount,
     unit: $("#m_unit")?.value.trim() || "",
     unitCost: costBasisQty ? effectiveCost / costBasisQty : 0,
     route: $("#m_route")?.value.trim() || "",
@@ -1963,8 +1984,18 @@ function saveMed() {
     return;
   }
   if (!med.totalQty || med.totalQty <= 0) {
-    show("m_err", "Captura una cantidad válida mayor a 0 para guardar en inventario.", "error");
+    show("m_err", "La existencia total calculada debe ser mayor a 0 para guardar en inventario.", "error");
     return;
+  }
+  if (med.stockType !== "USADO") {
+    if (!Number(med.contentPerPresentation || 0) || Number(med.contentPerPresentation || 0) <= 0) {
+      show("m_err", "Para medicamento nuevo captura contenido por presentación mayor a 0.", "error");
+      return;
+    }
+    if (!Number(med.packageCount || 0) || Number(med.packageCount || 0) <= 0) {
+      show("m_err", "Captura un número de presentaciones/envases mayor a 0.", "error");
+      return;
+    }
   }
   if (med.stockType === "USADO") {
     const originalQty = Number(med.stockMeta?.originalQty || 0);
@@ -1990,6 +2021,7 @@ function saveMed() {
 function resetMed() {
   state.editing.medId = null;
   $("#medForm").reset();
+  if ($("#m_packageCount")) $("#m_packageCount").value = "1";
   if ($("#m_stockType")) $("#m_stockType").value = "NUEVO";
   renderMedicationSpeciesDoseRows([]);
   renderMedStockType();
@@ -2009,6 +2041,8 @@ function fillMed(m) {
     m_presentation: m.presentation,
     m_cost: m.cost,
     m_expiry: m.expiry,
+    m_contentPerPresentation: m.contentPerPresentation || m.totalQty || "",
+    m_packageCount: m.packageCount || 1,
     m_totalQty: m.totalQty,
     m_unit: m.unit,
     m_unitCost: m.unitCost,
@@ -2049,7 +2083,7 @@ function renderMedList() {
   state.meds.forEach((m) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillMed(m);
     w.onclick = () =>
@@ -2093,23 +2127,23 @@ function bindMeds() {
     renderMedMode();
     saveState();
   });
-  ["m_totalQty", "m_cost"].forEach((id) =>
+  ["m_contentPerPresentation", "m_packageCount", "m_cost"].forEach((id) =>
     $("#" + id)?.addEventListener("input", () => {
-      const total = Number($("#m_totalQty")?.value || 0),
-        cost = Number($("#m_cost")?.value || 0);
-      $("#m_unitCost").value = total ? (cost / total).toFixed(2) : "";
+      refreshMedicationTotals();
+      const qty = Number($("#m_contentPerPresentation")?.value || 0);
+      const cost = Number($("#m_cost")?.value || 0);
+      $("#m_unitCost").value = qty ? (cost / qty).toFixed(2) : "";
     }),
   );
   const refreshUsedMedCalc = () => {
       renderMedStockType();
       const isUsed = medStockType() === "USADO";
-      const qty = Number((isUsed ? $("#m_originalQty") : $("#m_totalQty"))?.value || 0);
+      const qty = Number((isUsed ? $("#m_originalQty") : $("#m_contentPerPresentation"))?.value || 0);
       const baseCost = Number((isUsed ? $("#m_originalCost") : $("#m_cost"))?.value || 0);
       if ($("#m_unitCost")) $("#m_unitCost").value = qty > 0 ? (baseCost / qty).toFixed(2) : "";
-      if (isUsed && $("#m_totalQty")) $("#m_totalQty").value = $("#m_remainingQty")?.value || "";
       if (isUsed && $("#m_cost")) $("#m_cost").value = $("#m_originalCost")?.value || "";
     };
-  ["m_stockType", "m_originalQty", "m_originalCost", "m_remainingQty"].forEach((id) => {
+  ["m_stockType", "m_originalQty", "m_originalCost", "m_remainingQty", "m_contentPerPresentation", "m_packageCount"].forEach((id) => {
     $("#" + id)?.addEventListener("input", refreshUsedMedCalc);
     $("#" + id)?.addEventListener("change", refreshUsedMedCalc);
   });
@@ -3323,7 +3357,7 @@ function producerWordHtml(prod) {
 }
 function medSummaryHtml() {
   return `<h1>Medicamentos</h1>${state.meds
-    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Cantidad total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
+    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "")} ${esc(m.unit)} · <b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</p><p><b>Existencia total calculada:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
 }
 function supplySummaryHtml() {
   return `<h1>Insumos</h1>${state.supplies.map((s) => `<section><h2>${esc(s.name)}</h2><p><b>Tipo:</b> ${esc(s.type)}</p><p><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</p><p><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</p>${objectEntriesTable(s)}${imageHtml(s.ticket, "Ticket insumo")}</section>`).join('<div style="page-break-after:always"></div>')}`;
@@ -3402,18 +3436,26 @@ function producerExcelSheets(
           "Nombre",
           "Activo",
           "Propiedad",
-          "Cantidad",
+          "Contenido por presentación",
+          "No. presentaciones/envases",
+          "Existencia total",
           "Unidad",
           "Disponible",
+          "Costo por presentación",
+          "Costo unitario",
           "Vía administración",
         ],
         ...meds.map((m) => [
           m.brand,
           m.active,
           medOwnerLabel(m.owner),
+          m.contentPerPresentation || "",
+          m.packageCount || 1,
           m.totalQty,
           m.unit,
           medRemaining(m),
+          m.cost,
+          m.unitCost,
           m.route || "Sin vía de administración registrada",
         ]),
       ],
@@ -4605,7 +4647,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
   return [
     { name: "Productores", rows: [["Nombre","Celular","Localidad","Municipio","Estado","Clasificación","Razones no trabajar","Nota extra","Maps","Notas"], ...producers.map((p) => [p.basic.name,p.basic.celular,p.basic.localidad,p.basic.municipio,p.basic.estado,p.classification?.value || "",p.classification?.alerta || "",p.classification?.notaExtraPersona || "",p.location?.mapsUrl || "",p.notes || ""])] },
     { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, (a.function || []).join(", "), a.functionOther || ""])] },
-    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Cantidad","Unidad","Disponible","Vía administración","Contenido original","Costo original","Cantidad remanente"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.totalQty,m.unit,medRemaining(m),m.route || "Sin vía de administración registrada",m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || ""])] },
+    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Contenido por presentación","No. presentaciones/envases","Existencia total","Unidad","Disponible","Costo por presentación","Costo unitario","Vía administración","Contenido original","Costo original","Cantidad remanente"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.contentPerPresentation || "",m.packageCount || 1,m.totalQty,m.unit,medRemaining(m),m.cost,m.unitCost,m.route || "Sin vía de administración registrada",m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || ""])] },
     { name: "Vacunas", rows: [["Marca","Propiedad","Caducidad","Cobertura","Disponible","Costo total","Costo unitario","Enfermedades","Notas"], ...vaccines.map((v) => [v.brand,medOwnerLabel(v.owner),v.expiry,v.coverageAnimals,vaccineRemaining(v),v.price,v.unitCost,v.diseases,v.notes || ""])] },
     { name: "Insumos", rows: [["Nombre","Tipo","Cantidad","Disponible","Costo mostrado","Notas"], ...supplies.map((s) => [s.name,s.type,s.qty,supplyRemaining(s),supplyDisplayCost(s),s.notes || ""])] },
     { name: "Procedimientos", rows: [["Fecha","Tipo","Modalidad","Productor(a)","Identificación animal","Especie","Método peso","Peso utilizable (kg)","Volumen (L)","PT","LC","Medicamento","Dosis base especie","Cantidad calculada","Descuento inventario","Vacuna","Estado general","Examen físico","Hallazgos","Observaciones"], ...procedureRows] },
