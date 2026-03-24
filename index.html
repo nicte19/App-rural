@@ -1964,9 +1964,13 @@
                       <label for="p_animalsQtyUsed">¿A cuántos animales se realizará?</label>
                       <input id="p_animalsQtyUsed" type="number" min="1" step="1" />
                     </div>
-                    <div id="p_groupSpeciesWrap" style="display:none;">
-                      <label for="p_groupSpecies">¿Qué especie?</label>
-                      <input id="p_groupSpecies" type="text" placeholder="Ej. Borrego, bovino, aves..." />
+                    <div id="p_groupAnimalBaseWrap" style="display:none;">
+                      <label for="p_groupAnimalBase">¿Qué grupo/animal registrado del productor(a) se tratará?</label>
+                      <select id="p_groupAnimalBase"></select>
+                    </div>
+                    <div id="p_groupDetectedSpeciesWrap" style="display:none;">
+                      <label for="p_groupDetectedSpecies">Especie detectada automáticamente</label>
+                      <input id="p_groupDetectedSpecies" type="text" disabled />
                     </div>
                     <div>
                       <label for="p_totalProducerAnimals">Total animales del productor(a)</label>
@@ -2049,11 +2053,11 @@
                     </div>
                     <div>
                       <label for="p_groupDoseBase">Dosis base</label>
-                      <input id="p_groupDoseBase" type="number" min="0" step="0.0001" />
+                      <input id="p_groupDoseBase" type="number" min="0" step="0.0001" readonly />
                     </div>
                     <div>
                       <label for="p_groupDoseUnit">Unidad dosis</label>
-                      <input id="p_groupDoseUnit" type="text" placeholder="g, mL, mg..." />
+                      <input id="p_groupDoseUnit" type="text" placeholder="g, mL, mg..." readonly />
                     </div>
                     <div>
                       <label for="p_groupTotalCalculated">Cantidad total calculada</label>
