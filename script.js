@@ -18,6 +18,8 @@ const state = {
     procedureId: null,
     traditionalId: null,
     genderAnimalId: null,
+    diseaseId: null,
+    programId: null,
   },
   ui: { medMode: "MANUAL", supplyMode: "DISPOSABLE" },
   draft: {
@@ -676,6 +678,19 @@ const FIXED_GENDER_ANIMAL_OPTIONS = [
 ];
 
 function normalizeQuestionnaire(questionnaire = {}) {
+  const legacyProgramName = questionnaire.programaNombre || "";
+  const legacyProgramHasFolio = questionnaire.programaFolioTiene || "";
+  const legacyProgramFolio = questionnaire.folio || "";
+  const normalizedPrograms = Array.isArray(questionnaire.programs)
+    ? questionnaire.programs
+    : legacyProgramName || legacyProgramHasFolio || legacyProgramFolio
+      ? [{
+          id: uid("prog"),
+          name: legacyProgramName,
+          hasFolio: legacyProgramHasFolio,
+          folio: legacyProgramFolio,
+        }]
+      : [];
   return {
     diseases: Array.isArray(questionnaire.diseases) ? questionnaire.diseases : [],
     vaccines: Array.isArray(questionnaire.vaccines) ? questionnaire.vaccines : [],
@@ -700,6 +715,12 @@ function normalizeQuestionnaire(questionnaire = {}) {
     programaNombre: questionnaire.programaNombre || "",
     programaFolioTiene: questionnaire.programaFolioTiene || "",
     folio: questionnaire.folio || "",
+    programs: normalizedPrograms.map((entry) => ({
+      id: entry?.id || uid("prog"),
+      name: entry?.name || entry?.program || "",
+      hasFolio: entry?.hasFolio || entry?.programaFolioTiene || "",
+      folio: entry?.folio || "",
+    })),
     futureCalls: questionnaire.futureCalls || "",
     huntingCommon: questionnaire.huntingCommon || "",
     huntingTime: questionnaire.huntingTime || "",
@@ -1179,10 +1200,17 @@ function renderAnimalPhotos() {
     ? state.draft.animalPhotos
         .map(
           (src, i) =>
-            `<div class="preview-mini"><img src="${src}" alt="animal ${i + 1}"></div>`,
+            `<div class="preview-mini" style="position:relative;"><img src="${src}" alt="animal ${i + 1}"><button class="btn small bad" type="button" data-remove-photo="${i}" style="position:absolute;top:4px;right:4px;padding:2px 6px;">✕</button></div>`,
         )
         .join("")
     : '<div class="preview-box"><span>Sin<br/>fotos</span></div>';
+  box.querySelectorAll("[data-remove-photo]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.getAttribute("data-remove-photo"));
+      state.draft.animalPhotos = state.draft.animalPhotos.filter((_, i) => i !== idx);
+      renderAnimalPhotos();
+    }),
+  );
   $("#a_instHint").textContent =
     `${state.draft.animalPhotos.length} foto(s) en borrador.`;
 }
@@ -1230,6 +1258,101 @@ function renderSimpleList(listId, arr, titleFn) {
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `<div class="line">${esc(titleFn(item))}</div>`;
+    list.appendChild(div);
+  });
+}
+function resetDiseaseForm() {
+  state.editing.diseaseId = null;
+  ["a_lastSick", "a_enfAnimal", "a_commonDis", "a_signs", "a_whenSickDo"].forEach((id) => {
+    if ($("#" + id)) $("#" + id).value = "";
+  });
+  if ($("#a_addDisease")) $("#a_addDisease").textContent = "➕ Agregar enfermedad";
+}
+function renderDiseaseList(items = []) {
+  const list = $("#a_diseaseList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!items.length) {
+    if (!state.editing.diseaseId && $("#a_addDisease")) $("#a_addDisease").textContent = "➕ Agregar enfermedad";
+    return;
+  }
+  items.forEach((item) => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div class="line"><b>${esc(item.date || "Sin fecha")} · ${esc(item.animal || "Sin animal")} · ${esc(item.problem || "Sin problema")}</b></div>
+      <div class="line"><b>Signos clínicos:</b> ${esc(item.signs || "Sin registro")}</div>
+      <div class="line"><b>Tratamiento/acciones:</b> ${esc(item.treatment || "Sin registro")}</div>
+      <div class="actions"><button class="btn small" type="button">Editar</button><button class="btn small bad" type="button">Eliminar</button></div>
+    `;
+    const [editBtn, deleteBtn] = div.querySelectorAll("button");
+    editBtn.onclick = () => {
+      state.editing.diseaseId = item.id;
+      $("#a_lastSick").value = safe(item.date);
+      $("#a_enfAnimal").value = safe(item.animal);
+      $("#a_commonDis").value = safe(item.problem);
+      $("#a_signs").value = safe(item.signs);
+      $("#a_whenSickDo").value = safe(item.treatment);
+      $("#a_addDisease").textContent = "💾 Guardar enfermedad";
+    };
+    deleteBtn.onclick = () => {
+      const prod = getProducer();
+      if (!prod) return;
+      prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+      prod.questionnaire.diseases = (prod.questionnaire.diseases || []).filter((entry) => entry.id !== item.id);
+      if (state.editing.diseaseId === item.id) resetDiseaseForm();
+      saveState();
+      renderAll();
+    };
+    list.appendChild(div);
+  });
+}
+function resetProgramForm() {
+  state.editing.programId = null;
+  ["a_programaNombre", "a_programaFolioTiene", "a_programaFolio"].forEach((id) => {
+    if ($("#" + id)) $("#" + id).value = "";
+  });
+  if ($("#a_addPrograma")) $("#a_addPrograma").textContent = "➕ Agregar programa";
+}
+function updateProgramsVisibility() {
+  const hasProgram = ($("#a_programaRegistro")?.value || "") === "Sí";
+  if ($("#a_programaRegistroSiBlock")) $("#a_programaRegistroSiBlock").style.display = hasProgram ? "grid" : "none";
+  if ($("#a_programaRegistroSiActions")) $("#a_programaRegistroSiActions").style.display = hasProgram ? "flex" : "none";
+  if ($("#a_programasList")) $("#a_programasList").style.display = hasProgram ? "grid" : "none";
+  if ($("#a_programaConvocatoriasWrap")) $("#a_programaConvocatoriasWrap").style.display = hasProgram ? "none" : "block";
+  const hasFolio = ($("#a_programaFolioTiene")?.value || "") === "Sí";
+  if ($("#a_programaFolioWrap")) $("#a_programaFolioWrap").style.display = hasProgram && hasFolio ? "block" : "none";
+  if (!hasProgram) resetProgramForm();
+}
+function renderProgramsList(items = []) {
+  const list = $("#a_programasList");
+  if (!list) return;
+  list.innerHTML = "";
+  items.forEach((item) => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div class="line"><b>Programa:</b> ${esc(item.name || "Sin nombre")}</div>
+      <div class="line"><b>Folio:</b> ${esc(item.hasFolio === "Sí" ? (item.folio || "(sin folio)") : "(sin folio)")}</div>
+      <div class="actions"><button class="btn small" type="button">Editar</button><button class="btn small bad" type="button">Eliminar</button></div>
+    `;
+    const [editBtn, deleteBtn] = div.querySelectorAll("button");
+    editBtn.onclick = () => {
+      state.editing.programId = item.id;
+      $("#a_programaNombre").value = safe(item.name);
+      $("#a_programaFolioTiene").value = safe(item.hasFolio);
+      $("#a_programaFolio").value = safe(item.folio);
+      $("#a_addPrograma").textContent = "💾 Guardar programa";
+    };
+    deleteBtn.onclick = () => {
+      const prod = getProducer();
+      if (!prod) return;
+      prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+      prod.questionnaire.programs = (prod.questionnaire.programs || []).filter((entry) => entry.id !== item.id);
+      if (state.editing.programId === item.id) resetProgramForm();
+      saveState();
+      renderAll();
+    };
     list.appendChild(div);
   });
 }
@@ -1325,9 +1448,9 @@ function saveAnimalQuestionnaireFull() {
     curadorServicios: $("#a_curadorServicios").value.trim(),
     practicasAsesoria: $("#a_practicasAsesoria").value,
     programaRegistro: $("#a_programaRegistro").value,
-    programaNombre: $("#a_programaNombre").value,
-    programaFolioTiene: $("#a_programaFolioTiene").value,
-    folio: $("#a_programaFolio").value.trim(),
+    programaNombre: "",
+    programaFolioTiene: "",
+    folio: "",
     futureCalls: $("#a_programaConvocatorias").value.trim(),
     huntingCommon: $("#a_cazaComunidad").value,
     huntingTime: $("#a_cazaTiempo").value.trim(),
@@ -1357,6 +1480,7 @@ function saveAnimalQuestionnaireFull() {
     diseases: getProducerQuestionnaireSkeleton(prod).diseases,
     vaccines: getProducerQuestionnaireSkeleton(prod).vaccines,
     deworming: getProducerQuestionnaireSkeleton(prod).deworming,
+    programs: getProducerQuestionnaireSkeleton(prod).programs,
     traditional: getProducerQuestionnaireSkeleton(prod).traditional,
     genderAnimals: getProducerQuestionnaireSkeleton(prod).genderAnimals,
     genderActivities: getProducerQuestionnaireSkeleton(prod).genderActivities,
@@ -1383,9 +1507,6 @@ function fillAnimalQuestionnaire() {
     a_curadorServicios: q.curadorServicios,
     a_practicasAsesoria: q.practicasAsesoria,
     a_programaRegistro: q.programaRegistro,
-    a_programaNombre: q.programaNombre,
-    a_programaFolioTiene: q.programaFolioTiene,
-    a_programaFolio: q.folio,
     a_programaConvocatorias: q.futureCalls,
     a_cazaComunidad: q.huntingCommon,
     a_cazaTiempo: q.huntingTime,
@@ -1417,15 +1538,13 @@ function fillAnimalQuestionnaire() {
   setCheckedValues("a_rumiantsNeedOptions", q.rumiantNeedOptions || []);
   setMulti($("#a_animalesImportantes"), q.importantAnimals || []);
   renderSimpleList(
-    "#a_diseaseList",
-    q.diseases || [],
-    (x) => `${x.date || ""} · ${x.animal || ""} · ${x.problem || ""}`,
-  );
-  renderSimpleList(
     "#a_vaxList",
     q.vaccines || [],
     (x) => `${x.date || ""} · ${x.animal || ""} · ${x.name || ""}`,
   );
+  renderDiseaseList(q.diseases || []);
+  renderProgramsList(q.programs || []);
+  updateProgramsVisibility();
   renderSimpleList(
     "#a_dewormList",
     q.deworming || [],
@@ -1454,16 +1573,29 @@ function bindAnimals() {
     "click",
     saveAnimalQuestionnaireFull,
   );
-  $("#a_addDisease")?.addEventListener("click", () =>
-    addQuestionnaireItem("diseases", {
-      id: uid("dis"),
+  $("#a_addDisease")?.addEventListener("click", () => {
+    const prod = getProducer();
+    if (!prod) return;
+    const item = {
+      id: state.editing.diseaseId || uid("dis"),
       date: $("#a_lastSick").value,
       animal: $("#a_enfAnimal").value,
       problem: $("#a_commonDis").value,
-      signs: $("#a_signs").value,
-      treatment: $("#a_whenSickDo").value,
-    }),
-  );
+      signs: $("#a_signs").value.trim(),
+      treatment: $("#a_whenSickDo").value.trim(),
+    };
+    prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+    if (state.editing.diseaseId) {
+      prod.questionnaire.diseases = (prod.questionnaire.diseases || []).map((entry) =>
+        entry.id === state.editing.diseaseId ? item : entry,
+      );
+      saveState();
+      renderAll();
+    } else {
+      addQuestionnaireItem("diseases", item);
+    }
+    resetDiseaseForm();
+  });
   $("#a_addVax")?.addEventListener("click", () =>
     addQuestionnaireItem("vaccines", {
       id: uid("vaxr"),
@@ -1535,6 +1667,37 @@ function bindAnimals() {
       reason: $("#a_actividadGeneroRazon").value,
     }),
   );
+  $("#a_programaRegistro")?.addEventListener("change", updateProgramsVisibility);
+  $("#a_programaFolioTiene")?.addEventListener("change", () => {
+    const hasFolio = ($("#a_programaFolioTiene")?.value || "") === "Sí";
+    if ($("#a_programaFolioWrap")) $("#a_programaFolioWrap").style.display = hasFolio ? "block" : "none";
+    if (!hasFolio && $("#a_programaFolio")) $("#a_programaFolio").value = "";
+  });
+  $("#a_addPrograma")?.addEventListener("click", () => {
+    const prod = getProducer();
+    if (!prod) return;
+    const item = {
+      id: state.editing.programId || uid("prog"),
+      name: $("#a_programaNombre").value.trim(),
+      hasFolio: $("#a_programaFolioTiene").value,
+      folio: ($("#a_programaFolioTiene").value || "") === "Sí" ? $("#a_programaFolio").value.trim() : "",
+    };
+    if (!item.name) {
+      show("a_msg", "Captura el nombre del programa.", "warning");
+      return;
+    }
+    prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+    if (state.editing.programId) {
+      prod.questionnaire.programs = (prod.questionnaire.programs || []).map((entry) =>
+        entry.id === state.editing.programId ? item : entry,
+      );
+      saveState();
+      renderAll();
+    } else {
+      addQuestionnaireItem("programs", item);
+    }
+    resetProgramForm();
+  });
 }
 
 function renderMedMode() {
@@ -2990,6 +3153,14 @@ function genderAnimalsTable(items = []) {
   if (!items.length) return '<p>Sin registros de animales por roles de género.</p>';
   return `<table><tr><th>Animal</th><th>Quién lo cuida</th><th>¿Por qué?</th></tr>${items.map((item) => `<tr><td>${esc(item.animal || "")}</td><td>${esc(item.who || "")}</td><td>${esc(item.why || "")}</td></tr>`).join("")}</table>`;
 }
+function diseaseRecordsTable(items = []) {
+  if (!items.length) return "<p>Sin enfermedades registradas.</p>";
+  return `<table><tr><th>Fecha</th><th>Animal/especie</th><th>Enfermedad/problema</th><th>Signos clínicos</th><th>Tratamiento/acciones</th></tr>${items.map((item) => `<tr><td>${esc(item.date || "")}</td><td>${esc(item.animal || "")}</td><td>${esc(item.problem || "")}</td><td>${esc(item.signs || "")}</td><td>${esc(item.treatment || "")}</td></tr>`).join("")}</table>`;
+}
+function programsTable(items = []) {
+  if (!items.length) return "<p>Sin programas registrados.</p>";
+  return `<table><tr><th>Programa</th><th>¿Recibió folio?</th><th>Folio</th></tr>${items.map((item) => `<tr><td>${esc(item.name || "")}</td><td>${esc(item.hasFolio || "")}</td><td>${esc(item.hasFolio === "Sí" ? (item.folio || "(sin folio)") : "(sin folio)")}</td></tr>`).join("")}</table>`;
+}
 function questionnaireExportRows(prod) {
   const q = getProducerQuestionnaireSkeleton(prod);
   return [[
@@ -3013,9 +3184,27 @@ function genderAnimalsExportRows(prod) {
     item.why || "",
   ]);
 }
+function diseaseExportRows(prod) {
+  return getProducerQuestionnaireSkeleton(prod).diseases.map((item) => [
+    prod.basic?.name || "",
+    item.date || "",
+    item.animal || "",
+    item.problem || "",
+    item.signs || "",
+    item.treatment || "",
+  ]);
+}
+function programsExportRows(prod) {
+  return getProducerQuestionnaireSkeleton(prod).programs.map((item) => [
+    prod.basic?.name || "",
+    item.name || "",
+    item.hasFolio || "",
+    item.hasFolio === "Sí" ? (item.folio || "") : "",
+  ]);
+}
 function fullProducerSection(prod) {
   const q = getProducerQuestionnaireSkeleton(prod);
-  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable(a)}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
+  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable(a)}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>Enfermedades registradas</h3>${diseaseRecordsTable(q.diseases || [])}<h3>Programas registrados</h3>${programsTable(q.programs || [])}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
 }
 function producerWordHtml(prod) {
   return fullProducerSection(prod);
@@ -4194,6 +4383,8 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "CobroDetalleProc", rows: [["Fecha","Procedimiento","Productor(a)","Categoría","Concepto","Cantidad","Costo unitario","Subtotal","Notas"], ...chargeDetailRows] },
     { name: "PruebasLab", rows: [["Productor(a)","Animales","Tipo","Fecha toma muestra","Fecha resultados","Costo unitario","Núm. animales","Subtotal","Insumos","Total","Detalle insumos","Resultados","Interpretación","Imágenes","Procedimiento"], ...labRows] },
     { name: "CuestionarioAnimales", rows: [["Productor(a)","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan","Núm. registros roles género","Animales roles género","Quién cuida","¿Por qué?"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
+    { name: "EnfermedadesCuestionario", rows: [["Productor(a)","Fecha","Animal o especie","Enfermedad o problema","Signos clínicos","Tratamiento/acciones"], ...producers.flatMap((prod) => diseaseExportRows(prod))] },
+    { name: "ProgramasCuestionario", rows: [["Productor(a)","Programa","¿Recibió folio?","Folio"], ...producers.flatMap((prod) => programsExportRows(prod))] },
     { name: "MedicinaTradicional", rows: [["Productor(a)","Nombre","Tipo","Uso","Parte","Animales donde se usa"], ...producers.flatMap((prod) => getProducerQuestionnaireSkeleton(prod).traditional.map((item) => [prod.basic?.name || "", item.name || "", item.type || "", item.use || "", item.part || "", item.targetAnimals || ""]))] },
     { name: "RolesGeneroAnimales", rows: [["Productor(a)","Animal","Quién lo cuida","¿Por qué?"], ...producers.flatMap((prod) => genderAnimalsExportRows(prod))] },
   ];
