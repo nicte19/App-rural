@@ -375,6 +375,17 @@ function setChecked(name, value) {
     .querySelectorAll(`input[name="${name}"]`)
     .forEach((i) => (i.checked = i.value === value));
 }
+function checkedValues(name) {
+  return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+    .map((i) => i.value)
+    .filter(Boolean);
+}
+function setCheckedValues(name, values = []) {
+  const set = new Set(Array.isArray(values) ? values : []);
+  document
+    .querySelectorAll(`input[name="${name}"]`)
+    .forEach((i) => (i.checked = set.has(i.value)));
+}
 function multiValues(sel) {
   return Array.from(sel?.selectedOptions || [])
     .map((o) => o.value)
@@ -709,6 +720,11 @@ function normalizeQuestionnaire(questionnaire = {}) {
     hadRumiantsBefore: questionnaire.hadRumiantsBefore || "",
     noRumiantsReason: questionnaire.noRumiantsReason || "",
     rumiantAdvice: questionnaire.rumiantAdvice || "",
+    rumiantNeedOptions: Array.isArray(questionnaire.rumiantNeedOptions)
+      ? questionnaire.rumiantNeedOptions.filter(Boolean)
+      : [],
+    rumiantNeedOther: questionnaire.rumiantNeedOther || "",
+    rumiantNeedExplain: questionnaire.rumiantNeedExplain || "",
     rumiantNeed: questionnaire.rumiantNeed || "",
     birdsInterest: questionnaire.birdsInterest || questionnaire.birdsInterestYes || questionnaire.birdsInterestNo || "",
     traditional: (Array.isArray(questionnaire.traditional) ? questionnaire.traditional : []).map((item) => ({
@@ -1283,6 +1299,14 @@ function saveAnimalQuestionnaireFull() {
     show("a_msg", "Selecciona un productor(a).", "warning");
     return;
   }
+  const rumiantNeedOptions = checkedValues("a_rumiantsNeedOptions");
+  const rumiantNeedOther = $("#a_rumiantsNeedOther").value.trim();
+  const rumiantNeedExplain = $("#a_rumiantsNeedExplain").value.trim();
+  const rumiantNeedSummary = [
+    ...rumiantNeedOptions.filter((option) => option !== "Otro"),
+    ...(rumiantNeedOptions.includes("Otro") ? [`Otro: ${rumiantNeedOther || "Sin especificar"}`] : []),
+    ...(rumiantNeedExplain ? [`Explique brevemente: ${rumiantNeedExplain}`] : []),
+  ].join(" | ");
   prod.questionnaire = {
     ...getProducerQuestionnaireSkeleton(prod),
     importantAnimals: multiValues($("#a_animalesImportantes")),
@@ -1324,7 +1348,10 @@ function saveAnimalQuestionnaireFull() {
     hadRumiantsBefore: $("#a_hadRumiantsBefore").value,
     noRumiantsReason: $("#a_noRumiantsWhy").value.trim(),
     rumiantAdvice: $("#a_rumiantsAdvice").value,
-    rumiantNeed: $("#a_rumiantsNeed").value.trim(),
+    rumiantNeedOptions,
+    rumiantNeedOther,
+    rumiantNeedExplain,
+    rumiantNeed: rumiantNeedSummary,
     birdsInterest: $("#a_interestBirds").value,
     diseases: getProducerQuestionnaireSkeleton(prod).diseases,
     vaccines: getProducerQuestionnaireSkeleton(prod).vaccines,
@@ -1379,12 +1406,14 @@ function fillAnimalQuestionnaire() {
     a_hadRumiantsBefore: q.hadRumiantsBefore,
     a_noRumiantsWhy: q.noRumiantsReason,
     a_rumiantsAdvice: q.rumiantAdvice,
-    a_rumiantsNeed: q.rumiantNeed,
+    a_rumiantsNeedOther: q.rumiantNeedOther,
+    a_rumiantsNeedExplain: q.rumiantNeedExplain,
     a_interestBirds: q.birdsInterest,
   };
   Object.entries(map).forEach(([k, v]) => {
     if ($("#" + k)) $("#" + k).value = safe(v);
   });
+  setCheckedValues("a_rumiantsNeedOptions", q.rumiantNeedOptions || []);
   setMulti($("#a_animalesImportantes"), q.importantAnimals || []);
   renderSimpleList(
     "#a_diseaseList",

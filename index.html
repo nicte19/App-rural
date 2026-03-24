@@ -1060,8 +1060,19 @@
                       </select>
                     </div>
                     <div>
-                      <label for="a_rumiantsNeed">¿Qué necesitarían para poder hacerlo?</label>
-                      <input id="a_rumiantsNeed" />
+                      <label>¿Qué le hace falta actualmente para poder tener borregos o cabras?</label>
+                      <div class="grid" id="a_rumiantsNeedOptionsWrap">
+                        <label><input type="checkbox" name="a_rumiantsNeedOptions" value="Dinero" /> Dinero</label>
+                        <label><input type="checkbox" name="a_rumiantsNeedOptions" value="Espacio o tierra" /> Espacio o tierra</label>
+                        <label><input type="checkbox" name="a_rumiantsNeedOptions" value="Alimento o pasto" /> Alimento o pasto</label>
+                        <label><input type="checkbox" name="a_rumiantsNeedOptions" value="Tiempo" /> Tiempo</label>
+                        <label><input type="checkbox" name="a_rumiantsNeedOptions" value="Conocimiento" /> Conocimiento</label>
+                        <label><input type="checkbox" name="a_rumiantsNeedOptions" value="Apoyo técnico" /> Apoyo técnico</label>
+                        <label><input type="checkbox" name="a_rumiantsNeedOptions" value="Otro" /> Otro:</label>
+                        <input id="a_rumiantsNeedOther" placeholder="Especifique otro" />
+                      </div>
+                      <label for="a_rumiantsNeedExplain">Explique brevemente</label>
+                      <input id="a_rumiantsNeedExplain" />
                     </div>
                   </div>
                 </div>
