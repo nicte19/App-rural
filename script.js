@@ -111,7 +111,9 @@ function normalizeSyncMeta(record, scope, ownerUserId = null) {
 }
 function normalizeEntityCollections(ownerUserId = null) {
   state.producers = (state.producers || []).map((producer) => {
-    const normalizedAnimals = (producer.animals || []).map((animal) => normalizeSyncMeta(animal, "animals", ownerUserId));
+    const normalizedAnimals = normalizeProducerAnimals(producer).map((animal) =>
+      normalizeSyncMeta(animal, "animals", ownerUserId),
+    );
     return normalizeSyncMeta({ ...producer, animals: normalizedAnimals, questionnaire: normalizeQuestionnaire(producer.questionnaire || {}) }, "producers", ownerUserId);
   });
   ["meds", "vaccines", "supplies", "procedures", "labTests"].forEach((key) => {
@@ -497,11 +499,24 @@ function setMulti(sel, values = []) {
 function getProducer() {
   return byId(state.producers, state.selectedProducerId);
 }
+function normalizeProducerAnimals(producer = {}) {
+  const producerId = producer?.id || null;
+  const producerDisplayName = producer?.basic?.name || producer?.producerName || "";
+  return (producer?.animals || []).map((animal) => ({
+    ...animal,
+    producerId: producerId || animal?.producerId || null,
+    producerName: producerDisplayName || animal?.producerName || "",
+  }));
+}
 function producerName(id) {
   return byId(state.producers, id)?.basic?.name || "Sin productor/a";
 }
 function currentAnimals() {
-  return getProducer()?.animals || [];
+  const producer = getProducer();
+  if (!producer) return [];
+  return (producer.animals || []).filter(
+    (animal) => !animal?.producerId || animal.producerId === producer.id,
+  );
 }
 function animalLabel(an) {
   return [
@@ -624,6 +639,9 @@ function fillWeeklySchedule(data = {}) {
 }
 
 function collectProducerForm() {
+  const editingProducer = state.editing.producerId
+    ? byId(state.producers, state.editing.producerId)
+    : null;
   return {
     id: state.editing.producerId || uid("prod"),
     basic: {
@@ -664,8 +682,8 @@ function collectProducerForm() {
     },
     family: collectFamilyRows(),
     notes: $("#notas").value.trim(),
-    questionnaire: getProducerQuestionnaireSkeleton(getProducer()),
-    animals: getProducer()?.animals || [],
+    questionnaire: getProducerQuestionnaireSkeleton(editingProducer),
+    animals: normalizeProducerAnimals(editingProducer),
   };
 }
 const FIXED_GENDER_ANIMAL_OPTIONS = [
@@ -832,6 +850,7 @@ function resetProducerForm() {
     .querySelectorAll("#chipsClasificacion .chip")
     .forEach((ch) => { ch.classList.remove("active"); ch.setAttribute("aria-pressed", "false"); });
   fillWeeklySchedule({});
+  clearProducerScopedDraftState();
 }
 function fillProducerForm(prod) {
   resetProducerForm();
@@ -885,14 +904,17 @@ function fillProducerForm(prod) {
 }
 function saveProducer(e) {
   e?.preventDefault?.();
+  const previousProducerId = state.selectedProducerId;
   const prod = collectProducerForm();
   if (!prod.basic.name) {
     show("err", "El nombre del productor(a) es obligatorio.", "error");
     return;
   }
+  prod.animals = normalizeProducerAnimals(prod);
   const idx = state.producers.findIndex((x) => x.id === prod.id);
   if (idx >= 0) state.producers[idx] = prod;
   else state.producers.unshift(prod);
+  if (previousProducerId !== prod.id) clearProducerScopedDraftState();
   state.selectedProducerId = prod.id;
   saveState();
   renderAll();
@@ -912,6 +934,7 @@ function renderProducerList() {
     const [edit, select, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillProducerForm(prod);
     select.onclick = () => {
+      if (state.selectedProducerId !== prod.id) clearProducerScopedDraftState();
       state.selectedProducerId = prod.id;
       saveState();
       renderAll();
@@ -933,8 +956,10 @@ function renderProducerList() {
         (state.procedures || []).filter((p) => p.producerId === prod.id).forEach((p) => queueDeletedRecord("procedures", p));
         state.producers = state.producers.filter((x) => x.id !== prod.id);
         state.procedures = state.procedures.filter((p) => p.producerId !== prod.id);
-        if (state.selectedProducerId === prod.id)
+        if (state.selectedProducerId === prod.id) {
+          clearProducerScopedDraftState();
           state.selectedProducerId = state.producers[0]?.id || null;
+        }
         saveState();
         renderAll();
       }
@@ -1032,8 +1057,11 @@ function renderAnimalsProducerSelect() {
     : "Selecciona un productor(a) para registrar y editar animales.";
 }
 function serializeAnimal() {
+  const producer = getProducer();
   return {
     id: state.editing.animalId || uid("animal"),
+    producerId: producer?.id || null,
+    producerName: producer?.basic?.name || "",
     species: $("#a_especie").value.trim(),
     breed: $("#a_raza").value.trim(),
     quantity: $("#a_cantidad").value,
@@ -1063,6 +1091,27 @@ function resetAnimalEntry() {
   state.draft.animalPhotos = [];
   renderAnimalPhotos();
 }
+function clearProducerScopedDraftState() {
+  state.editing.animalId = null;
+  state.editing.diseaseId = null;
+  state.editing.programId = null;
+  state.editing.traditionalId = null;
+  state.editing.genderAnimalId = null;
+  state.draft.animalPhotos = [];
+  state.draft.labSelectedAnimalIds = [];
+  state.draft.procedureAnimalEntries = [];
+  if ($("#a_especie")) resetAnimalEntry();
+  if ($("#a_diseaseList")) resetDiseaseForm();
+  if ($("#a_programasList")) resetProgramForm();
+  if ($("#a_tradList")) resetTraditionalForm();
+  if ($("#a_genderAnimalList")) resetGenderAnimalForm();
+  if ($("#procedureForm")) resetProcedure();
+  if ($("#labStandaloneForm")) resetLabStandalone();
+}
+function ensureSelectedProducerIntegrity() {
+  if (!state.selectedProducerId) return;
+  if (!byId(state.producers, state.selectedProducerId)) state.selectedProducerId = null;
+}
 function fillAnimalEntry(an) {
   resetAnimalEntry();
   state.editing.animalId = an.id;
@@ -1083,8 +1132,8 @@ function fillAnimalEntry(an) {
 }
 function saveAnimalGroup() {
   const prod = getProducer();
-  if (!prod) {
-    show("a_msg", "Primero selecciona un productor(a).", "warning");
+  if (!prod?.id) {
+    show("a_msg", "Primero carga un productor(a) válido antes de guardar animales.", "warning");
     return;
   }
   const animal = serializeAnimal();
@@ -1229,7 +1278,7 @@ function renderAnimalGroups() {
   currentAnimals().forEach((an) => {
     const div = document.createElement("div");
     div.className = "item";
-    div.innerHTML = `<h4>${esc(animalLabel(an))}</h4><div class="line"><b>Función:</b> ${esc((an.function || []).concat(an.functionOther ? [an.functionOther] : []).join(", "))}</div><div class="line"><b>Instalaciones:</b> ${esc(an.housing)}</div><div class="line"><b>Relación productor(a):</b> ${esc(producerName(state.selectedProducerId))}</div><div class="preview-grid">${(
+    div.innerHTML = `<h4>${esc(animalLabel(an))}</h4><div class="line"><b>Función:</b> ${esc((an.function || []).concat(an.functionOther ? [an.functionOther] : []).join(", "))}</div><div class="line"><b>Instalaciones:</b> ${esc(an.housing)}</div><div class="line"><b>Relación productor(a):</b> ${esc(an.producerName || producerName(an.producerId || state.selectedProducerId))}</div><div class="preview-grid">${(
       an.photos || []
     )
       .slice(0, 4)
@@ -1598,7 +1647,9 @@ function fillAnimalQuestionnaire() {
 function bindAnimals() {
   bindAnimalPhotos();
   $("#animalsProducerSelect")?.addEventListener("change", () => {
-    state.selectedProducerId = $("#animalsProducerSelect").value || null;
+    const nextProducerId = $("#animalsProducerSelect").value || null;
+    if (state.selectedProducerId !== nextProducerId) clearProducerScopedDraftState();
+    state.selectedProducerId = nextProducerId;
     saveState();
     renderAll();
   });
@@ -3746,6 +3797,7 @@ function producerExcelSheets(
 }
 
 function renderAll() {
+  ensureSelectedProducerIntegrity();
   renderProducerList();
   renderAnimalsProducerSelect();
   renderAnimalPeopleSelects();
@@ -5134,7 +5186,9 @@ function renderLabListStandalone() {
 }
 function bindLabStandalone() {
   $("#lab_producer")?.addEventListener("change", () => {
-    state.selectedProducerId = $("#lab_producer").value || state.selectedProducerId;
+    const nextProducerId = $("#lab_producer").value || null;
+    if (state.selectedProducerId !== nextProducerId) clearProducerScopedDraftState();
+    state.selectedProducerId = nextProducerId;
     state.draft.labSelectedAnimalIds = [];
     renderLabAnimalChecklist();
     renderLabProcedureSelect();
@@ -5158,7 +5212,13 @@ function bindLabStandalone() {
 }
 function bindProcedures() {
   renderProcedureType();
-  $("#p_producer")?.addEventListener("change", () => { state.selectedProducerId = $("#p_producer").value || state.selectedProducerId; renderProcedureAnimalSelect(); renderProcedureDraftLists(); });
+  $("#p_producer")?.addEventListener("change", () => {
+    const nextProducerId = $("#p_producer").value || null;
+    if (state.selectedProducerId !== nextProducerId) clearProducerScopedDraftState();
+    state.selectedProducerId = nextProducerId;
+    renderProcedureAnimalSelect();
+    renderProcedureDraftLists();
+  });
   $("#p_type")?.addEventListener("change", renderProcedureType);
   $("#p_scope")?.addEventListener("change", renderProcedureType);
   $("#p_medicationApplicationMode")?.addEventListener("change", () => { toggleProcedureMedicationModeUi(); renderProcedureDraftLists(); });
