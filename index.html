@@ -503,10 +503,10 @@
                       <input id="a_instTake" type="file" accept="image/*" capture="environment" multiple style="display:none" />
                       <input id="a_instPick" type="file" accept="image/*" multiple style="display:none" />
                       <button class="btn small" type="button" id="a_btnInstTake">📸 Tomar</button>
-                      <button class="btn small" type="button" id="a_btnInstPick">🖼️ Elegir</button>
-                      <button class="btn small ghost" type="button" id="a_btnInstClear">🧹 Quitar todas</button>
+                      <button class="btn small" type="button" id="a_btnInstPick">🖼️ Subir nueva imagen</button>
+                      <button class="btn small ghost" type="button" id="a_btnInstClear">🧹 Quitar imagen</button>
                     </div>
-                    <div class="help" id="a_instHint">Sin fotos todavía.</div>
+                    <div class="help" id="a_instHint">Sin fotos todavía. Puedes quitar una imagen con ✕ o reemplazarla subiendo nuevas.</div>
                     <div class="row" id="a_instPreview" style="margin-top:10px;"></div>
                   </div>
 
@@ -874,13 +874,13 @@
                         <option>No</option>
                       </select>
                     </div>
-                    <div>
-                      <label for="a_programaNombre">¿En cuál programa?</label>
-                      <input id="a_programaNombre" />
-                    </div>
                   </div>
 
-                  <div class="grid cols-2">
+                  <div class="grid cols-2" id="a_programaRegistroSiBlock">
+                    <div>
+                      <label for="a_programaNombre">Nombre del programa</label>
+                      <input id="a_programaNombre" />
+                    </div>
                     <div>
                       <label for="a_programaFolioTiene">¿Recibió folio?</label>
                       <select id="a_programaFolioTiene">
@@ -889,13 +889,18 @@
                         <option>No</option>
                       </select>
                     </div>
-                    <div>
+                    <div id="a_programaFolioWrap">
                       <label for="a_programaFolio">Folio</label>
                       <input id="a_programaFolio" />
                     </div>
                   </div>
 
-                  <div>
+                  <div class="row" id="a_programaRegistroSiActions">
+                    <button class="btn small" type="button" id="a_addPrograma">➕ Agregar programa</button>
+                  </div>
+                  <div class="list" id="a_programasList"></div>
+
+                  <div id="a_programaConvocatoriasWrap">
                     <label for="a_programaConvocatorias">Si no se registró, ¿le interesaría participar en futuras convocatorias?</label>
                     <textarea id="a_programaConvocatorias"></textarea>
                   </div>
