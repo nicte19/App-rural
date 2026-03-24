@@ -12,29 +12,10 @@
 <body>
   <header>
     <h1>App Rural Consolidada · 👤 Productor/a · 🐾 Animales · 💊 Medicamentos · 💉 Vacunas · 🧰 Insumos · 🧪 Pruebas · 🩺 Procedimientos</h1>
-    <p>Offline-first con IndexedDB local, sincronización por cuenta con Firebase, PWA, fotos/evidencias, exportación Word/Excel y relaciones completas entre productores, animales, inventario, pruebas y cobros.</p>
+    <p>Offline-first con IndexedDB local, PWA, fotos/evidencias, exportación Word/Excel y relaciones completas entre productores, animales, inventario, pruebas y cobros.</p>
     <section class="status-bar card">
       <div class="content status-grid">
         <div><strong>Conectividad:</strong> <span id="onlineStatusBadge" class="pill offline">Sin conexión</span></div>
-        <div><strong>Sesión:</strong> <span id="authStatusText">Sin sesión</span></div>
-        <div><strong>Última sincronización:</strong> <span id="lastSyncText">Pendiente</span></div>
-        <div><strong>Estado de sincronización:</strong> <span id="syncStatusText">Solo local</span></div>
-      </div>
-      <div class="content auth-actions auth-actions-primary">
-        <button class="btn" type="button" id="btnGoogleLogin">Iniciar sesión con Google</button>
-        <button class="btn small ghost" type="button" id="btnGoogleLogout" hidden>Cerrar sesión</button>
-        <button class="btn small ghost" type="button" id="btnSyncNow" hidden>☁️ Sincronizar ahora</button>
-      </div>
-      <div class="content">
-        <section id="firebaseConfigNotice" class="firebase-config-notice" role="status" aria-live="polite">
-          <div class="cloud-card-copy">
-            <p class="eyebrow">Cuenta y respaldo</p>
-            <h3 id="firebaseConfigTitle">Tus datos siguen guardándose en este dispositivo</h3>
-            <p id="firebaseConfigBody" class="help">Al iniciar sesión podrás sincronizar y respaldar tu información entre dispositivos.</p>
-            <p id="firebaseLocalStatus" class="cloud-local-status">Modo local activo.</p>
-            <p id="syncHelp" class="help">Puedes seguir capturando, editando, exportando y consultando tu información aunque todavía no uses la nube.</p>
-          </div>
-        </section>
       </div>
     </section>
     <div class="header-actions">
@@ -340,7 +321,6 @@
                     <label for="alerta">Razones si es “No”</label>
                     <input id="alerta" type="text" placeholder="Ej. No hay interés / conflicto / seguridad..." />
                   </div>
-
                   <div>
                     <label for="notaExtraPersona">Nota extra de la persona</label>
                     <textarea id="notaExtraPersona" placeholder="Observaciones importantes sobre la persona"></textarea>
@@ -2459,6 +2439,11 @@
                       <input id="p_chargeReason" type="text" />
                     </div>
                   </div>
+                  <section class="charge-breakdown" aria-live="polite">
+                    <h4>Desglose automático del cobro</h4>
+                    <div class="help">Este desglose se calcula con los datos reales de medicamentos, vacunas, insumos y servicio.</div>
+                    <div id="p_chargeBreakdown"></div>
+                  </section>
 
                   <div>
                     <label>📸 Foto de hoja de cobro</label>

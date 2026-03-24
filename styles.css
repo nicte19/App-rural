@@ -154,6 +154,19 @@ main {
 .full-span {
   grid-column: 1/-1;
 }
+.charge-breakdown {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.5);
+}
+.charge-breakdown h5 {
+  margin: 10px 0 6px;
+}
+.charge-breakdown ul {
+  margin: 0;
+  padding-left: 18px;
+}
 .row {
   display: flex;
   gap: 10px;

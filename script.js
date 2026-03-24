@@ -2342,23 +2342,92 @@ function renderProcedureDraftLists() {
   );
   const breakdown = calculateProcedureCharge();
   $("#p_chargeCalculated").value = breakdown.total.toFixed(2);
+  renderProcedureChargeBreakdown(breakdown);
+}
+function calculateProcedureChargeBreakdown() {
+  const meds = (state.draft.procedureMedUses || []).map((x) => {
+    const qty = Number(x.totalUsedQty || x.chargeableQty || x.inventoryDeductionQty || x.qty || 0);
+    const unitCost = Number(x.unitCost || 0);
+    return {
+      category: "Medicamentos",
+      name: x.name || "Medicamento",
+      qty,
+      qtyLabel: `${Number(qty || 0).toFixed(2)} ${x.unit || ""}`.trim(),
+      unitCost,
+      unitCostLabel: money(unitCost),
+      subtotal: qty * unitCost,
+      extraLabel: x.calculationSummary || "",
+    };
+  });
+  const vaccines = (state.draft.procedureVaccineUses || []).map((x) => {
+    const animalsApplied = Number(x.animalsApplied || 0);
+    const unitCost = Number(x.unitCost || x.price || 0);
+    return {
+      category: "Vacunas",
+      name: x.name || "Vacuna",
+      qty: animalsApplied,
+      qtyLabel: `${animalsApplied} animales`,
+      unitCost,
+      unitCostLabel: money(unitCost),
+      subtotal: animalsApplied * unitCost,
+      extraLabel: x.notes || "",
+    };
+  });
+  const supplies = (state.draft.procedureSupplyUses || []).map((x) => {
+    const qty = Number(x.qty || 0);
+    const unitCost = Number(x.unitCost || 0);
+    return {
+      category: "Insumos",
+      name: x.name || "Insumo",
+      qty,
+      qtyLabel: `${Number(qty || 0).toFixed(2)} ${x.type === "NON_DISPOSABLE" ? "usos" : "pzas"}`,
+      unitCost,
+      unitCostLabel: money(unitCost),
+      subtotal: qty * unitCost,
+      extraLabel: x.notes || "",
+    };
+  });
+  const base = Number($("#p_costTotal").value || 0);
+  const service = base > 0
+    ? [{
+      category: "Servicio",
+      name: $("#p_type")?.selectedOptions?.[0]?.textContent || "Servicio",
+      qty: Number($("#p_animalsQtyUsed")?.value || 0),
+      qtyLabel: Number($("#p_animalsQtyUsed")?.value || 0) > 0 ? `${Number($("#p_animalsQtyUsed")?.value || 0)} animales` : "Servicio general",
+      unitCost: base,
+      unitCostLabel: money(base),
+      subtotal: base,
+      extraLabel: "Costo base del procedimiento",
+    }]
+    : [];
+  return { meds, vaccines, supplies, service };
 }
 function calculateProcedureCharge() {
   const base = Number($("#p_costTotal").value || 0);
-  const meds = state.draft.procedureMedUses.reduce(
-    (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
-    0,
-  );
-  const vaccines = state.draft.procedureVaccineUses.reduce(
-    (a, x) => a + Number(x.animalsApplied || 0) * (Number(x.unitCost || 0) || Number(x.price || 0)),
-    0,
-  );
-  const supplies = state.draft.procedureSupplyUses.reduce(
-    (a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0),
-    0,
-  );
+  const breakdownItems = calculateProcedureChargeBreakdown();
+  const meds = breakdownItems.meds.reduce((acc, item) => acc + item.subtotal, 0);
+  const vaccines = breakdownItems.vaccines.reduce((acc, item) => acc + item.subtotal, 0);
+  const supplies = breakdownItems.supplies.reduce((acc, item) => acc + item.subtotal, 0);
   const subtotal = base + meds + vaccines + supplies;
-  return { base, meds, vaccines, supplies, subtotal, total: subtotal };
+  return { base, meds, vaccines, supplies, subtotal, total: subtotal, breakdown: breakdownItems };
+}
+function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) {
+  const box = $("#p_chargeBreakdown");
+  if (!box) return;
+  const drawRows = (title, items) => {
+    if (!items.length) return `<h5>${title}</h5><div class="help">Sin registros.</div>`;
+    return `<h5>${title}</h5><ul>${items.map((item) => `<li><b>${esc(item.name)}</b> → ${esc(item.qtyLabel)} → ${esc(item.unitCostLabel)} → <b>${money(item.subtotal)}</b>${item.extraLabel ? ` <small>(${esc(item.extraLabel)})</small>` : ""}</li>`).join("")}</ul>`;
+  };
+  const charge = breakdown || calculateProcedureCharge();
+  const detail = charge.breakdown || calculateProcedureChargeBreakdown();
+  box.innerHTML = `
+    ${drawRows("Medicamentos", detail.meds || [])}
+    ${drawRows("Vacunas", detail.vaccines || [])}
+    ${drawRows("Insumos", detail.supplies || [])}
+    ${drawRows("Servicio", detail.service || [])}
+    <h5>TOTAL</h5>
+    <p><b>${money(charge.total || 0)}</b></p>
+  `;
 }
 async function addLab() {
   const file = $("#lab_file").files?.[0];
@@ -3868,18 +3937,38 @@ function renderProcedureList() {
 function medicationBreakdownTable(meds = []) {
   return `<table><tr><th>Medicamento</th><th>Base</th><th>Dosis total</th><th>Margen</th><th>Total usado</th><th>Descuento inventario</th><th>Costo</th><th>Explicación</th></tr>${meds.map((m) => `<tr><td>${esc(m.name)}</td><td>${esc(m.calculationMode)}</td><td>${Number(m.theoreticalQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.marginQty || 0).toFixed(2)} ${esc(m.unit || "")} (${Number(m.marginPct || 0).toFixed(2)}%)</td><td>${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0))}</td><td>${esc(m.calculationSummary || "")} · ${esc(m.marginRationale || "")}</td></tr>`).join("")}</table>`;
 }
+function chargeBreakdownTable(charge = {}) {
+  const breakdown = charge.breakdown || {};
+  const rows = [
+    ...(breakdown.meds || []).map((item) => ["Medicamento", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
+    ...(breakdown.vaccines || []).map((item) => ["Vacuna", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
+    ...(breakdown.supplies || []).map((item) => ["Insumo", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
+    ...(breakdown.service || []).map((item) => ["Servicio", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
+  ];
+  if (!rows.length) return "<div class=\"help\">Sin desglose capturado.</div>";
+  return `<table><tr><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th></tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
+}
 function procedureAnimalsTable(animals = []) {
   return `<table><tr><th>Identificación</th><th>Especie</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>PT</th><th>LC</th><th>Medicamento</th><th>Dosis base especie</th><th>Cantidad calculada</th><th>Descuento inventario</th><th>Vacuna</th><th>Examen físico</th><th>Observaciones</th></tr>${animals.map((a) => `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${a.chestGirth || ""}</td><td>${a.bodyLength || ""}</td><td>${esc(a.medicationName || byId(state.meds, a.medicationId)?.brand || "")}</td><td>${esc(a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ""}/${a.doseCalculationMode === "PER_ANIMAL" ? "animal" : "kg"}` : a.doseSummary || "")}</td><td>${esc(a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "")}</td><td>${esc(a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.generalState, a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc([a.notes || "", a.medicationWarning || ""].filter(Boolean).join(" · "))}</td></tr>`).join("")}</table>`;
 }
 function procedureWordHtml(p) {
   const prod = byId(state.producers, p.producerId); const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id) || l.linkedProcedureId === p.id);
-  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Modalidad:</b> ${esc(p.scope)}</p><p><b>Animales incluidos:</b> ${(p.animals || []).length}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, subtipo_preventiva: p.preventiveSubtype || "", actividad_zootecnia: p.zootecniaActivity || p.zootecnia?.activity || "", alcance: p.scope, lugar: p.place, productor: prod?.basic?.name || "", cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_general: p.generalState, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes })}<h2>Animales tratados</h2>${procedureAnimalsTable(p.animals || [])}<h2>Inventario usado</h2>${medicationBreakdownTable(p.inventory?.meds || [])}<table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
+  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Modalidad:</b> ${esc(p.scope)}</p><p><b>Animales incluidos:</b> ${(p.animals || []).length}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, subtipo_preventiva: p.preventiveSubtype || "", actividad_zootecnia: p.zootecniaActivity || p.zootecnia?.activity || "", alcance: p.scope, lugar: p.place, productor: prod?.basic?.name || "", cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_general: p.generalState, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes })}<h2>Animales tratados</h2>${procedureAnimalsTable(p.animals || [])}<h2>Inventario usado</h2>${medicationBreakdownTable(p.inventory?.meds || [])}<table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${chargeBreakdownTable(p.charge || {})}${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
 }
 function procedureSummaryHtml() { return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`; }
 function producerExcelSheets(producers = state.producers, animals = [], meds = state.meds, vaccines = state.vaccines, supplies = state.supplies, procedures = state.procedures, labs = state.labTests) {
   const animalRows = animals.length ? animals : producers.flatMap((p) => (p.animals || []).map((a) => ({ producer: p.basic.name, ...a })));
   const procedureRows = procedures.flatMap((p) => (p.animals || []).length ? (p.animals || []).map((a) => [p.date, p.type, p.scope, producerName(p.producerId), a.identification || a.sourceLabel || "", a.species || "", a.weightMethod || "", Number(a.weightRecordedKg || 0).toFixed(2), a.chestGirth || "", a.bodyLength || "", a.medicationName || byId(state.meds, a.medicationId)?.brand || "", a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ''}/${a.doseCalculationMode === 'PER_ANIMAL' ? 'animal' : 'kg'}` : a.doseSummary || '', a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "", a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "", byId(state.vaccines, a.vaccineId)?.brand || "", a.examIncluded ? "Sí" : "No", a.exam?.findings || "", [a.notes || '', a.medicationWarning || ''].filter(Boolean).join(' · ')]) : [[p.date, p.type, p.scope, producerName(p.producerId), p.identification || "", p.species || "", "", p.weight || "", "", "", "", "", "", "", "", "", "", ""]]);
   const medRows = procedures.flatMap((p) => (p.inventory?.meds || []).map((m) => [p.date, p.type, producerName(p.producerId), m.name, m.calculationMode || "", m.calculationSummary || "", Number(m.theoreticalQty || 0).toFixed(2), `${Number(m.marginQty || 0).toFixed(2)} (${Number(m.marginPct || 0).toFixed(2)}%)`, Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2), Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2), Number(m.unitCost || 0).toFixed(2), money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0)), m.marginRationale || ""]));
+  const chargeDetailRows = procedures.flatMap((p) => {
+    const blocks = p.charge?.breakdown || {};
+    const items = []
+      .concat((blocks.meds || []).map((item) => ["Medicamento", item]))
+      .concat((blocks.vaccines || []).map((item) => ["Vacuna", item]))
+      .concat((blocks.supplies || []).map((item) => ["Insumo", item]))
+      .concat((blocks.service || []).map((item) => ["Servicio", item]));
+    return items.map(([kind, item]) => [p.date, p.type, producerName(p.producerId), kind, item.name || "", item.qtyLabel || "", Number(item.unitCost || 0).toFixed(2), Number(item.subtotal || 0).toFixed(2), item.extraLabel || ""]);
+  });
   const labRows = labs.map((lab) => [
     producerName(lab.producerId) || lab.producerName || "",
     (lab.animals || []).map((animal) => animal.label).join(", ") || lab.animal || "",
@@ -3906,6 +3995,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "Procedimientos", rows: [["Fecha","Tipo","Modalidad","Productor(a)","Identificación animal","Especie","Método peso","Peso utilizable (kg)","PT","LC","Medicamento","Dosis base especie","Cantidad calculada","Descuento inventario","Vacuna","Examen físico","Hallazgos","Observaciones"], ...procedureRows] },
     { name: "MedicamentosProc", rows: [["Fecha","Procedimiento","Productor(a)","Medicamento","Base cálculo","Detalle cálculo","Dosis total","Margen operativo","Total usado","Descuento inventario","Costo unitario","Costo calculado","Justificación"], ...medRows] },
     { name: "CobrosProc", rows: [["Fecha","Tipo","Productor(a)","Cobro procedimiento","Costo medicamentos","Cobro vacunas","Cobro insumos","Subtotal","Total","Cobro final","Observaciones"], ...procedures.map((p) => [p.date,p.type,producerName(p.producerId),p.charge?.base,p.charge?.meds,p.charge?.vaccines,p.charge?.supplies,p.charge?.subtotal,p.charge?.total,p.charge?.manual,p.charge?.reason || p.charge?.notes || ""])] },
+    { name: "CobroDetalleProc", rows: [["Fecha","Procedimiento","Productor(a)","Categoría","Concepto","Cantidad","Costo unitario","Subtotal","Notas"], ...chargeDetailRows] },
     { name: "PruebasLab", rows: [["Productor(a)","Animales","Tipo","Fecha toma muestra","Fecha resultados","Costo unitario","Núm. animales","Subtotal","Insumos","Total","Detalle insumos","Resultados","Interpretación","Imágenes","Procedimiento"], ...labRows] },
     { name: "CuestionarioAnimales", rows: [["Productor(a)","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
     { name: "MedicinaTradicional", rows: [["Productor(a)","Nombre","Tipo","Uso","Parte","Animales donde se usa"], ...producers.flatMap((prod) => getProducerQuestionnaireSkeleton(prod).traditional.map((item) => [prod.basic?.name || "", item.name || "", item.type || "", item.use || "", item.part || "", item.targetAnimals || ""]))] },
