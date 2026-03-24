@@ -560,3 +560,25 @@ button:disabled {
 .cloud-local-status.active {
   color: #166534;
 }
+
+.save-toast {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  z-index: 1200;
+  background: #065f46;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  font-size: 13px;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: all 0.25s ease;
+  pointer-events: none;
+}
+
+.save-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

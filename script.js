@@ -52,6 +52,11 @@ const state = {
 };
 
 const syncHashes = {};
+const driveSync = {
+  accessToken: null,
+  tokenExpiresAt: 0,
+  folderId: null,
+};
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = (p = "id") =>
@@ -292,6 +297,24 @@ function show(id, msg, type = "help") {
   el.textContent = msg || "";
   el.className = type;
   el.style.display = msg ? "block" : "none";
+  if (type === "success" && ["a_msg", "ok", "p_ok", "lab_okStandalone", "m_ok"].includes(id)) {
+    showFloatingNotice(msg || "Cambios guardados");
+  }
+}
+function showFloatingNotice(message) {
+  if (!message) return;
+  const id = "saveFloatingNotice";
+  let box = document.getElementById(id);
+  if (!box) {
+    box = document.createElement("aside");
+    box.id = id;
+    box.className = "save-toast";
+    document.body.appendChild(box);
+  }
+  box.textContent = `✅ ${message}`;
+  box.classList.add("visible");
+  clearTimeout(showFloatingNotice._timer);
+  showFloatingNotice._timer = setTimeout(() => box.classList.remove("visible"), 3200);
 }
 function download(name, content, mime) {
   const blob = new Blob([content], { type: mime });
@@ -301,6 +324,40 @@ function download(name, content, mime) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+function cloneStateWithImageRefs(input, imageMap = {}, path = "root") {
+  if (Array.isArray(input)) {
+    return input.map((item, idx) => cloneStateWithImageRefs(item, imageMap, `${path}.${idx}`));
+  }
+  if (!input || typeof input !== "object") {
+    if (typeof input === "string" && input.startsWith("data:image/")) {
+      const key = `img_${Object.keys(imageMap).length + 1}`;
+      imageMap[key] = { path, dataUrl: input };
+      return `__IMG_REF__:${key}`;
+    }
+    return input;
+  }
+  return Object.entries(input).reduce((acc, [key, value]) => {
+    acc[key] = cloneStateWithImageRefs(value, imageMap, `${path}.${key}`);
+    return acc;
+  }, {});
+}
+function restoreStateImageRefs(input, imageMap = {}) {
+  if (Array.isArray(input)) return input.map((item) => restoreStateImageRefs(item, imageMap));
+  if (!input || typeof input !== "object") {
+    if (typeof input === "string" && input.startsWith("__IMG_REF__:")) {
+      const key = input.split(":")[1];
+      return imageMap[key]?.dataUrl || "";
+    }
+    return input;
+  }
+  return Object.entries(input).reduce((acc, [key, value]) => {
+    acc[key] = restoreStateImageRefs(value, imageMap);
+    return acc;
+  }, {});
+}
+function parseJsonSafely(text) {
+  try { return JSON.parse(text); } catch (_) { return null; }
 }
 function setThumb(id, src, empty = "Sin<br/>imagen") {
   const el = document.getElementById(id);
@@ -327,6 +384,91 @@ function setMulti(sel, values = []) {
   Array.from(sel.options).forEach(
     (o) => (o.selected = values.includes(o.value)),
   );
+}
+function driveConfig() {
+  const cfg = window.APP_GOOGLE_DRIVE_CONFIG || {};
+  return {
+    clientId: cfg.clientId || "",
+    folderName: cfg.folderName || "AppRuralBackups",
+  };
+}
+function ensureDriveToken(interactive = true) {
+  const cfg = driveConfig();
+  if (!cfg.clientId || !window.google?.accounts?.oauth2) {
+    throw new Error("Falta APP_GOOGLE_DRIVE_CONFIG.clientId para usar Google Drive.");
+  }
+  if (driveSync.accessToken && Date.now() < driveSync.tokenExpiresAt - 30_000) {
+    return Promise.resolve(driveSync.accessToken);
+  }
+  return new Promise((resolve, reject) => {
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: cfg.clientId,
+      scope: "https://www.googleapis.com/auth/drive.file",
+      callback: (response) => {
+        if (response?.error) return reject(new Error(response.error));
+        driveSync.accessToken = response.access_token;
+        driveSync.tokenExpiresAt = Date.now() + (Number(response.expires_in || 3600) * 1000);
+        resolve(driveSync.accessToken);
+      },
+    });
+    client.requestAccessToken({ prompt: interactive ? "consent" : "" });
+  });
+}
+async function driveFetch(url, options = {}) {
+  const token = await ensureDriveToken(false);
+  const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
+  const response = await fetch(url, { ...options, headers });
+  if (!response.ok) throw new Error(`Drive API ${response.status}`);
+  return response;
+}
+async function ensureDriveFolder() {
+  if (driveSync.folderId) return driveSync.folderId;
+  const cfg = driveConfig();
+  const query = encodeURIComponent(`name='${cfg.folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const search = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&spaces=drive`);
+  const list = await search.json();
+  const existing = list.files?.[0];
+  if (existing?.id) {
+    driveSync.folderId = existing.id;
+    return existing.id;
+  }
+  const create = await driveFetch("https://www.googleapis.com/drive/v3/files", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: cfg.folderName, mimeType: "application/vnd.google-apps.folder" }),
+  });
+  const folder = await create.json();
+  driveSync.folderId = folder.id;
+  return folder.id;
+}
+async function uploadDriveFile({ name, content, mimeType = "application/json", parentId }) {
+  const token = await ensureDriveToken(false);
+  const meta = { name, parents: parentId ? [parentId] : undefined };
+  const boundary = `app-rural-${Date.now()}`;
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n${content}\r\n--${boundary}--`;
+  const response = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`,
+    },
+    body,
+  });
+  if (!response.ok) throw new Error(`No se pudo subir ${name} a Drive.`);
+  return response.json();
+}
+async function listLatestDriveBackup(folderId) {
+  const query = encodeURIComponent(`'${folderId}' in parents and trashed=false and name contains 'app_rural_backup_'`);
+  const response = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=createdTime desc&fields=files(id,name,createdTime)&pageSize=30`);
+  const data = await response.json();
+  const files = data.files || [];
+  const main = files.find((item) => item.name.includes("_main.json"));
+  const images = files.find((item) => item.name.includes("_images.json"));
+  return { main, images };
+}
+async function downloadDriveText(fileId) {
+  const response = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  return response.text();
 }
 
 function getProducer() {
@@ -2581,8 +2723,20 @@ function exportExcel(filename, sheets) {
 function imageHtml(src, label = "imagen") {
   return src ? `<div><b>${esc(label)}:</b><br><img src="${src}" alt="${esc(label)}"></div>` : "";
 }
+function formatExportValue(value) {
+  if (Array.isArray(value)) {
+    if (!value.length) return "";
+    return value
+      .map((item) => (typeof item === "object" && item ? Object.entries(item).map(([k, v]) => `${k}: ${formatExportValue(v)}`).join(" | ") : formatExportValue(item)))
+      .join(" ; ");
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value).map(([k, v]) => `${k}: ${formatExportValue(v)}`).join(" | ");
+  }
+  return value == null ? "" : String(value);
+}
 function objectEntriesTable(obj = {}) {
-  return `<table><tr><th>Campo</th><th>Valor</th></tr>${Object.entries(obj).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" && v ? JSON.stringify(v) : v)}</td></tr>`).join("")}</table>`;
+  return `<table><tr><th>Campo</th><th>Valor</th></tr>${Object.entries(obj).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(formatExportValue(v))}</td></tr>`).join("")}</table>`;
 }
 function vaccineWordHtml(v) {
   return `<h1>Vacuna: ${esc(v.brand)}</h1><p><b>Propiedad:</b> ${esc(medOwnerLabel(v.owner))}</p><p><b>Caducidad:</b> ${esc(v.expiry)}</p><p><b>Cobertura total:</b> ${esc(v.coverageAnimals)} animales</p><p><b>Costo total:</b> ${money(v.price)} · <b>Costo unitario:</b> ${money(v.unitCost)}</p><p><b>Enfermedades:</b> ${esc(v.diseases)}</p><p><b>Notas:</b> ${esc(v.notes)}</p>${imageHtml(v.photo, "Evidencia vacuna")}`;
@@ -2833,11 +2987,13 @@ function bindGlobal() {
     exportExcel("app_rural_resumen.xls", producerExcelSheets()),
   );
   $("#btnBackupJson")?.addEventListener("click", () =>
-    download(
-      `app_rural_backup_${new Date().toISOString().slice(0, 10)}.json`,
-      JSON.stringify(state, null, 2),
-      "application/json",
-    ),
+    (() => {
+      const imageMap = {};
+      const sanitized = cloneStateWithImageRefs(state, imageMap);
+      download(`app_rural_backup_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(sanitized, null, 2), "application/json");
+      download(`app_rural_backup_images_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(imageMap, null, 2), "application/json");
+      showFloatingNotice("Respaldo JSON generado (datos + imágenes separadas).");
+    })(),
   );
   $("#btnRestoreJsonInput")?.addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
@@ -2846,7 +3002,7 @@ function bindGlobal() {
     fr.onload = async () => {
       try {
         const parsed = JSON.parse(fr.result);
-        Object.assign(state, parsed);
+        Object.assign(state, restoreStateImageRefs(parsed, {}));
         normalizeEntityCollections(window.AppServices?.auth?.getCurrentUser?.()?.uid || null);
         saveState();
         await loadState();
@@ -2858,6 +3014,58 @@ function bindGlobal() {
     };
     fr.readAsText(f);
     e.target.value = "";
+  });
+  $("#btnConnectDrive")?.addEventListener("click", async () => {
+    try {
+      await ensureDriveToken(true);
+      await ensureDriveFolder();
+      showFloatingNotice("Google Drive conectado correctamente.");
+    } catch (error) {
+      alert(error.message || "No fue posible conectar Google Drive.");
+    }
+  });
+  $("#btnExportDrive")?.addEventListener("click", async () => {
+    try {
+      saveState();
+      await ensureDriveToken(true);
+      const folderId = await ensureDriveFolder();
+      const imageMap = {};
+      const sanitized = cloneStateWithImageRefs(state, imageMap);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await uploadDriveFile({
+        name: `app_rural_backup_${stamp}_main.json`,
+        content: JSON.stringify(sanitized, null, 2),
+        parentId: folderId,
+      });
+      await uploadDriveFile({
+        name: `app_rural_backup_${stamp}_images.json`,
+        content: JSON.stringify(imageMap, null, 2),
+        parentId: folderId,
+      });
+      showFloatingNotice("Respaldo completo exportado a Google Drive.");
+    } catch (error) {
+      alert(error.message || "No se pudo exportar respaldo a Google Drive.");
+    }
+  });
+  $("#btnImportDrive")?.addEventListener("click", async () => {
+    try {
+      await ensureDriveToken(true);
+      const folderId = await ensureDriveFolder();
+      const backup = await listLatestDriveBackup(folderId);
+      if (!backup.main) throw new Error("No se encontró respaldo principal en Drive.");
+      const mainJson = parseJsonSafely(await downloadDriveText(backup.main.id));
+      const imagesJson = backup.images ? parseJsonSafely(await downloadDriveText(backup.images.id)) : {};
+      if (!mainJson) throw new Error("El archivo principal de respaldo no es válido.");
+      const restored = restoreStateImageRefs(mainJson, imagesJson || {});
+      Object.assign(state, restored);
+      normalizeEntityCollections(window.AppServices?.auth?.getCurrentUser?.()?.uid || null);
+      saveState();
+      await loadState();
+      renderAll();
+      showFloatingNotice("Respaldo importado desde Google Drive.");
+    } catch (error) {
+      alert(error.message || "No se pudo importar respaldo desde Google Drive.");
+    }
   });
   $("#btnGoogleLogin")?.addEventListener("click", async () => {
     try {
@@ -3124,6 +3332,12 @@ function ensureProcedureAnimalEntriesForScope() {
 function renderProcedureType() {
   const type = $("#p_type").value;
   const scope = $("#p_scope").value;
+  const hasType = Boolean(type);
+  $$('details[data-procedure-block]').forEach((detail) => {
+    if (detail.dataset.procedureBlock !== "base") {
+      detail.style.display = hasType ? "block" : "none";
+    }
+  });
   const details = $$("#procedureForm details");
   details.forEach((d) => {
     const sum = d.querySelector("summary")?.textContent || "";
@@ -3136,10 +3350,13 @@ function renderProcedureType() {
   if (["CIRUGIA", "CASO_CLINICO", "NECROPSIA"].includes(type)) $("#p_scope").value = "INDIVIDUAL";
   const helper = $("#p_animalsHelper");
   if (helper) {
-    helper.textContent = scope === "GRUPAL"
+    helper.textContent = !hasType
+      ? "Primero selecciona el tipo de procedimiento para mostrar la captura específica."
+      : scope === "GRUPAL"
       ? "Selecciona cada animal tratado, captura su peso individual y marca examen físico solo cuando corresponda."
       : "Para procedimientos individuales también se conserva un subregistro individual para usar peso, dosis y exportación completa.";
   }
+  if (!hasType) return;
   ensureProcedureAnimalEntriesForScope();
   renderProcedureDraftLists();
 }
@@ -3417,7 +3634,21 @@ function renderProcedureAnimalCards() {
   });
 }
 function addProcedureMedUse() {
-  show("p_msg", "La medicación ahora se asigna por animal desde cada bloque individual usando un medicamento existente del sistema.", "warning");
+  const med = byId(state.meds, $("#p_medSelect")?.value);
+  if (!med) return show("p_msg", "Selecciona un medicamento para vincularlo al procedimiento.", "warning");
+  const entries = state.draft.procedureAnimalEntries || [];
+  if (!entries.length) return show("p_msg", "Agrega al menos un animal al procedimiento antes de vincular medicamento.", "warning");
+  const targetAnimalId = $("#p_animalGroup")?.value || "";
+  let updates = 0;
+  entries.forEach((entry) => {
+    if (targetAnimalId && entry.animalId !== targetAnimalId) return;
+    entry.medicationId = med.id;
+    syncProcedureAnimalSummary(entry);
+    updates += 1;
+  });
+  renderProcedureDraftLists();
+  if (!updates) return show("p_msg", "No se encontró el animal objetivo para vincular el medicamento.", "warning");
+  show("p_msg", `Medicamento ${med.brand} agregado y vinculado en ${updates} animal(es).`, "success");
 }
 function renderProcedureDraftLists() {
   renderProcedureAnimalCards();
