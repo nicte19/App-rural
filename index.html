@@ -1914,6 +1914,17 @@
                     </div>
                   </div>
 
+                  <div id="p_medicationModeQuestion" class="grid cols-2" style="display:none;">
+                    <div>
+                      <label for="p_medicationApplicationMode">¿Cómo se administrará la medicación?</label>
+                      <select id="p_medicationApplicationMode">
+                        <option value="INDIVIDUAL_ANIMAL">Individualizada por animal</option>
+                        <option value="GROUP_WATER_FEED">Grupal en agua/alimento</option>
+                      </select>
+                    </div>
+                    <div class="help">Esta decisión se define antes de mostrar captura individual y determina si el flujo será por tarjeta animal o bloque único grupal.</div>
+                  </div>
+
                   <div class="help">Primero define productor(a), fecha, tipo y modalidad. Los datos clínicos individuales del animal aparecen después de seleccionar animales.</div>
 
                   <div class="grid cols-2">
@@ -1950,33 +1961,29 @@
                 <div class="inner grid">
                   <div class="grid cols-4">
                     <div>
-                      <label for="p_animalGroup">Animal seleccionado</label>
-                      <select id="p_animalGroup"></select>
-                    </div>
-                    <div>
                       <label for="p_animalsQtyUsed">¿A cuántos animales se realizará?</label>
                       <input id="p_animalsQtyUsed" type="number" min="1" step="1" />
+                    </div>
+                    <div id="p_groupSpeciesWrap" style="display:none;">
+                      <label for="p_groupSpecies">¿Qué especie?</label>
+                      <input id="p_groupSpecies" type="text" placeholder="Ej. Borrego, bovino, aves..." />
                     </div>
                     <div>
                       <label for="p_totalProducerAnimals">Total animales del productor(a)</label>
                       <input id="p_totalProducerAnimals" type="number" disabled />
                     </div>
                   </div>
-                  <div class="grid cols-4">
+                  <div id="p_individualAnimalControls" class="grid cols-4">
                     <div>
-                      <label for="p_groupAnimalIdentification">Identificación individual para este procedimiento</label>
-                      <input id="p_groupAnimalIdentification" type="text" placeholder="Ej. Arete, nombre, lote" />
-                    </div>
-                    <div>
-                      <label for="p_groupAnimalObs">Observaciones individuales</label>
-                      <input id="p_groupAnimalObs" type="text" placeholder="Opcional" />
+                      <label for="p_animalGroup">Animal seleccionado</label>
+                      <select id="p_animalGroup"></select>
                     </div>
                     <div style="display:flex;align-items:flex-end;">
                       <button class="btn small" type="button" id="p_addGroupAnimal">➕ Agregar animal al procedimiento</button>
                     </div>
                   </div>
-                  <div class="help" id="p_animalsHelper">Selecciona animales una sola vez. En individual se genera una tarjeta automáticamente; en grupal usa el mismo selector y agrega cada animal.</div>
-                  <div class="list" id="p_groupAnimalList"></div>
+                  <div class="help" id="p_animalsHelper">Selecciona el modo de medicación para mostrar únicamente el flujo correcto.</div>
+                  <div class="list" id="p_groupAnimalList" style="display:none;"></div>
                 </div>
               </details>
 
@@ -1985,17 +1992,6 @@
               <details open data-procedure-block="inventory">
                 <summary>3. Despliegue dinámico y subregistros por animal</summary>
                 <div class="inner grid">
-
-                  <div id="p_medicationModeQuestion" class="grid cols-2" style="display:none;">
-                    <div>
-                      <label for="p_medicationApplicationMode">¿Cómo se administrará la medicación?</label>
-                      <select id="p_medicationApplicationMode">
-                        <option value="INDIVIDUAL_ANIMAL">Individualizada por animal</option>
-                        <option value="GROUP_WATER_FEED">Grupal en agua/alimento</option>
-                      </select>
-                    </div>
-                    <div class="help">Esta decisión aparece solo en medicina preventiva → medicación preventiva y define si la dosificación será por animal o en un bloque grupal.</div>
-                  </div>
 
                   <div class="help">
                     Los medicamentos y vacunas se seleccionan dentro de cada tarjeta de animal. Aquí solo verás la sumatoria final por procedimiento, el margen operativo y los demás inventarios vinculados.
