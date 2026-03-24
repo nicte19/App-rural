@@ -565,10 +565,6 @@
                     <textarea id="a_escasezForraje"></textarea>
                   </div>
 
-                  <div>
-                    <label for="a_dondeEstanMayorTiempo">Campo eliminado por consolidación; usar solo instalaciones / dónde viven</label>
-                    <textarea id="a_dondeEstanMayorTiempo"></textarea>
-                  </div>
 
                   <div class="sep"></div>
                   <h3 style="margin:0;font-size:14px;">Enfermedades</h3>
@@ -1918,20 +1914,7 @@
 
                   <div class="help">Primero define productor(a), fecha, tipo y modalidad. Los datos clínicos individuales del animal aparecen después de seleccionar animales.</div>
 
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_generalState">Estado general</label>
-                      <select id="p_generalState">
-                        <option value="">— Selecciona —</option>
-                        <option>Sano</option>
-                        <option>Enfermo</option>
-                        <option>Convaleciente</option>
-                        <option>Crítico</option>
-                        <option>Delgado</option>
-                        <option>Deshidratado</option>
-                        <option>Otro</option>
-                      </select>
-                    </div>
+                  <div class="grid cols-2">
                     <div>
                       <label for="p_chargeStatus">Estado del cobro</label>
                       <select id="p_chargeStatus">
@@ -1965,7 +1948,7 @@
                 <div class="inner grid">
                   <div class="grid cols-4">
                     <div>
-                      <label for="p_animalGroup">Animal principal (individual)</label>
+                      <label for="p_animalGroup">Animal seleccionado</label>
                       <select id="p_animalGroup"></select>
                     </div>
                     <div>
@@ -1975,10 +1958,6 @@
                     <div>
                       <label for="p_totalProducerAnimals">Total animales del productor(a)</label>
                       <input id="p_totalProducerAnimals" type="number" disabled />
-                    </div>
-                    <div>
-                      <label for="p_groupAnimalSelect">Agregar animal del productor(a)</label>
-                      <select id="p_groupAnimalSelect"></select>
                     </div>
                   </div>
                   <div class="grid cols-4">
@@ -1994,7 +1973,7 @@
                       <button class="btn small" type="button" id="p_addGroupAnimal">➕ Agregar animal al procedimiento</button>
                     </div>
                   </div>
-                  <div class="help" id="p_animalsHelper">En grupal selecciona exactamente los animales a tratar; en individual selecciona solo uno. Luego captura cada subregistro por animal.</div>
+                  <div class="help" id="p_animalsHelper">Selecciona animales una sola vez. En individual se genera una tarjeta automáticamente; en grupal usa el mismo selector y agrega cada animal.</div>
                   <div class="list" id="p_groupAnimalList"></div>
                 </div>
               </details>
