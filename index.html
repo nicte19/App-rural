@@ -1986,15 +1986,15 @@
                 <summary>3. Despliegue dinámico y subregistros por animal</summary>
                 <div class="inner grid">
 
-                  <div class="grid cols-2">
+                  <div id="p_medicationModeQuestion" class="grid cols-2" style="display:none;">
                     <div>
-                      <label for="p_medicationApplicationMode">Tipo de aplicación</label>
+                      <label for="p_medicationApplicationMode">¿Cómo se administrará la medicación?</label>
                       <select id="p_medicationApplicationMode">
-                        <option value="INDIVIDUAL_ANIMAL">Individual por animal</option>
-                        <option value="GROUP_WATER_FEED">Grupal (agua / alimento)</option>
+                        <option value="INDIVIDUAL_ANIMAL">Individualizada por animal</option>
+                        <option value="GROUP_WATER_FEED">Grupal en agua/alimento</option>
                       </select>
                     </div>
-                    <div class="help">Individual mantiene cálculo por peso animal. Grupal usa un solo cálculo total por agua/alimento.</div>
+                    <div class="help">Esta decisión aparece solo en medicina preventiva → medicación preventiva y define si la dosificación será por animal o en un bloque grupal.</div>
                   </div>
 
                   <div class="help">
@@ -2047,6 +2047,8 @@
                       <select id="p_groupDoseRule">
                         <option value="PER_LITER">Por litro</option>
                         <option value="PER_KG_FEED">Por kg alimento</option>
+                        <option value="PER_ANIMAL">Por animal (referencia)</option>
+                        <option value="PER_KG">Por kg (referencia)</option>
                       </select>
                     </div>
                     <div>

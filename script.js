@@ -1723,10 +1723,18 @@ function normalizeSpeciesRef(value = "") {
     .toLowerCase();
 }
 function doseRuleDenominator(mode = "") {
-  return mode === "PER_KG" ? "kg" : mode === "PER_ANIMAL" ? "animal" : mode === "PER_LITER" ? "litro" : "";
+  return mode === "PER_KG" ? "kg"
+    : mode === "PER_ANIMAL" ? "animal"
+      : mode === "PER_LITER" ? "litro"
+        : mode === "PER_KG_FEED" ? "kg alimento"
+          : "";
 }
 function doseRuleLabel(mode = "") {
-  return mode === "PER_KG" ? "Por kg" : mode === "PER_ANIMAL" ? "Por animal" : mode === "PER_LITER" ? "Por litro" : mode || "";
+  return mode === "PER_KG" ? "Por kg"
+    : mode === "PER_ANIMAL" ? "Por animal"
+      : mode === "PER_LITER" ? "Por litro"
+        : mode === "PER_KG_FEED" ? "Por kg alimento"
+          : mode || "";
 }
 function getMedicationSpeciesDoseRows() {
   return $$("#m_speciesDoseList [data-dose-row]")
@@ -3585,24 +3593,24 @@ function getProcedureAnimalMedicationSummary(entry) {
   const profile = med ? getMedicationDoseProfile(med, entry.species) : null;
   const mode = profile?.calculationMode || "PER_KG";
   const weight = Number(entry.weightRecordedKg || 0);
-  const volumeLiters = Number(entry.doseVolumeLiters || 0);
   const baseDose = Number(profile?.dose || 0);
+  const individualMode = !isGroupMedicationMode();
+  const incompatibleIndividualMode = individualMode && mode === "PER_LITER";
   const theoreticalDoseTotal = profile
     ? mode === "PER_ANIMAL"
       ? baseDose
-      : mode === "PER_LITER"
-        ? baseDose * volumeLiters
-      : baseDose * weight
+      : incompatibleIndividualMode
+        ? 0
+        : baseDose * weight
     : 0;
   const missingWeight = profile && mode === "PER_KG" && weight <= 0;
-  const missingVolume = profile && mode === "PER_LITER" && volumeLiters <= 0;
   const warning = med
     ? !profile
       ? `Falta definir la dosis de ${med.brand} para la especie ${entry.species || "seleccionada"} en el módulo de medicamentos.`
+      : incompatibleIndividualMode
+        ? `${med.brand} usa regla por litro y no aplica para dosificación individual por animal.`
       : missingWeight
         ? `Captura un peso válido para calcular automáticamente ${med.brand}.`
-        : missingVolume
-          ? `Captura litros válidos (> 0) para calcular automáticamente ${med.brand} por volumen.`
         : ""
     : "";
   return {
@@ -3719,43 +3727,81 @@ function ensureProcedureAnimalEntriesForScope() {
   })];
 }
 function getProcedureMedicationApplicationMode() {
+  if (!shouldShowMedicationModeQuestion()) return "INDIVIDUAL_ANIMAL";
   return $("#p_medicationApplicationMode")?.value || "INDIVIDUAL_ANIMAL";
 }
 function isGroupMedicationMode() {
   return getProcedureMedicationApplicationMode() === "GROUP_WATER_FEED";
 }
+function shouldShowMedicationModeQuestion() {
+  return $("#p_type")?.value === "PREVENTIVA" && $("#p_preventiveSubtype")?.value === "MEDICACION_PREVENTIVA";
+}
 function calculateGroupMedicationDraft() {
-  const doseBase = Number($("#p_groupDoseBase")?.value || 0);
+  const entries = (state.draft.procedureAnimalEntries || []).map(syncProcedureAnimalSummary);
+  const animalsCount = entries.length;
+  const totalWeight = entries.reduce((acc, entry) => acc + Number(entry.weightRecordedKg || 0), 0);
   const totalVolumeKg = Number($("#p_groupTotalVolumeKg")?.value || 0);
-  const unit = ($("#p_groupDoseUnit")?.value || "").trim();
-  const rule = $("#p_groupDoseRule")?.value || "PER_LITER";
+  const administrationType = $("#p_groupAdministrationType")?.value || "AGUA";
   const med = byId(state.meds, $("#p_groupMedSelect")?.value || "");
-  const totalQty = doseBase * totalVolumeKg;
-  const denominator = rule === "PER_KG_FEED" ? "kg" : "L";
-  const summary = doseBase > 0 && totalVolumeKg > 0
-    ? `${doseBase} ${unit || med?.unit || "u"} por ${denominator} × ${totalVolumeKg} ${denominator} = ${Number(totalQty).toFixed(2)} ${unit || med?.unit || "u"}`
-    : "Ejemplo: 2 g por litro × 10 L = 20 g.";
+  const speciesRef = entries[0]?.species || "";
+  const profile = med ? getMedicationDoseProfile(med, speciesRef) : null;
+  const currentRule = $("#p_groupDoseRule")?.value || "";
+  const derivedRule = profile?.calculationMode === "PER_LITER"
+    ? "PER_LITER"
+    : profile?.calculationMode === "PER_KG"
+      ? (administrationType === "ALIMENTO" ? "PER_KG_FEED" : "PER_KG")
+      : profile?.calculationMode === "PER_ANIMAL"
+        ? "PER_ANIMAL"
+        : "";
+  const rule = currentRule || derivedRule || "PER_LITER";
+  if ($("#p_groupDoseRule")) $("#p_groupDoseRule").value = rule;
+  const doseBase = Number($("#p_groupDoseBase")?.value || profile?.dose || 0);
+  const unit = ($("#p_groupDoseUnit")?.value || profile?.doseUnit || med?.unit || "").trim();
+  const basis = rule === "PER_LITER" || rule === "PER_KG_FEED"
+    ? totalVolumeKg
+    : rule === "PER_ANIMAL"
+      ? animalsCount
+      : totalWeight;
+  const basisLabel = rule === "PER_LITER"
+    ? `${totalVolumeKg} L`
+    : rule === "PER_KG_FEED"
+      ? `${totalVolumeKg} kg alimento`
+      : rule === "PER_ANIMAL"
+        ? `${animalsCount} animales`
+        : `${totalWeight.toFixed(2)} kg vivos`;
+  const totalQty = doseBase * basis;
+  const summary = doseBase > 0 && basis > 0
+    ? `${doseBase} ${unit || med?.unit || "u"}/${doseRuleDenominator(rule)} × ${basisLabel} = ${Number(totalQty).toFixed(2)} ${unit || med?.unit || "u"}`
+    : "Selecciona medicamento y captura la base del cálculo grupal.";
+  const warning = profile && ["PER_ANIMAL", "PER_KG"].includes(profile.calculationMode)
+    ? "Advertencia: la regla principal del medicamento es por animal/peso; para agua/alimento se recomienda regla por litro o por kg de alimento."
+    : "";
   return {
     medicationId: med?.id || "",
     medicationName: med?.brand || "",
-    administrationType: $("#p_groupAdministrationType")?.value || "AGUA",
+    administrationType,
     rule,
     doseBase,
     doseUnit: unit || med?.unit || "",
     totalVolumeKg,
     totalQty: Number(totalQty.toFixed(4)),
     summary,
+    warning,
   };
 }
 function toggleProcedureMedicationModeUi() {
+  const showModeQuestion = shouldShowMedicationModeQuestion();
+  const modeQuestion = $("#p_medicationModeQuestion");
   const group = isGroupMedicationMode();
   const individualControls = $("#p_individualMedicationControls");
   const groupBlock = $("#p_groupMedicationBlock");
+  if (modeQuestion) modeQuestion.style.display = showModeQuestion ? "" : "none";
+  if (!showModeQuestion && $("#p_medicationApplicationMode")) $("#p_medicationApplicationMode").value = "INDIVIDUAL_ANIMAL";
   if (individualControls) individualControls.style.display = group ? "none" : "";
-  if (groupBlock) groupBlock.style.display = group ? "" : "none";
+  if (groupBlock) groupBlock.style.display = showModeQuestion && group ? "" : "none";
   const helper = $("#p_animalsHelper");
-  if (helper && group) {
-    helper.textContent = "Modo grupal activo: conserva animales como referencia, pero la medicación se calcula en un único bloque (agua/alimento).";
+  if (helper && showModeQuestion && group) {
+    helper.textContent = "Modo grupal activo: registra animales tratados, pero la medicación se calcula en un único bloque (agua/alimento).";
   }
 }
 function renderProcedureType() {
@@ -3791,7 +3837,7 @@ function renderProcedureType() {
     helper.textContent = !hasType
       ? "Primero selecciona el tipo de procedimiento para mostrar la captura específica."
       : scope === "GRUPAL"
-      ? "Usa un solo selector de animales y agrega cada animal tratado para generar sus tarjetas individuales."
+      ? "Selecciona productor(a), fecha, tipo, subtipo, animales y luego define el modo de medicación cuando aplique."
       : "Selecciona un solo animal y el sistema genera automáticamente su tarjeta individual.";
   }
   toggleProcedureMedicationModeUi();
@@ -4030,8 +4076,8 @@ function validateProcedureAnimalEntries(entries = [], previousProcedure = null) 
       if (profile?.calculationMode === 'PER_KG' && Number(synced.weightRecordedKg || 0) <= 0) {
         problems.push(`Captura un peso utilizable mayor a 0 kg para calcular ${med.brand} en ${synced.identification || synced.sourceLabel || 'el animal'}.`);
       }
-      if (profile?.calculationMode === 'PER_LITER' && Number(synced.doseVolumeLiters || 0) <= 0) {
-        problems.push(`Captura litros mayores a 0 para calcular ${med.brand} por volumen en ${synced.identification || synced.sourceLabel || 'el animal'}.`);
+      if (!isGroupMedicationMode() && profile?.calculationMode === 'PER_LITER') {
+        problems.push(`${med.brand} está configurado por litro y no puede usarse dentro de una tarjeta individual por animal.`);
       }
     }
   });
@@ -4077,7 +4123,6 @@ function renderProcedureAnimalCards() {
           <span class="chip">${esc(entry.species || "Sin especie")}</span>
           <span class="chip">${esc(entry.weightMethod || "Sin método")}</span>
           <span class="chip">${esc((entry.weightRecordedKg || 0).toFixed(2))} kg utilizable</span>
-          <span class="chip">${esc((Number(entry.doseVolumeLiters || 0)).toFixed(2))} L volumen</span>
         </div>
       </div>
       <div class="grid cols-4">
@@ -4089,7 +4134,6 @@ function renderProcedureAnimalCards() {
       <div class="grid cols-4">
         <div><label>${tapeFormula ? "Peso estimado (kg)" : manualTapeWeight ? "Peso estimado manual (kg)" : "Peso (kg)"}</label><input data-field="weight" type="number" min="0" step="0.01" value="${esc(tapeFormula ? entry.estimatedWeight : entry.weight)}" ${tapeFormula ? "disabled" : ""}></div>
         <div><label>Peso utilizable para dosis (kg)</label><input type="number" value="${esc((entry.weightRecordedKg || 0).toFixed(2))}" disabled></div>
-        <div><label>Volumen (L) para dosis por litro</label><input data-field="doseVolumeLiters" type="number" min="0" step="0.01" value="${esc(Number(entry.doseVolumeLiters || 0))}"></div>
         <div><label>Observaciones</label><input data-field="notes" type="text" value="${esc(entry.notes)}"></div>
         <div><label>Estado general</label><select data-field="generalState"><option value="">— Selecciona —</option><option value="Sano">Sano</option><option value="Enfermo">Enfermo</option><option value="Regular">Regular</option><option value="Otro">Otro</option></select></div>
         <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;"><label><input data-field="examIncluded" type="checkbox" ${entry.examIncluded ? "checked" : ""}> Examen físico general</label><button class="btn small bad" type="button" data-action="remove">Quitar</button></div>
@@ -4131,7 +4175,7 @@ function renderProcedureAnimalCards() {
           const [parent, child] = path.split(".");
           entry[parent] = entry[parent] || {};
           entry[parent][child] = value;
-        } else if (["weight", "chestGirth", "bodyLength", "doseVolumeLiters"].includes(path)) {
+        } else if (["weight", "chestGirth", "bodyLength"].includes(path)) {
           entry[path] = Number(value || 0);
         } else {
           entry[path] = value;
@@ -4170,7 +4214,7 @@ function renderProcedureDraftLists() {
       ? `${Number(groupDraft.totalQty).toFixed(2)} ${groupDraft.doseUnit || ""}`.trim()
       : "";
   }
-  if ($("#p_groupCalcSummary")) $("#p_groupCalcSummary").textContent = groupDraft.summary;
+  if ($("#p_groupCalcSummary")) $("#p_groupCalcSummary").textContent = [groupDraft.summary, groupDraft.warning].filter(Boolean).join(" · ");
   renderSimpleList(
     "#p_medUseList",
     aggregated.meds,
@@ -4249,8 +4293,15 @@ function saveProcedure() {
   if (!p.animals.length) return show("p_err", "Agrega al menos un animal tratado dentro del procedimiento.", "error");
   if (p.medicationApplicationMode === "GROUP_WATER_FEED") {
     if (!p.groupMedication?.medicationId) return show("p_err", "En aplicación grupal selecciona un medicamento.", "error");
-    if (Number(p.groupMedication?.doseBase || 0) <= 0 || Number(p.groupMedication?.totalVolumeKg || 0) <= 0) {
-      return show("p_err", "En aplicación grupal captura dosis base y volumen/cantidad total válidos.", "error");
+    const rule = p.groupMedication?.rule || "PER_LITER";
+    const requiresVolume = ["PER_LITER", "PER_KG_FEED"].includes(rule);
+    const requiresAnimals = rule === "PER_ANIMAL";
+    const requiresWeight = rule === "PER_KG";
+    const volumeOk = !requiresVolume || Number(p.groupMedication?.totalVolumeKg || 0) > 0;
+    const animalsOk = !requiresAnimals || Number((p.animals || []).length || 0) > 0;
+    const weightOk = !requiresWeight || Number((p.animals || []).reduce((acc, item) => acc + Number(item.weightRecordedKg || 0), 0)) > 0;
+    if (Number(p.groupMedication?.doseBase || 0) <= 0 || !volumeOk || !animalsOk || !weightOk) {
+      return show("p_err", "En aplicación grupal captura una dosis base válida y la base de cálculo correspondiente (L, kg alimento, animales o kg vivo).", "error");
     }
   }
   if (["CASO_CLINICO", "NECROPSIA"].includes(p.type) && p.scope !== "INDIVIDUAL") p.scope = "INDIVIDUAL";
@@ -4629,7 +4680,7 @@ function bindProcedures() {
     $("#" + id)?.addEventListener("input", renderProcedureDraftLists);
     $("#" + id)?.addEventListener("change", renderProcedureDraftLists);
   });
-  $("#p_preventiveSubtype")?.addEventListener("change", renderProcedureDraftLists);
+  $("#p_preventiveSubtype")?.addEventListener("change", renderProcedureType);
   $("#p_zoo_activity")?.addEventListener("change", renderProcedureDraftLists);
   $("#p_linkLabDecision")?.addEventListener("change", renderProcedureType);
   $("#p_animalGroup")?.addEventListener("change", () => {
