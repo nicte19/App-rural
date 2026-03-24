@@ -266,6 +266,25 @@ button:active {
 }
 .procedure-animal-card {
   border: 1px solid rgba(56, 189, 248, 0.18);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(2, 6, 23, 0.58));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.procedure-animal-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.procedure-animal-card .chips {
+  gap: 6px;
+}
+.procedure-animal-card .chip {
+  padding: 5px 9px;
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.92);
 }
 .stacked-dose-row {
   display: grid;
