@@ -53,11 +53,6 @@ const state = {
 };
 
 const syncHashes = {};
-const driveSync = {
-  accessToken: null,
-  tokenExpiresAt: 0,
-  folderId: null,
-};
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = (p = "id") =>
@@ -357,8 +352,100 @@ function restoreStateImageRefs(input, imageMap = {}) {
     return acc;
   }, {});
 }
-function parseJsonSafely(text) {
-  try { return JSON.parse(text); } catch (_) { return null; }
+function fileExtensionFromDataUrl(dataUrl = "") {
+  const mime = dataUrl.match(/^data:([^;]+);/i)?.[1]?.toLowerCase() || "";
+  if (mime.includes("png")) return "png";
+  if (mime.includes("webp")) return "webp";
+  if (mime.includes("gif")) return "gif";
+  if (mime.includes("bmp")) return "bmp";
+  if (mime.includes("heic")) return "heic";
+  if (mime.includes("heif")) return "heif";
+  if (mime.includes("svg")) return "svg";
+  return "jpg";
+}
+function sanitizeFilePart(value, fallback = "sin-dato") {
+  const cleaned = safe(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  return cleaned || fallback;
+}
+function normalizeDateText(value) {
+  const raw = safe(value).trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+function inferImageContext(path, rootState) {
+  const segments = safe(path).split(".").slice(1);
+  const moduleRaw = segments[0] || "general";
+  const moduleName = sanitizeFilePart(moduleRaw, "general");
+  const labels = [];
+  let cursor = rootState;
+  let dateLabel = "";
+  for (const segment of segments) {
+    if (!cursor) break;
+    const next = Array.isArray(cursor) ? cursor[Number(segment)] : cursor[segment];
+    if (next && typeof next === "object") {
+      const producerNameLabel = next.basic?.name || next.producerName;
+      if (producerNameLabel) labels.push(`prod-${sanitizeFilePart(producerNameLabel)}`);
+      if (next.name) labels.push(sanitizeFilePart(next.name));
+      if (next.brand) labels.push(sanitizeFilePart(next.brand));
+      if (next.type) labels.push(sanitizeFilePart(next.type));
+      if (next.id) labels.push(sanitizeFilePart(next.id));
+      if (!dateLabel) {
+        const fromObj = normalizeDateText(next.date || next.sampleDate || next.resultDate || "");
+        if (fromObj) dateLabel = fromObj;
+      }
+    }
+    cursor = next;
+  }
+  const uniqueLabels = [...new Set(labels)].filter(Boolean).slice(0, 3);
+  const finalDate = dateLabel || new Date().toISOString().slice(0, 10);
+  return { moduleName, label: uniqueLabels.join("_"), dateLabel: finalDate };
+}
+async function exportUploadedImagesZip(currentState) {
+  const ZipCtor = window.JSZip;
+  if (!ZipCtor) {
+    throw new Error("No se pudo cargar el generador ZIP. Revisa la conexión e intenta de nuevo.");
+  }
+  const imageMap = {};
+  cloneStateWithImageRefs(currentState, imageMap);
+  const entries = Object.entries(imageMap);
+  if (!entries.length) throw new Error("No hay imágenes subidas para descargar.");
+  const zip = new ZipCtor();
+  const manifest = {
+    generatedAt: new Date().toISOString(),
+    totalImages: entries.length,
+    notes: "Respaldo de imágenes exportadas desde App Rural. Usa este archivo junto con el respaldo JSON principal.",
+    files: [],
+  };
+  entries.forEach(([key, image], index) => {
+    const dataUrl = image?.dataUrl || "";
+    if (!dataUrl.startsWith("data:image/")) return;
+    const { moduleName, label, dateLabel } = inferImageContext(image.path, currentState);
+    const extension = fileExtensionFromDataUrl(dataUrl);
+    const indexTag = String(index + 1).padStart(4, "0");
+    const fileBase = [moduleName, label, dateLabel, indexTag].filter(Boolean).join("__");
+    const relativePath = `${moduleName}/${fileBase}.${extension}`;
+    const base64 = dataUrl.split(",")[1] || "";
+    zip.file(relativePath, base64, { base64: true });
+    manifest.files.push({ key, path: image.path, file: relativePath, module: moduleName });
+  });
+  zip.file("manifest-imagenes.json", JSON.stringify(manifest, null, 2));
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const stamp = new Date().toISOString().slice(0, 10);
+  const url = URL.createObjectURL(zipBlob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `app_rural_imagenes_${stamp}.zip`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  return { total: manifest.files.length };
 }
 function setThumb(id, src, empty = "Sin<br/>imagen") {
   const el = document.getElementById(id);
@@ -397,92 +484,6 @@ function setMulti(sel, values = []) {
     (o) => (o.selected = values.includes(o.value)),
   );
 }
-function driveConfig() {
-  const cfg = window.APP_GOOGLE_DRIVE_CONFIG || {};
-  return {
-    clientId: cfg.clientId || "",
-    folderName: cfg.folderName || "AppRuralBackups",
-  };
-}
-function ensureDriveToken(interactive = true) {
-  const cfg = driveConfig();
-  if (!cfg.clientId || !window.google?.accounts?.oauth2) {
-    throw new Error("Falta APP_GOOGLE_DRIVE_CONFIG.clientId para usar Google Drive.");
-  }
-  if (driveSync.accessToken && Date.now() < driveSync.tokenExpiresAt - 30_000) {
-    return Promise.resolve(driveSync.accessToken);
-  }
-  return new Promise((resolve, reject) => {
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: cfg.clientId,
-      scope: "https://www.googleapis.com/auth/drive.file",
-      callback: (response) => {
-        if (response?.error) return reject(new Error(response.error));
-        driveSync.accessToken = response.access_token;
-        driveSync.tokenExpiresAt = Date.now() + (Number(response.expires_in || 3600) * 1000);
-        resolve(driveSync.accessToken);
-      },
-    });
-    client.requestAccessToken({ prompt: interactive ? "consent" : "" });
-  });
-}
-async function driveFetch(url, options = {}) {
-  const token = await ensureDriveToken(false);
-  const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
-  const response = await fetch(url, { ...options, headers });
-  if (!response.ok) throw new Error(`Drive API ${response.status}`);
-  return response;
-}
-async function ensureDriveFolder() {
-  if (driveSync.folderId) return driveSync.folderId;
-  const cfg = driveConfig();
-  const query = encodeURIComponent(`name='${cfg.folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const search = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&spaces=drive`);
-  const list = await search.json();
-  const existing = list.files?.[0];
-  if (existing?.id) {
-    driveSync.folderId = existing.id;
-    return existing.id;
-  }
-  const create = await driveFetch("https://www.googleapis.com/drive/v3/files", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: cfg.folderName, mimeType: "application/vnd.google-apps.folder" }),
-  });
-  const folder = await create.json();
-  driveSync.folderId = folder.id;
-  return folder.id;
-}
-async function uploadDriveFile({ name, content, mimeType = "application/json", parentId }) {
-  const token = await ensureDriveToken(false);
-  const meta = { name, parents: parentId ? [parentId] : undefined };
-  const boundary = `app-rural-${Date.now()}`;
-  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n${content}\r\n--${boundary}--`;
-  const response = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": `multipart/related; boundary=${boundary}`,
-    },
-    body,
-  });
-  if (!response.ok) throw new Error(`No se pudo subir ${name} a Drive.`);
-  return response.json();
-}
-async function listLatestDriveBackup(folderId) {
-  const query = encodeURIComponent(`'${folderId}' in parents and trashed=false and name contains 'app_rural_backup_'`);
-  const response = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=createdTime desc&fields=files(id,name,createdTime)&pageSize=30`);
-  const data = await response.json();
-  const files = data.files || [];
-  const main = files.find((item) => item.name.includes("_main.json"));
-  const images = files.find((item) => item.name.includes("_images.json"));
-  return { main, images };
-}
-async function downloadDriveText(fileId) {
-  const response = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
-  return response.text();
-}
-
 function getProducer() {
   return byId(state.producers, state.selectedProducerId);
 }
@@ -3268,73 +3269,12 @@ function bindGlobal() {
     fr.readAsText(f);
     e.target.value = "";
   });
-  $("#btnConnectDrive")?.addEventListener("click", async () => {
+  $("#btnDownloadImages")?.addEventListener("click", async () => {
     try {
-      await ensureDriveToken(true);
-      await ensureDriveFolder();
-      showFloatingNotice("Google Drive conectado correctamente.");
+      const result = await exportUploadedImagesZip(state);
+      showFloatingNotice(`Descarga completada: ${result.total} imagen(es) en ZIP.`);
     } catch (error) {
-      alert(error.message || "No fue posible conectar Google Drive.");
-    }
-  });
-  $("#btnExportDrive")?.addEventListener("click", async () => {
-    try {
-      saveState();
-      await ensureDriveToken(true);
-      const folderId = await ensureDriveFolder();
-      const imageMap = {};
-      const sanitized = cloneStateWithImageRefs(state, imageMap);
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      await uploadDriveFile({
-        name: `app_rural_backup_${stamp}_main.json`,
-        content: JSON.stringify(sanitized, null, 2),
-        parentId: folderId,
-      });
-      await uploadDriveFile({
-        name: `app_rural_backup_${stamp}_images.json`,
-        content: JSON.stringify(imageMap, null, 2),
-        parentId: folderId,
-      });
-      showFloatingNotice("Respaldo completo exportado a Google Drive.");
-    } catch (error) {
-      alert(error.message || "No se pudo exportar respaldo a Google Drive.");
-    }
-  });
-  $("#btnImportDrive")?.addEventListener("click", async () => {
-    try {
-      await ensureDriveToken(true);
-      const folderId = await ensureDriveFolder();
-      const backup = await listLatestDriveBackup(folderId);
-      if (!backup.main) throw new Error("No se encontró respaldo principal en Drive.");
-      const mainJson = parseJsonSafely(await downloadDriveText(backup.main.id));
-      const imagesJson = backup.images ? parseJsonSafely(await downloadDriveText(backup.images.id)) : {};
-      if (!mainJson) throw new Error("El archivo principal de respaldo no es válido.");
-      const restored = restoreStateImageRefs(mainJson, imagesJson || {});
-      Object.assign(state, restored);
-      normalizeEntityCollections(window.AppServices?.auth?.getCurrentUser?.()?.uid || null);
-      saveState();
-      await loadState();
-      renderAll();
-      showFloatingNotice("Respaldo importado desde Google Drive.");
-    } catch (error) {
-      alert(error.message || "No se pudo importar respaldo desde Google Drive.");
-    }
-  });
-  $("#btnGoogleLogin")?.addEventListener("click", async () => {
-    try {
-      const result = await window.AppServices?.auth?.signInWithGoogle?.();
-      if (result?.redirected) alert('Se abrirá Google para completar el inicio de sesión.');
-    } catch (error) {
-      updateFirebaseConfigUi(error?.firebaseStatus || window.AppServices?.firebase?.getStatus?.() || {});
-      alert(friendlyAuthError(error));
-    }
-  });
-  $("#btnGoogleLogout")?.addEventListener("click", async () => {
-    try {
-      await window.AppServices?.auth?.signOut?.();
-      updateAuthUi(null);
-    } catch (error) {
-      alert(error.message || "No se pudo cerrar sesión");
+      alert(error.message || "No se pudieron descargar las imágenes.");
     }
   });
   $("#btnSyncNow")?.addEventListener("click", async () => {
