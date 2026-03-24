@@ -2546,6 +2546,20 @@ function renderSupplyMode() {
   $("#s_modeDisposable").classList.toggle("ghost", !disposable);
   $("#s_modeNonDisposable").classList.toggle("ghost", disposable);
 }
+function renderSupplyFormState() {
+  const editing = Boolean(state.editing.supplyId);
+  const badge = $("#s_formModeBadge");
+  const submitBtn = $('#supplyForm button[type="submit"]');
+  const clearBtn = $("#s_btnClear");
+  const cancelBtn = $("#s_btnCancelEdit");
+  if (badge) {
+    badge.textContent = editing ? "Editando insumo" : "Nuevo insumo";
+    badge.classList.toggle("warn", editing);
+  }
+  if (submitBtn) submitBtn.textContent = editing ? "💾 Guardar cambios" : "💾 Guardar insumo";
+  if (clearBtn) clearBtn.textContent = editing ? "🧽 Limpiar para nuevo insumo" : "🧽 Limpiar";
+  if (cancelBtn) cancelBtn.style.display = editing ? "inline-flex" : "none";
+}
 function collectSupply() {
   const type =
     state.ui.supplyMode === "DISPOSABLE" ? "DISPOSABLE" : "NON_DISPOSABLE";
@@ -2555,7 +2569,6 @@ function collectSupply() {
     costAcq = Number($("#s_costAcq").value || 0),
     estimatedUses = Number($("#s_estimatedUses").value || 0);
   return {
-    id: state.editing.supplyId || uid("sup"),
     type,
     name: $("#s_name").value.trim(),
     acquired: $("#s_acquired").value,
@@ -2574,28 +2587,35 @@ function collectSupply() {
   };
 }
 function saveSupply() {
-  const s = collectSupply();
-  if (!s.name || !s.acquired) {
+  const draft = collectSupply();
+  if (!draft.name || !draft.acquired) {
     show("s_err", "Nombre y fecha de adquisición son obligatorios.", "error");
     return;
   }
-  const idx = state.supplies.findIndex((x) => x.id === s.id);
-  if (idx >= 0) state.supplies[idx] = s;
-  else state.supplies.unshift(s);
+  const editingId = state.editing.supplyId;
+  if (editingId) {
+    const idx = state.supplies.findIndex((x) => x.id === editingId);
+    if (idx >= 0) state.supplies[idx] = { ...draft, id: editingId };
+    else state.supplies.unshift({ ...draft, id: uid("sup") });
+  } else {
+    state.supplies.unshift({ ...draft, id: uid("sup") });
+  }
   saveState();
   renderAll();
-  resetSupply();
-  show("s_ok", "Insumo guardado.", "success");
+  resetSupply("DISPOSABLE");
+  show("s_ok", editingId ? "Insumo actualizado y formulario listo para nuevo registro." : "Insumo guardado.", "success");
 }
-function resetSupply() {
+function resetSupply(nextMode = "DISPOSABLE") {
   state.editing.supplyId = null;
   $("#supplyForm").reset();
+  state.ui.supplyMode = nextMode === "NON_DISPOSABLE" ? "NON_DISPOSABLE" : "DISPOSABLE";
   state.draft.supplyTicketPhoto = null;
   setThumb("s_tk_preview", null, "Sin<br/>ticket");
   renderSupplyMode();
+  renderSupplyFormState();
 }
 function fillSupply(s) {
-  resetSupply();
+  resetSupply(s.type === "NON_DISPOSABLE" ? "NON_DISPOSABLE" : "DISPOSABLE");
   state.editing.supplyId = s.id;
   state.ui.supplyMode =
     s.type === "NON_DISPOSABLE" ? "NON_DISPOSABLE" : "DISPOSABLE";
@@ -2619,6 +2639,7 @@ function fillSupply(s) {
   setChecked("s_donated", s.donated || "NO");
   state.draft.supplyTicketPhoto = s.ticket || null;
   setThumb("s_tk_preview", s.ticket, "Sin<br/>ticket");
+  renderSupplyFormState();
 }
 function renderSupplyList() {
   const list = $("#s_list");
@@ -2651,6 +2672,7 @@ function renderSupplyList() {
 }
 function bindSupplies() {
   renderSupplyMode();
+  renderSupplyFormState();
   $("#s_modeDisposable")?.addEventListener("click", () => {
     state.ui.supplyMode = "DISPOSABLE";
     renderSupplyMode();
@@ -2697,7 +2719,14 @@ function bindSupplies() {
     state.draft.supplyTicketPhoto = null;
     setThumb("s_tk_preview", null, "Sin<br/>ticket");
   });
-  $("#s_btnClear")?.addEventListener("click", resetSupply);
+  $("#s_btnClear")?.addEventListener("click", () => {
+    const keepMode = state.editing.supplyId ? "DISPOSABLE" : state.ui.supplyMode;
+    resetSupply(keepMode);
+  });
+  $("#s_btnCancelEdit")?.addEventListener("click", () => {
+    resetSupply("DISPOSABLE");
+    show("s_msg", "Edición cancelada. Ya puedes capturar un nuevo insumo.", "warning");
+  });
   $("#supplyForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
     saveSupply();
