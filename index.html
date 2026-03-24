@@ -1994,30 +1994,7 @@
                 <div class="inner grid">
 
                   <div class="help">
-                    Los medicamentos se calculan automáticamente por animal desde los bloques individuales; aquí verás la sumatoria final, el margen operativo, el descuento de inventario y los demás inventarios vinculados.
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_medSelect">Medicamento</label>
-                      <select id="p_medSelect"></select>
-                    </div>
-                    <div>
-                      <label for="p_medCalculationMode">Base de cálculo</label>
-                      <select id="p_medCalculationMode">
-                        <option value="MANUAL">Cantidad manual total</option>
-                        <option value="PER_KG">Dosis por kg</option>
-                        <option value="PER_ANIMAL">Dosis fija por animal</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="p_medDoseKg">Cantidad / dosis base</label>
-                      <input id="p_medDoseKg" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label for="p_medUnitUsed">Unidad</label>
-                      <input id="p_medUnitUsed" type="text" placeholder="mL, tabletas..." />
-                    </div>
+                    Los medicamentos y vacunas se seleccionan dentro de cada tarjeta de animal. Aquí solo verás la sumatoria final por procedimiento, el margen operativo y los demás inventarios vinculados.
                   </div>
 
                   <div class="grid cols-4">
@@ -2045,31 +2022,9 @@
                     <div class="help">El sistema mostrará dosis total, margen operativo estimado, total usado y descuento automático de inventario por procedimiento.</div>
                   </div>
 
-                  <div class="row">
-                    <button class="btn small" type="button" id="p_addMedUse">➕ Agregar medicamento usado</button>
-                  </div>
                   <div class="list" id="p_medUseList"></div>
 
                   <div class="sep"></div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_vaccineSelect">Vacuna</label>
-                      <select id="p_vaccineSelect"></select>
-                    </div>
-                    <div>
-                      <label for="p_vaccineAnimalsApplied">¿A cuántos animales se aplicó?</label>
-                      <input id="p_vaccineAnimalsApplied" type="number" min="0" step="1" />
-                    </div>
-                    <div>
-                      <label for="p_vaccineNotes">Notas</label>
-                      <input id="p_vaccineNotes" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="row">
-                    <button class="btn small" type="button" id="p_addVaccineUse">➕ Agregar vacuna usada</button>
-                  </div>
                   <div class="list" id="p_vaccineUseList"></div>
 
                   <div class="sep"></div>

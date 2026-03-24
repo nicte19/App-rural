@@ -2185,30 +2185,36 @@ function populateInventorySelects() {
     vaxSel = $("#p_vaccineSelect"),
     supSel = $("#p_supplySelect"),
     labSupSel = $("#lab_supplySelectStandalone");
-  medSel.innerHTML =
-    '<option value="">— Selecciona —</option>' +
-    state.meds
-      .map(
-        (m) =>
-          `<option value="${m.id}">${esc(m.brand)} (${medRemaining(m)} ${esc(m.unit)})</option>`,
-      )
-      .join("");
-  vaxSel.innerHTML =
-    '<option value="">— Selecciona —</option>' +
-    state.vaccines
-      .map(
-        (v) =>
-          `<option value="${v.id}">${esc(v.brand)} (${vaccineRemaining(v)} animales)</option>`,
-      )
-      .join("");
-  supSel.innerHTML =
-    '<option value="">— Selecciona —</option>' +
-    state.supplies
-      .map(
-        (s) =>
-          `<option value="${s.id}">${esc(s.name)} (${esc(supplyRemaining(s))})</option>`,
-      )
-      .join("");
+  if (medSel) {
+    medSel.innerHTML =
+      '<option value="">— Selecciona —</option>' +
+      state.meds
+        .map(
+          (m) =>
+            `<option value="${m.id}">${esc(m.brand)} (${medRemaining(m)} ${esc(m.unit)})</option>`,
+        )
+        .join("");
+  }
+  if (vaxSel) {
+    vaxSel.innerHTML =
+      '<option value="">— Selecciona —</option>' +
+      state.vaccines
+        .map(
+          (v) =>
+            `<option value="${v.id}">${esc(v.brand)} (${vaccineRemaining(v)} animales)</option>`,
+        )
+        .join("");
+  }
+  if (supSel) {
+    supSel.innerHTML =
+      '<option value="">— Selecciona —</option>' +
+      state.supplies
+        .map(
+          (s) =>
+            `<option value="${s.id}">${esc(s.name)} (${esc(supplyRemaining(s))})</option>`,
+        )
+        .join("");
+  }
   if (labSupSel) {
     labSupSel.innerHTML =
       '<option value="">— Selecciona —</option>' +
@@ -3718,8 +3724,15 @@ function renderProcedureAnimalCards() {
       .join("");
     const tapeFormula = usesTapeFormula(entry.species, entry.weightMethod);
     const manualTapeWeight = isHorseOrCattleSpecies(entry.species) && entry.weightMethod === "CINTA_ESPECIAL";
-    return `<div class="item" data-proc-animal="${entry.id}">
-      <h4>${index + 1}. ${esc(entry.identification || entry.sourceLabel || "Animal")}</h4>
+    return `<div class="item procedure-animal-card" data-proc-animal="${entry.id}">
+      <div class="procedure-animal-card__header">
+        <h4>${index + 1}. ${esc(entry.identification || entry.sourceLabel || "Animal")}</h4>
+        <div class="chips">
+          <span class="chip">${esc(entry.species || "Sin especie")}</span>
+          <span class="chip">${esc(entry.weightMethod || "Sin método")}</span>
+          <span class="chip">${esc((entry.weightRecordedKg || 0).toFixed(2))} kg utilizable</span>
+        </div>
+      </div>
       <div class="grid cols-4">
         <div><label>Animal base</label><div class="help">${esc(entry.sourceLabel || "Sin referencia")}</div></div>
         <div><label>Identificación</label><input data-field="identification" type="text" value="${esc(entry.identification)}"></div>
@@ -3748,7 +3761,7 @@ function renderProcedureAnimalCards() {
       </div>
       ${entry.medicationWarning ? `<div class="error inline-error" style="display:block;">${esc(entry.medicationWarning)}</div>` : ""}
       ${entry.examIncluded ? `<div class="grid cols-3"><div><label>Temperatura (°C)</label><input data-field="exam.temperature" type="number" step="0.1" value="${esc(entry.exam?.temperature || "")}"></div><div><label>Estado general</label><input data-field="exam.generalState" type="text" value="${esc(entry.exam?.generalState || "")}"></div><div><label>Hallazgos examen</label><input data-field="exam.findings" type="text" value="${esc(entry.exam?.findings || "")}"></div></div>` : ""}
-      <div class="help">Subregistro individual listo con identificación, peso, método, medicamento/vacuna, dosis por especie, cantidad calculada y descuento de inventario.</div>
+      <div class="help">Ficha clínica rápida por animal: peso y método, medicamento/vacuna, dosis base por especie, cantidad calculada y descuento de inventario.</div>
     </div>`;
   }).join("");
   box.querySelectorAll("[data-proc-animal]").forEach((card) => {
