@@ -1199,6 +1199,35 @@
                   </div>
                 </div>
 
+                <div class="grid cols-4">
+                  <div>
+                    <label for="m_stockType">Tipo de inventario *</label>
+                    <select id="m_stockType">
+                      <option value="NUEVO">Nuevo</option>
+                      <option value="USADO">Usado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="m_anaRosaCharge">Cobrado por medicamento Ana Rosa</label>
+                    <input id="m_anaRosaCharge" type="number" min="0" step="0.01" placeholder="Ej. 0" />
+                  </div>
+                </div>
+                <div class="grid cols-3" id="m_usedFields" style="display:none;">
+                  <div>
+                    <label for="m_originalQty">Contenido original (si ya estaba usado) *</label>
+                    <input id="m_originalQty" type="number" min="0" step="0.01" placeholder="Ej. 50" />
+                  </div>
+                  <div>
+                    <label for="m_originalCost">Costo original (si ya estaba usado) *</label>
+                    <input id="m_originalCost" type="number" min="0" step="0.01" placeholder="Ej. 320" />
+                  </div>
+                  <div>
+                    <label for="m_remainingQty">Cantidad que sobra actualmente *</label>
+                    <input id="m_remainingQty" type="number" min="0" step="0.01" placeholder="Ej. 12" />
+                  </div>
+                </div>
+                <div class="help" id="m_stockTypeHelp">Para medicamento nuevo, el inventario inicial usa la cantidad total capturada.</div>
+
                 <details open>
                   <summary>📎 Evidencias (receta y compra)</summary>
                   <div class="inner grid">
@@ -1891,24 +1920,7 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_species">Especie animal</label>
-                      <input id="p_species" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_identification">No. identificación animal</label>
-                      <input id="p_identification" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_weight">Peso (kg)</label>
-                      <input id="p_weight" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label for="p_temperature">Temperatura (°C)</label>
-                      <input id="p_temperature" type="number" min="0" step="0.1" />
-                    </div>
-                  </div>
+                  <div class="help">Los datos clínicos individuales (identificación, especie, peso, temperatura y observaciones) se capturan en el bloque "Animales incluidos y captura individual" para evitar duplicados.</div>
 
                   <div class="grid cols-3">
                     <div>

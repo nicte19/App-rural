@@ -1530,22 +1530,49 @@ function renderMedicationSpeciesDoseRows(rows = []) {
 function getMedicationDoseProfile(med, species = "") {
   return (med?.speciesDoses || []).find((row) => speciesMatchesDose(species, row.species)) || null;
 }
+function medStockType() {
+  return $("#m_stockType")?.value || "NUEVO";
+}
+function renderMedStockType() {
+  const type = medStockType();
+  const used = type === "USADO";
+  const usedFields = $("#m_usedFields");
+  const help = $("#m_stockTypeHelp");
+  if (usedFields) usedFields.style.display = used ? "grid" : "none";
+  if (help) {
+    help.textContent = used
+      ? "Para medicamento usado, disponibilidad inicial = lo que sobra actualmente. Costo unitario = costo original / contenido original."
+      : "Para medicamento nuevo, el inventario inicial usa la cantidad total capturada.";
+  }
+}
 function collectMed() {
   const id = state.editing.medId || uid("med");
-  const totalQty = Number($("#m_totalQty").value || 0);
-  const cost = Number($("#m_cost").value || 0);
+  const stockType = medStockType();
+  const totalQty = Number($("#m_totalQty")?.value || 0);
+  const cost = Number($("#m_cost")?.value || 0);
+  const originalQty = Number($("#m_originalQty")?.value || 0);
+  const originalCost = Number($("#m_originalCost")?.value || 0);
+  const remainingQty = Number($("#m_remainingQty")?.value || 0);
+  const isUsed = stockType === "USADO";
+  const effectiveQty = isUsed ? remainingQty : totalQty;
+  const effectiveCost = isUsed ? originalCost : cost;
+  const costBasisQty = isUsed ? originalQty : totalQty;
   return {
     id,
-    brand: $("#m_brand").value.trim(),
-    active: $("#m_active").value.trim(),
-    owner: $("#m_owner").value,
-    presentation: $("#m_presentation").value.trim(),
-    cost,
-    expiry: $("#m_expiry").value,
-    totalQty,
-    unit: $("#m_unit").value.trim(),
-    unitCost: totalQty ? cost / totalQty : 0,
-    anaRosaCharge: Number($("#m_anaRosaCharge").value || 0),
+    brand: $("#m_brand")?.value.trim() || "",
+    active: $("#m_active")?.value.trim() || "",
+    owner: $("#m_owner")?.value || "",
+    presentation: $("#m_presentation")?.value.trim() || "",
+    cost: effectiveCost,
+    expiry: $("#m_expiry")?.value || "",
+    totalQty: effectiveQty,
+    unit: $("#m_unit")?.value.trim() || "",
+    unitCost: costBasisQty ? effectiveCost / costBasisQty : 0,
+    anaRosaCharge: Number($("#m_anaRosaCharge")?.value || 0),
+    stockType,
+    stockMeta: isUsed
+      ? { originalQty, originalCost, remainingQty }
+      : null,
     speciesDoses: getMedicationSpeciesDoseRows(),
     photos: { rx: state.draft.medRxPhoto, ticket: state.draft.medTicketPhoto },
     clinical: {
@@ -1570,6 +1597,27 @@ function saveMed() {
     );
     return;
   }
+  if (!med.owner) {
+    show("m_err", "Selecciona a quién pertenece el medicamento.", "error");
+    return;
+  }
+  if (!med.totalQty || med.totalQty <= 0) {
+    show("m_err", "Captura una cantidad válida mayor a 0 para guardar en inventario.", "error");
+    return;
+  }
+  if (med.stockType === "USADO") {
+    const originalQty = Number(med.stockMeta?.originalQty || 0);
+    const originalCost = Number(med.stockMeta?.originalCost || 0);
+    const remainingQty = Number(med.stockMeta?.remainingQty || 0);
+    if (!originalQty || !originalCost || remainingQty < 0) {
+      show("m_err", "Para medicamento usado captura contenido original, costo original y cantidad restante válidos.", "error");
+      return;
+    }
+    if (remainingQty > originalQty) {
+      show("m_err", "La cantidad restante no puede ser mayor al contenido original.", "error");
+      return;
+    }
+  }
   const idx = state.meds.findIndex((x) => x.id === med.id);
   if (idx >= 0) state.meds[idx] = med;
   else state.meds.unshift(med);
@@ -1581,7 +1629,9 @@ function saveMed() {
 function resetMed() {
   state.editing.medId = null;
   $("#medForm").reset();
+  if ($("#m_stockType")) $("#m_stockType").value = "NUEVO";
   renderMedicationSpeciesDoseRows([]);
+  renderMedStockType();
   state.draft.medRxPhoto = null;
   state.draft.medTicketPhoto = null;
   setThumb("m_rx_preview", null, "Sin<br/>receta");
@@ -1602,6 +1652,10 @@ function fillMed(m) {
     m_unit: m.unit,
     m_unitCost: m.unitCost,
     m_anaRosaCharge: m.anaRosaCharge,
+    m_stockType: m.stockType || "NUEVO",
+    m_originalQty: m.stockMeta?.originalQty || "",
+    m_originalCost: m.stockMeta?.originalCost || "",
+    m_remainingQty: m.stockMeta?.remainingQty || "",
     m_use: m.clinical?.use,
     m_mech: m.clinical?.mech,
     m_adverse: m.clinical?.adverse,
@@ -1613,6 +1667,7 @@ function fillMed(m) {
   }).forEach(([k, v]) => {
     if ($("#" + k)) $("#" + k).value = safe(v);
   });
+  renderMedStockType();
   renderMedicationSpeciesDoseRows(m.speciesDoses || []);
   state.draft.medRxPhoto = m.photos?.rx || null;
   state.draft.medTicketPhoto = m.photos?.ticket || null;
@@ -1634,7 +1689,7 @@ function renderMedList() {
   state.meds.forEach((m) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Cobrado por medicamento Ana Rosa:</b> ${money(m.anaRosaCharge)}</div><div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${row.calculationMode === "PER_KG" ? "kg" : "animal"}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Cobrado por medicamento Ana Rosa:</b> ${money(m.anaRosaCharge)}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${row.calculationMode === "PER_KG" ? "kg" : "animal"}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillMed(m);
     w.onclick = () =>
@@ -1667,6 +1722,7 @@ function renderMedList() {
 function bindMeds() {
   renderMedMode();
   renderMedicationSpeciesDoseRows([]);
+  renderMedStockType();
   $("#m_modeManual")?.addEventListener("click", () => {
     state.ui.medMode = "MANUAL";
     renderMedMode();
@@ -1679,11 +1735,24 @@ function bindMeds() {
   });
   ["m_totalQty", "m_cost"].forEach((id) =>
     $("#" + id)?.addEventListener("input", () => {
-      const total = Number($("#m_totalQty").value || 0),
-        cost = Number($("#m_cost").value || 0);
+      const total = Number($("#m_totalQty")?.value || 0),
+        cost = Number($("#m_cost")?.value || 0);
       $("#m_unitCost").value = total ? (cost / total).toFixed(2) : "";
     }),
   );
+  const refreshUsedMedCalc = () => {
+      renderMedStockType();
+      const isUsed = medStockType() === "USADO";
+      const qty = Number((isUsed ? $("#m_originalQty") : $("#m_totalQty"))?.value || 0);
+      const baseCost = Number((isUsed ? $("#m_originalCost") : $("#m_cost"))?.value || 0);
+      if ($("#m_unitCost")) $("#m_unitCost").value = qty > 0 ? (baseCost / qty).toFixed(2) : "";
+      if (isUsed && $("#m_totalQty")) $("#m_totalQty").value = $("#m_remainingQty")?.value || "";
+      if (isUsed && $("#m_cost")) $("#m_cost").value = $("#m_originalCost")?.value || "";
+    };
+  ["m_stockType", "m_originalQty", "m_originalCost", "m_remainingQty"].forEach((id) => {
+    $("#" + id)?.addEventListener("input", refreshUsedMedCalc);
+    $("#" + id)?.addEventListener("change", refreshUsedMedCalc);
+  });
   $("#ai_makePrompt")?.addEventListener("click", () => {
     const source = $("#ai_english").value.trim();
     const prompt = `Analiza este texto de medicamento veterinario y devuelve exclusivamente JSON válido con las llaves use, mech, adverse, preg, pk, overdose, interactions, dosing. Resume en español, conserva dosis prácticas y advertencias. Texto fuente: ${source}`;
@@ -2768,7 +2837,7 @@ function producerWordHtml(prod) {
 }
 function medSummaryHtml() {
   return `<h1>Medicamentos</h1>${state.meds
-    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Cantidad total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Ana Rosa:</b> ${money(m.anaRosaCharge)}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
+    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Cantidad total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Ana Rosa:</b> ${money(m.anaRosaCharge)}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
 }
 function supplySummaryHtml() {
   return `<h1>Insumos</h1>${state.supplies.map((s) => `<section><h2>${esc(s.name)}</h2><p><b>Tipo:</b> ${esc(s.type)}</p><p><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</p><p><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</p>${objectEntriesTable(s)}${imageHtml(s.ticket, "Ticket insumo")}</section>`).join('<div style="page-break-after:always"></div>')}`;
@@ -3681,7 +3750,7 @@ function collectProcedure() {
   let animals = (state.draft.procedureAnimalEntries || []).map((entry) => syncProcedureAnimalSummary({ ...entry, exam: { ...(entry.exam || {}) } }));
   if (!animals.length && $("#p_animalGroup")?.value) {
     const selected = byId(currentAnimals(), $("#p_animalGroup").value) || {};
-    animals = [createProcedureAnimalEntry(selected, { identification: $("#p_identification").value.trim() || animalLabel(selected), species: $("#p_species").value.trim() || selected.species || "", weight: $("#p_weight").value || 0 })];
+    animals = [createProcedureAnimalEntry(selected, { identification: $("#p_identification")?.value.trim() || animalLabel(selected), species: $("#p_species")?.value.trim() || selected.species || "", weight: $("#p_weight")?.value || 0 })];
   }
   const primary = animals[0] || {};
   const aggregated = aggregateProcedureInventoryFromAnimals(animals);
@@ -3694,10 +3763,10 @@ function collectProcedure() {
     producerId: $("#p_producer").value,
     animalId: $("#p_animalGroup").value,
     animalsQtyUsed: Number($("#p_animalsQtyUsed").value || animals.length || 0),
-    species: $("#p_species").value.trim() || primary.species || "",
-    identification: $("#p_identification").value.trim() || primary.identification || "",
-    weight: $("#p_weight").value || primary.weightRecordedKg || "",
-    temperature: $("#p_temperature").value,
+    species: $("#p_species")?.value.trim() || primary.species || "",
+    identification: $("#p_identification")?.value.trim() || primary.identification || "",
+    weight: $("#p_weight")?.value || primary.weightRecordedKg || "",
+    temperature: $("#p_temperature")?.value || primary.exam?.temperature || "",
     generalState: $("#p_generalState").value,
     notes: $("#p_notes").value.trim(),
     chargeStatus: $("#p_chargeStatus").value,
@@ -3817,7 +3886,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
   return [
     { name: "Productores", rows: [["Nombre","Celular","Localidad","Municipio","Estado","Clasificación","Razones no trabajar","Nota extra","Maps","Notas"], ...producers.map((p) => [p.basic.name,p.basic.celular,p.basic.localidad,p.basic.municipio,p.basic.estado,p.classification?.value || "",p.classification?.alerta || "",p.classification?.notaExtraPersona || "",p.location?.mapsUrl || "",p.notes || ""])] },
     { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, (a.function || []).join(", "), a.functionOther || ""])] },
-    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Cantidad","Unidad","Disponible","Cobrado Ana Rosa"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.totalQty,m.unit,medRemaining(m),m.anaRosaCharge])] },
+    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Cantidad","Unidad","Disponible","Cobrado Ana Rosa","Contenido original","Costo original","Cantidad remanente"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.totalQty,m.unit,medRemaining(m),m.anaRosaCharge,m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || ""])] },
     { name: "Vacunas", rows: [["Marca","Propiedad","Caducidad","Cobertura","Disponible","Costo total","Costo unitario","Enfermedades","Notas"], ...vaccines.map((v) => [v.brand,medOwnerLabel(v.owner),v.expiry,v.coverageAnimals,vaccineRemaining(v),v.price,v.unitCost,v.diseases,v.notes || ""])] },
     { name: "Insumos", rows: [["Nombre","Tipo","Cantidad","Disponible","Costo mostrado","Notas"], ...supplies.map((s) => [s.name,s.type,s.qty,supplyRemaining(s),supplyDisplayCost(s),s.notes || ""])] },
     { name: "Procedimientos", rows: [["Fecha","Tipo","Modalidad","Productor(a)","Identificación animal","Especie","Método peso","Peso utilizable (kg)","PT","LC","Medicamento","Dosis base especie","Cantidad calculada","Descuento inventario","Vacuna","Examen físico","Hallazgos","Observaciones"], ...procedureRows] },
