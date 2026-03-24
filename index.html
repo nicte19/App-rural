@@ -1872,10 +1872,14 @@
             <form id="procedureForm" autocomplete="off">
 
               <details open data-procedure-block="base">
-                <summary>1. Datos generales del procedimiento</summary>
+                <summary>1. Datos base del procedimiento</summary>
                 <div class="inner grid">
 
                   <div class="grid cols-4">
+                    <div>
+                      <label for="p_producer">Productor(a) *</label>
+                      <select id="p_producer"></select>
+                    </div>
                     <div>
                       <label for="p_date">Fecha *</label>
                       <input id="p_date" type="date" />
@@ -1885,8 +1889,7 @@
                       <select id="p_type">
                         <option value="">— Selecciona —</option>
                         <option value="PREVENTIVA">Medicina preventiva</option>
-                        <option value="ZOOTECNIA">Atención clínica / zootécnica</option>
-                        <option value="CIRUGIA">Cirugía</option>
+                        <option value="ZOOTECNIA">Asesoría clínica / zootécnica</option>
                         <option value="CASO_CLINICO">Caso clínico</option>
                         <option value="NECROPSIA">Necropsia</option>
                       </select>
@@ -1901,26 +1904,27 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-4">
+                  <div class="grid cols-3">
                     <div>
-                      <label for="p_scope">Modalidad</label>
+                      <label for="p_scope">Modo del procedimiento</label>
                       <select id="p_scope"><option value="INDIVIDUAL">Individual</option><option value="GRUPAL">Grupal</option></select>
                     </div>
                     <div>
-                      <label for="p_producer">Productor(a) *</label>
-                      <select id="p_producer"></select>
+                      <label for="p_preventiveSubtype">Subtipo medicina preventiva</label>
+                      <select id="p_preventiveSubtype">
+                        <option value="">— Selecciona —</option>
+                        <option value="VACUNACION">Vacunación</option>
+                        <option value="DESPARASITACION">Desparasitación</option>
+                        <option value="MEDICACION_PREVENTIVA">Medicación preventiva</option>
+                      </select>
                     </div>
                     <div>
-                      <label for="p_animalGroup">Animal / grupo animal *</label>
-                      <select id="p_animalGroup"></select>
-                    </div>
-                    <div>
-                      <label for="p_animalsQtyUsed">¿En cuántos animales se realizará?</label>
-                      <input id="p_animalsQtyUsed" type="number" min="1" step="1" />
+                      <label for="p_zoo_activity">Actividad asesoría clínica / zootécnica</label>
+                      <input id="p_zoo_activity" type="text" placeholder="Ej. Descole, areteo, instalaciones, castración, otros" />
                     </div>
                   </div>
 
-                  <div class="help">Los datos clínicos individuales (identificación, especie, peso, temperatura y observaciones) se capturan en el bloque "Animales incluidos y captura individual" para evitar duplicados.</div>
+                  <div class="help">Primero define productor(a), fecha, tipo y modalidad. Los datos clínicos individuales del animal aparecen después de seleccionar animales.</div>
 
                   <div class="grid cols-3">
                     <div>
@@ -1965,13 +1969,27 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>2. Animales incluidos y captura individual</summary>
+                <summary>2. Modo y selección de animales</summary>
                 <div class="inner grid">
                   <div class="grid cols-4">
+                    <div>
+                      <label for="p_animalGroup">Animal principal (individual)</label>
+                      <select id="p_animalGroup"></select>
+                    </div>
+                    <div>
+                      <label for="p_animalsQtyUsed">¿A cuántos animales se realizará?</label>
+                      <input id="p_animalsQtyUsed" type="number" min="1" step="1" />
+                    </div>
+                    <div>
+                      <label for="p_totalProducerAnimals">Total animales del productor(a)</label>
+                      <input id="p_totalProducerAnimals" type="number" disabled />
+                    </div>
                     <div>
                       <label for="p_groupAnimalSelect">Agregar animal del productor(a)</label>
                       <select id="p_groupAnimalSelect"></select>
                     </div>
+                  </div>
+                  <div class="grid cols-4">
                     <div>
                       <label for="p_groupAnimalIdentification">Identificación individual para este procedimiento</label>
                       <input id="p_groupAnimalIdentification" type="text" placeholder="Ej. Arete, nombre, lote" />
@@ -1984,7 +2002,7 @@
                       <button class="btn small" type="button" id="p_addGroupAnimal">➕ Agregar animal al procedimiento</button>
                     </div>
                   </div>
-                  <div class="help" id="p_animalsHelper">Selecciona animales existentes del productor(a) y completa su captura individual dentro del mismo procedimiento.</div>
+                  <div class="help" id="p_animalsHelper">En grupal selecciona exactamente los animales a tratar; en individual selecciona solo uno. Luego captura cada subregistro por animal.</div>
                   <div class="list" id="p_groupAnimalList"></div>
                 </div>
               </details>
@@ -1992,7 +2010,7 @@
               <div class="sep"></div>
 
               <details open data-procedure-block="inventory">
-                <summary>3. Inventario vinculado usado en el procedimiento</summary>
+                <summary>3. Despliegue dinámico y subregistros por animal</summary>
                 <div class="inner grid">
 
                   <div class="help">
@@ -2392,29 +2410,18 @@
 
               <div class="sep"></div>
 
-              <details open data-procedure-block="surgery">
-                <summary>7. Cirugía</summary>
-                <div class="inner grid">
-                  <div class="grid cols-2">
-                    <div><label for="p_sx_preop">Datos prequirúrgicos</label><textarea id="p_sx_preop"></textarea></div>
-                    <div><label for="p_sx_procedure">Procedimiento quirúrgico</label><textarea id="p_sx_procedure"></textarea></div>
-                  </div>
-                  <div class="grid cols-2">
-                    <div><label for="p_sx_anesthesia">Anestesia / sedación</label><textarea id="p_sx_anesthesia"></textarea></div>
-                    <div><label for="p_sx_findings">Hallazgos / complicaciones</label><textarea id="p_sx_findings"></textarea></div>
-                  </div>
-                  <div class="grid cols-2">
-                    <div><label for="p_sx_postop">Tratamiento posquirúrgico</label><textarea id="p_sx_postop"></textarea></div>
-                    <div><label for="p_sx_prognosis">Pronóstico y seguimiento</label><textarea id="p_sx_prognosis"></textarea></div>
-                  </div>
-                </div>
-              </details>
-
-              <div class="sep"></div>
-
               <details open data-procedure-block="lab">
                 <summary>8. Pruebas de laboratorio vinculables</summary>
                 <div class="inner grid">
+                  <div class="grid cols-3">
+                    <div>
+                      <label for="p_linkLabDecision">¿Desea vincular este procedimiento con una prueba de laboratorio?</label>
+                      <select id="p_linkLabDecision">
+                        <option value="NO">No</option>
+                        <option value="SI">Sí</option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="grid cols-4">
                     <div><label for="lab_type">Tipo de prueba</label><input id="lab_type" type="text" /></div>
                     <div><label for="lab_date">Fecha</label><input id="lab_date" type="date" /></div>
