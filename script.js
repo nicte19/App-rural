@@ -52,6 +52,10 @@ const state = {
       labTests: [],
     },
   },
+  anaRosaDebt: {
+    records: [],
+    paidHistory: [],
+  },
 };
 
 const syncHashes = {};
@@ -155,6 +159,10 @@ async function loadState() {
       ui: { ...state.ui, ...(parsed.ui || {}) },
       draft: { ...state.draft, ...(parsed.draft || {}) },
       sync: { ...state.sync, ...(parsed.sync || {}) },
+      anaRosaDebt: {
+        records: Array.isArray(parsed.anaRosaDebt?.records) ? parsed.anaRosaDebt.records : [],
+        paidHistory: Array.isArray(parsed.anaRosaDebt?.paidHistory) ? parsed.anaRosaDebt.paidHistory : [],
+      },
     });
     normalizeEntityCollections(parsed.sync?.lastSyncedUserId || null);
     window.__APP_STATE__ = state;
@@ -1743,6 +1751,75 @@ function medOwnerLabel(v) {
       ? "Servicios"
       : v || "";
 }
+function medicationExpiryInfo(expiryDate) {
+  if (!expiryDate) return { status: "missing", text: "Sin fecha de caducidad registrada", css: "expiry-missing", warning: "" };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(expiryDate + "T00:00:00");
+  if (Number.isNaN(expiry.getTime())) return { status: "missing", text: "Sin fecha de caducidad registrada", css: "expiry-missing", warning: "" };
+  const msDiff = expiry.getTime() - today.getTime();
+  const days = Math.ceil(msDiff / 86400000);
+  if (days < 0) return { status: "expired", text: "Caducado", css: "expiry-expired", warning: "Advertencia: medicamento caducado." };
+  if (days <= 90) return { status: "warning", text: "Próximo a caducar", css: "expiry-warning", warning: "Advertencia: medicamento próximo a caducar." };
+  return { status: "valid", text: "Vigente", css: "expiry-valid", warning: "" };
+}
+function ensureAnaRosaDebtState() {
+  if (!state.anaRosaDebt || typeof state.anaRosaDebt !== "object") state.anaRosaDebt = { records: [], paidHistory: [] };
+  state.anaRosaDebt.records = Array.isArray(state.anaRosaDebt.records) ? state.anaRosaDebt.records : [];
+  state.anaRosaDebt.paidHistory = Array.isArray(state.anaRosaDebt.paidHistory) ? state.anaRosaDebt.paidHistory : [];
+  state.anaRosaDebt.records = state.anaRosaDebt.records.map((item) => ({ ...item, paid: false }));
+}
+function reconcileAnaRosaDebtFromProcedures() {
+  ensureAnaRosaDebtState();
+  const activeByKey = new Map((state.anaRosaDebt.records || []).map((item) => [item.debtKey, item]));
+  const paidByKey = new Set((state.anaRosaDebt.paidHistory || []).map((item) => item.debtKey));
+  const rebuilt = [];
+  (state.procedures || []).forEach((proc) => {
+    (proc.inventory?.meds || []).forEach((use) => {
+      const med = byId(state.meds, use.itemId);
+      if (!med || med.owner !== "DRA_ANA_ROSA") return;
+      const qtyUsed = Number(use.inventoryDeductionQty || use.totalUsedQty || use.chargeableQty || use.qty || 0);
+      if (qtyUsed <= 0) return;
+      const amount = Number((qtyUsed * Number(use.unitCost || med.unitCost || 0)).toFixed(2));
+      const debtKey = `${proc.id}::${use.itemId}`;
+      const base = activeByKey.get(debtKey) || {
+        id: uid("debt"),
+        debtKey,
+        procedureId: proc.id,
+        procedureLabel: `${proc.date || "Sin fecha"} · ${proc.type || "Procedimiento"}`,
+        date: proc.date || "",
+        medicationId: med.id,
+        medicationName: med.brand || "Medicamento",
+      };
+      rebuilt.push({ ...base, qtyUsed, unit: use.unit || med.unit || "", amount, paid: false });
+    });
+  });
+  state.anaRosaDebt.records = rebuilt.filter((item) => !paidByKey.has(item.debtKey));
+}
+function renderAnaRosaDebtSidebar() {
+  ensureAnaRosaDebtState();
+  const totalEl = $("#anaRosaDebtTotal");
+  const activeEl = $("#anaRosaDebtActiveList");
+  const paidEl = $("#anaRosaDebtPaidList");
+  if (!totalEl || !activeEl || !paidEl) return;
+  const total = (state.anaRosaDebt.records || []).reduce((acc, item) => acc + Number(item.amount || 0), 0);
+  totalEl.textContent = money(total);
+  activeEl.innerHTML = (state.anaRosaDebt.records || []).length
+    ? state.anaRosaDebt.records.map((item) => `<div class="item"><div class="line"><b>Procedimiento:</b> ${esc(item.procedureLabel || item.procedureId || "")}</div><div class="line"><b>Fecha:</b> ${esc(item.date || "")}</div><div class="line"><b>Medicamento:</b> ${esc(item.medicationName || "")}</div><div class="line"><b>Cantidad usada:</b> ${Number(item.qtyUsed || 0).toFixed(2)} ${esc(item.unit || "")}</div><div class="line"><b>Monto:</b> ${money(item.amount || 0)}</div><div class="actions"><button class="btn small" type="button" data-mark-debt-paid="${esc(item.id)}">Marcar como pagado</button></div></div>`).join("")
+    : '<div class="help">Sin deuda activa con Dra. Ana Rosa.</div>';
+  paidEl.innerHTML = (state.anaRosaDebt.paidHistory || []).length
+    ? state.anaRosaDebt.paidHistory.slice().reverse().map((item) => `<div class="item"><div class="line"><b>${esc(item.medicationName || "")}</b> · ${money(item.amount || 0)}</div><div class="help">${esc(item.date || "")} · ${esc(item.procedureLabel || "")}</div></div>`).join("")
+    : '<div class="help">Sin pagos registrados todavía.</div>';
+  activeEl.querySelectorAll('[data-mark-debt-paid]').forEach((btn) => btn.addEventListener('click', () => {
+    const id = btn.getAttribute('data-mark-debt-paid');
+    const record = (state.anaRosaDebt.records || []).find((item) => item.id === id);
+    if (!record) return;
+    state.anaRosaDebt.records = state.anaRosaDebt.records.filter((item) => item.id !== id);
+    state.anaRosaDebt.paidHistory.push({ ...record, paidAt: new Date().toISOString(), paid: true });
+    saveState();
+    renderAll();
+  }));
+}
 function normalizeSpeciesRef(value = "") {
   return safe(value)
     .normalize("NFD")
@@ -1852,7 +1929,7 @@ function collectMed() {
     totalQty: effectiveQty,
     unit: $("#m_unit")?.value.trim() || "",
     unitCost: costBasisQty ? effectiveCost / costBasisQty : 0,
-    anaRosaCharge: Number($("#m_anaRosaCharge")?.value || 0),
+    route: $("#m_route")?.value.trim() || "",
     stockType,
     stockMeta: isUsed
       ? { originalQty, originalCost, remainingQty }
@@ -1935,7 +2012,7 @@ function fillMed(m) {
     m_totalQty: m.totalQty,
     m_unit: m.unit,
     m_unitCost: m.unitCost,
-    m_anaRosaCharge: m.anaRosaCharge,
+    m_route: m.route || "",
     m_stockType: m.stockType || "NUEVO",
     m_originalQty: m.stockMeta?.originalQty || "",
     m_originalCost: m.stockMeta?.originalCost || "",
@@ -1963,17 +2040,16 @@ function renderMedList() {
   if (!list) return;
   list.innerHTML = "";
   const usage = inventoryUsage();
-  const anaRosaDue = state.meds
-    .filter((m) => m.owner === "DRA_ANA_ROSA")
-    .reduce((acc, m) => acc + (m.anaRosaCharge || 0), 0);
+  ensureAnaRosaDebtState();
+  const anaRosaDue = (state.anaRosaDebt.records || []).reduce((acc, row) => acc + Number(row.amount || 0), 0);
   const head = document.createElement("div");
   head.className = "item";
-  head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${state.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div><div class="stat"><b>Reintegrar a Dra. Ana Rosa</b><div>${money(anaRosaDue)}</div></div></div>`;
+  head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${state.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div><div class="stat"><b>Deuda activa Dra. Ana Rosa</b><div>${money(anaRosaDue)}</div></div></div>`;
   list.appendChild(head);
   state.meds.forEach((m) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Cobrado por medicamento Ana Rosa:</b> ${money(m.anaRosaCharge)}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillMed(m);
     w.onclick = () =>
@@ -3247,7 +3323,7 @@ function producerWordHtml(prod) {
 }
 function medSummaryHtml() {
   return `<h1>Medicamentos</h1>${state.meds
-    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Cantidad total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Ana Rosa:</b> ${money(m.anaRosaCharge)}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
+    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Cantidad total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
 }
 function supplySummaryHtml() {
   return `<h1>Insumos</h1>${state.supplies.map((s) => `<section><h2>${esc(s.name)}</h2><p><b>Tipo:</b> ${esc(s.type)}</p><p><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</p><p><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</p>${objectEntriesTable(s)}${imageHtml(s.ticket, "Ticket insumo")}</section>`).join('<div style="page-break-after:always"></div>')}`;
@@ -3329,7 +3405,7 @@ function producerExcelSheets(
           "Cantidad",
           "Unidad",
           "Disponible",
-          "Cobrado Ana Rosa",
+          "Vía administración",
         ],
         ...meds.map((m) => [
           m.brand,
@@ -3338,7 +3414,7 @@ function producerExcelSheets(
           m.totalQty,
           m.unit,
           medRemaining(m),
-          m.anaRosaCharge,
+          m.route || "Sin vía de administración registrada",
         ]),
       ],
     },
@@ -3453,6 +3529,8 @@ function renderAll() {
   populateInventorySelects();
   renderProcedureDraftLists();
   renderProcedureList();
+  reconcileAnaRosaDebtFromProcedures();
+  renderAnaRosaDebtSidebar();
 }
 
 function bindGlobal() {
@@ -4009,6 +4087,9 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
           unit: groupDraft.doseUnit || med.unit,
           unitCost: med.unitCost,
           owner: med.owner,
+          route: med.route || "",
+          expiry: med.expiry || "",
+          expiryLabel: med.expiry || "Sin fecha de caducidad registrada",
           calculationMode: groupDraft.rule,
           theoreticalQty: groupDraft.totalQty,
           totalUsedQty: groupDraft.totalQty,
@@ -4039,6 +4120,9 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
           unit: entry.doseUnit || med.unit,
           unitCost: med.unitCost,
           owner: med.owner,
+          route: med.route || "",
+          expiry: med.expiry || "",
+          expiryLabel: med.expiry || "Sin fecha de caducidad registrada",
           theoreticalQty: 0,
           totalUsedQty: 0,
           inventoryDeductionQty: 0,
@@ -4198,6 +4282,7 @@ function renderProcedureAnimalCards() {
           <span class="chip">${esc(entry.species || "Sin especie")}</span>
           <span class="chip">${esc(entry.weightMethod || "Sin método")}</span>
           <span class="chip">${esc((entry.weightRecordedKg || 0).toFixed(2))} kg utilizable</span>
+          <span class="chip ${esc(medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).css)}">${esc(medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).text)}</span>
         </div>
       </div>
       <div class="grid cols-4">
@@ -4222,13 +4307,19 @@ function renderProcedureAnimalCards() {
         <div><label>Relación especie-medicamento</label><input type="text" value="${esc(entry.doseSummary || "")}" disabled></div>
       </div>
       <div class="grid cols-4">
+        <div><label>Vía de administración</label><input type="text" value="${esc(byId(state.meds, entry.medicationId)?.route || "Sin vía de administración registrada")}" disabled></div>
+        <div><label>Caducidad</label><input type="text" value="${esc(byId(state.meds, entry.medicationId)?.expiry || "Sin fecha de caducidad registrada")}" disabled></div>
+        <div><label>Estado de caducidad</label><span class="chip expiry-badge ${esc(medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).css)}">${esc(medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).text)}</span></div>
+        <div><label>Aviso</label><input type="text" value="${esc(medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning || "Sin advertencia")}" disabled></div>
+      </div>
+      <div class="grid cols-4">
         <div><label>Especie detectada</label><input type="text" value="${esc(entry.species || "")}" disabled></div>
         <div><label>Dosis base por especie</label><input type="text" value="${esc(entry.doseBase ? `${Number(entry.doseBase).toFixed(4)} ${entry.doseUnit || ""}/${doseRuleDenominator(entry.doseCalculationMode)}` : "Sin configurar")}" disabled></div>
         <div><label>Descuento individual de inventario</label><input type="text" value="${esc(entry.inventoryDeductionQty ? `${Number(entry.inventoryDeductionQty).toFixed(2)} ${entry.inventoryDeductionUnit || ""}` : "Sin descuento")}" disabled></div>
         <div><label>Medicamento/vacuna</label><input type="text" value="${esc([entry.medicationName, byId(state.vaccines, entry.vaccineId)?.brand || ""].filter(Boolean).join(" · ") || "Sin selección")}" disabled></div>
       </div>`}
       ${groupMode ? `<div class="help">Modo grupal: esta tarjeta solo mantiene referencia del animal y datos clínicos.</div>` : ""}
-      ${!groupMode && entry.medicationWarning ? `<div class="error inline-error" style="display:block;">${esc(entry.medicationWarning)}</div>` : ""}
+      ${!groupMode && (entry.medicationWarning || medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning) ? `<div class="error inline-error" style="display:block;">${esc([entry.medicationWarning, medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning].filter(Boolean).join(" · "))}</div>` : ""}
       ${entry.examIncluded ? `<div class="grid cols-2"><div><label>Temperatura (°C)</label><input data-field="exam.temperature" type="number" step="0.1" value="${esc(entry.exam?.temperature || "")}"></div><div><label>Hallazgos examen</label><input data-field="exam.findings" type="text" value="${esc(entry.exam?.findings || "")}"></div></div>` : ""}
       <div class="help">${groupMode ? "Ficha clínica por animal para referencia del procedimiento grupal." : "Ficha clínica rápida por animal: peso y método, medicamento/vacuna, dosis base por especie, cantidad calculada y descuento de inventario."}</div>
     </div>`;
@@ -4290,6 +4381,18 @@ function renderProcedureDraftLists() {
       : "";
   }
   if ($("#p_groupCalcSummary")) $("#p_groupCalcSummary").textContent = [groupDraft.summary, groupDraft.warning].filter(Boolean).join(" · ");
+  const groupMed = byId(state.meds, groupDraft.medicationId);
+  const groupExpiry = medicationExpiryInfo(groupMed?.expiry);
+  if ($("#p_groupCalcSummary") && groupMed) {
+    $("#p_groupCalcSummary").textContent = [
+      groupDraft.summary,
+      `Vía: ${groupMed.route || "Sin vía de administración registrada"}`,
+      `Caducidad: ${groupMed.expiry || "Sin fecha de caducidad registrada"}`,
+      `Estado: ${groupExpiry.text}`,
+      groupExpiry.warning,
+      groupDraft.warning,
+    ].filter(Boolean).join(" · ");
+  }
   renderSimpleList(
     "#p_medUseList",
     aggregated.meds,
@@ -4388,6 +4491,7 @@ function saveProcedure() {
   const validationProblems = validateProcedureAnimalEntries(p.animals || [], previous);
   if (validationProblems.length) return show("p_err", validationProblems[0], "error");
   if (idx >= 0) state.procedures[idx] = p; else state.procedures.unshift(p);
+  reconcileAnaRosaDebtFromProcedures();
   if (p.type === "NECROPSIA" && p.animalId) {
     const prod = byId(state.producers, p.producerId);
     const animalTarget = byId(prod?.animals || [], p.animalId);
@@ -4443,7 +4547,7 @@ function renderProcedureList() {
   });
 }
 function medicationBreakdownTable(meds = []) {
-  return `<table><tr><th>Medicamento</th><th>Base</th><th>Dosis total</th><th>Margen</th><th>Total usado</th><th>Descuento inventario</th><th>Costo</th><th>Explicación</th></tr>${meds.map((m) => `<tr><td>${esc(m.name)}</td><td>${esc(doseRuleLabel(m.calculationMode))}</td><td>${Number(m.theoreticalQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.marginQty || 0).toFixed(2)} ${esc(m.unit || "")} (${Number(m.marginPct || 0).toFixed(2)}%)</td><td>${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0))}</td><td>${esc(m.calculationSummary || "")} · ${esc(m.marginRationale || "")}</td></tr>`).join("")}</table>`;
+  return `<table><tr><th>Medicamento</th><th>Base</th><th>Vía</th><th>Caducidad</th><th>Dosis total</th><th>Margen</th><th>Total usado</th><th>Descuento inventario</th><th>Costo</th><th>Explicación</th></tr>${meds.map((m) => `<tr><td>${esc(m.name)}</td><td>${esc(doseRuleLabel(m.calculationMode))}</td><td>${esc(m.route || "Sin vía de administración registrada")}</td><td>${esc(m.expiryLabel || "Sin fecha de caducidad registrada")}</td><td>${Number(m.theoreticalQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.marginQty || 0).toFixed(2)} ${esc(m.unit || "")} (${Number(m.marginPct || 0).toFixed(2)}%)</td><td>${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0))}</td><td>${esc(m.calculationSummary || "")} · ${esc(m.marginRationale || "")}</td></tr>`).join("")}</table>`;
 }
 function chargeBreakdownTable(charge = {}) {
   const breakdown = charge.breakdown || {};
@@ -4457,7 +4561,7 @@ function chargeBreakdownTable(charge = {}) {
   return `<table><tr><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th></tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
 }
 function procedureAnimalsTable(animals = []) {
-  return `<table><tr><th>Identificación</th><th>Especie</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>Volumen (L)</th><th>PT</th><th>LC</th><th>Medicamento</th><th>Dosis base especie</th><th>Cantidad calculada</th><th>Descuento inventario</th><th>Vacuna</th><th>Estado general</th><th>Examen físico</th><th>Observaciones</th></tr>${animals.map((a) => `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${Number(a.doseVolumeLiters || 0).toFixed(2)}</td><td>${a.chestGirth || ""}</td><td>${a.bodyLength || ""}</td><td>${esc(a.medicationName || byId(state.meds, a.medicationId)?.brand || "")}</td><td>${esc(a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ""}/${doseRuleDenominator(a.doseCalculationMode)}` : a.doseSummary || "")}</td><td>${esc(a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "")}</td><td>${esc(a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${esc(a.generalState || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc([a.notes || "", a.medicationWarning || ""].filter(Boolean).join(" · "))}</td></tr>`).join("")}</table>`;
+  return `<table><tr><th>Identificación</th><th>Especie</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>Volumen (L)</th><th>PT</th><th>LC</th><th>Medicamento</th><th>Dosis base especie</th><th>Cantidad calculada</th><th>Descuento inventario</th><th>Vacuna</th><th>Estado general</th><th>Examen físico</th><th>Observaciones</th></tr>${animals.map((a) => `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${Number(a.doseVolumeLiters || 0).toFixed(2)}</td><td>${a.chestGirth || ""}</td><td>${a.bodyLength || ""}</td><td>${esc(a.medicationName || byId(state.meds, a.medicationId)?.brand || "")}</td><td>${esc(a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ""}/${doseRuleDenominator(a.doseCalculationMode)}` : a.doseSummary || "")}</td><td>${esc(a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "")}</td><td>${esc(a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${esc(a.generalState || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc([a.notes || "", a.medicationWarning || "", `Vía: ${byId(state.meds, a.medicationId)?.route || "Sin vía de administración registrada"}`, `Caducidad: ${byId(state.meds, a.medicationId)?.expiry || "Sin fecha de caducidad registrada"}`].filter(Boolean).join(" · "))}</td></tr>`).join("")}</table>`;
 }
 function procedureWordHtml(p) {
   const prod = byId(state.producers, p.producerId); const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id) || l.linkedProcedureId === p.id);
@@ -4471,7 +4575,7 @@ function procedureSummaryHtml() { return `<h1>Procedimientos consolidados</h1>${
 function producerExcelSheets(producers = state.producers, animals = [], meds = state.meds, vaccines = state.vaccines, supplies = state.supplies, procedures = state.procedures, labs = state.labTests) {
   const animalRows = animals.length ? animals : producers.flatMap((p) => (p.animals || []).map((a) => ({ producer: p.basic.name, ...a })));
   const procedureRows = procedures.flatMap((p) => (p.animals || []).length ? (p.animals || []).map((a) => [p.date, p.type, p.scope, producerName(p.producerId), a.identification || a.sourceLabel || "", a.species || "", a.weightMethod || "", Number(a.weightRecordedKg || 0).toFixed(2), Number(a.doseVolumeLiters || 0).toFixed(2), a.chestGirth || "", a.bodyLength || "", a.medicationName || byId(state.meds, a.medicationId)?.brand || "", a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ''}/${doseRuleDenominator(a.doseCalculationMode)}` : a.doseSummary || '', a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "", a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "", byId(state.vaccines, a.vaccineId)?.brand || "", a.generalState || "", a.examIncluded ? "Sí" : "No", a.exam?.findings || "", [a.notes || '', a.medicationWarning || ''].filter(Boolean).join(' · ')]) : [[p.date, p.type, p.scope, producerName(p.producerId), p.identification || "", p.species || "", "", p.weight || "", "", "", "", "", "", "", "", "", "", "", ""]]);
-  const medRows = procedures.flatMap((p) => (p.inventory?.meds || []).map((m) => [p.date, p.type, producerName(p.producerId), m.name, doseRuleLabel(m.calculationMode || ""), m.calculationSummary || "", Number(m.theoreticalQty || 0).toFixed(2), `${Number(m.marginQty || 0).toFixed(2)} (${Number(m.marginPct || 0).toFixed(2)}%)`, Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2), Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2), Number(m.unitCost || 0).toFixed(2), money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0)), m.marginRationale || ""]));
+  const medRows = procedures.flatMap((p) => (p.inventory?.meds || []).map((m) => [p.date, p.type, producerName(p.producerId), m.name, m.route || "Sin vía de administración registrada", m.expiry || "Sin fecha de caducidad registrada", doseRuleLabel(m.calculationMode || ""), m.calculationSummary || "", Number(m.theoreticalQty || 0).toFixed(2), `${Number(m.marginQty || 0).toFixed(2)} (${Number(m.marginPct || 0).toFixed(2)}%)`, Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2), Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2), Number(m.unitCost || 0).toFixed(2), money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0)), m.marginRationale || ""]));
   const chargeDetailRows = procedures.flatMap((p) => {
     const blocks = p.charge?.breakdown || {};
     const items = []
@@ -4501,7 +4605,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
   return [
     { name: "Productores", rows: [["Nombre","Celular","Localidad","Municipio","Estado","Clasificación","Razones no trabajar","Nota extra","Maps","Notas"], ...producers.map((p) => [p.basic.name,p.basic.celular,p.basic.localidad,p.basic.municipio,p.basic.estado,p.classification?.value || "",p.classification?.alerta || "",p.classification?.notaExtraPersona || "",p.location?.mapsUrl || "",p.notes || ""])] },
     { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, (a.function || []).join(", "), a.functionOther || ""])] },
-    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Cantidad","Unidad","Disponible","Cobrado Ana Rosa","Contenido original","Costo original","Cantidad remanente"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.totalQty,m.unit,medRemaining(m),m.anaRosaCharge,m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || ""])] },
+    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Cantidad","Unidad","Disponible","Vía administración","Contenido original","Costo original","Cantidad remanente"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.totalQty,m.unit,medRemaining(m),m.route || "Sin vía de administración registrada",m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || ""])] },
     { name: "Vacunas", rows: [["Marca","Propiedad","Caducidad","Cobertura","Disponible","Costo total","Costo unitario","Enfermedades","Notas"], ...vaccines.map((v) => [v.brand,medOwnerLabel(v.owner),v.expiry,v.coverageAnimals,vaccineRemaining(v),v.price,v.unitCost,v.diseases,v.notes || ""])] },
     { name: "Insumos", rows: [["Nombre","Tipo","Cantidad","Disponible","Costo mostrado","Notas"], ...supplies.map((s) => [s.name,s.type,s.qty,supplyRemaining(s),supplyDisplayCost(s),s.notes || ""])] },
     { name: "Procedimientos", rows: [["Fecha","Tipo","Modalidad","Productor(a)","Identificación animal","Especie","Método peso","Peso utilizable (kg)","Volumen (L)","PT","LC","Medicamento","Dosis base especie","Cantidad calculada","Descuento inventario","Vacuna","Estado general","Examen físico","Hallazgos","Observaciones"], ...procedureRows] },
