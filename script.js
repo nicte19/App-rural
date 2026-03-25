@@ -2134,7 +2134,7 @@ function usesStructuredConcentration(med = {}) {
   return !med?.useTherapeuticDoseOnly;
 }
 function renderMedicationConcentrationMode() {
-  const onlyDose = checked("m_useTherapeuticDoseOnly");
+  const onlyDose = Boolean($("#m_useTherapeuticDoseOnly")?.checked);
   const block = $("#m_concentrationBlock");
   const help = $("#m_concentrationHelp");
   const modeHelp = $("#m_useTherapeuticDoseOnlyHelp");
@@ -2149,6 +2149,7 @@ function renderMedicationConcentrationMode() {
       ? "Modo activo: este medicamento se calculará con dosis terapéutica por especie, sin exigir concentración estructurada."
       : "Activa este modo para medicamentos multiactivos o cuando no deseas capturar concentración/equivalencia detallada.";
   }
+  if (onlyDose && $("#m_err")) $("#m_err").style.display = "none";
 }
 function medStockType() {
   return $("#m_stockType")?.value || "NUEVO";
@@ -2182,8 +2183,7 @@ function renderMedStockType() {
   }
   refreshMedicationTotals();
 }
-function collectMed() {
-  const id = state.editing.medId || uid("med");
+function collectMed(id = uid("med")) {
   const stockType = medStockType();
   const totalQty = Number($("#m_totalQty")?.value || 0);
   const contentPerPresentation = getMedContentPerPresentation();
@@ -2216,7 +2216,7 @@ function collectMed() {
     unit: $("#m_unit")?.value.trim() || "",
     unitCost: costBasisQty ? effectiveCost / costBasisQty : 0,
     route: $("#m_route")?.value.trim() || "",
-    useTherapeuticDoseOnly: checked("m_useTherapeuticDoseOnly"),
+    useTherapeuticDoseOnly: Boolean($("#m_useTherapeuticDoseOnly")?.checked),
     stockType,
     stockMeta: isUsed
       ? { originalQty, originalCost, remainingQty }
@@ -2237,7 +2237,12 @@ function collectMed() {
   };
 }
 function saveMed() {
-  const med = collectMed();
+  const editingId = state.editing.medId;
+  const editingIndex = editingId
+    ? state.meds.findIndex((item) => item.id === editingId)
+    : -1;
+  const isEditing = editingIndex >= 0;
+  const med = collectMed(isEditing ? editingId : uid("med"));
   if (!med.brand || !med.active) {
     show(
       "m_err",
@@ -2278,20 +2283,25 @@ function saveMed() {
     }
   }
   const conc = med.concentration || {};
-  const concFilled = [conc.activeAmount, conc.activeUnit, conc.perAmount, conc.perUnit].some((v) => String(v || "").trim() !== "");
+  const concFilled = [conc.activeUnit, conc.perUnit].some((v) => String(v || "").trim() !== "")
+    || Number(conc.activeAmount || 0) > 0
+    || Number(conc.perAmount || 0) > 0;
   if (!med.useTherapeuticDoseOnly && concFilled) {
     if (!(Number(conc.activeAmount || 0) > 0) || !conc.activeUnit || !(Number(conc.perAmount || 0) > 0) || !conc.perUnit) {
       show("m_err", "Si capturas concentración/equivalencia debes completar cantidad, unidad de activo, cantidad física y unidad física.", "error");
       return;
     }
   }
-  const idx = state.meds.findIndex((x) => x.id === med.id);
-  if (idx >= 0) state.meds[idx] = med;
-  else state.meds.unshift(med);
+  if (isEditing) {
+    state.meds[editingIndex] = med;
+  } else {
+    state.meds.unshift(med);
+  }
+  state.editing.medId = null;
+  resetMed();
   saveState();
   renderAll();
-  resetMed();
-  show("m_ok", "Medicamento guardado correctamente.", "success");
+  show("m_ok", isEditing ? "Medicamento actualizado correctamente." : "Medicamento guardado correctamente.", "success");
 }
 function resetMed() {
   state.editing.medId = null;
