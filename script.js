@@ -4194,7 +4194,93 @@ function createProcedureAnimalEntry(baseAnimal = {}, extra = {}) {
     },
     theoreticalDoseTotal: Number(extra.theoreticalDoseTotal || 0) || 0,
     doseVolumeLiters: Number(extra.doseVolumeLiters || 0) || 0,
+    medicationsApplied: Array.isArray(extra.medicationsApplied)
+      ? extra.medicationsApplied.map((item) => ({ ...item }))
+      : [],
   };
+}
+function normalizeEntryMedicationApplied(entry = {}) {
+  if (!Array.isArray(entry.medicationsApplied)) entry.medicationsApplied = [];
+  if (!entry.medicationsApplied.length && entry.medicationId) {
+    const med = byId(state.meds, entry.medicationId);
+    entry.medicationsApplied.push({
+      id: uid("amed"),
+      medicationId: entry.medicationId || "",
+      medicationName: entry.medicationName || med?.brand || "",
+      speciesDetected: entry.species || "",
+      doseBase: Number(entry.doseBase || 0) || 0,
+      doseUnit: entry.doseUnit || "",
+      rule: entry.doseCalculationMode || "",
+      requiredDose: Number(entry.theoreticalDoseTotal || 0) || 0,
+      calculatedSuggestion: Number(entry.suggestedDoseQty || 0) || 0,
+      calculatedSuggestionUnit: entry.suggestedDoseUnit || "",
+      finalAppliedAmount: Number(entry.convertedDoseQty || 0) || 0,
+      finalUnit: entry.convertedDoseUnit || entry.suggestedDoseUnit || "",
+      route: med?.route || "",
+      concentrationSummary: usesStructuredConcentration(med) ? (medicationConcentrationSummary(med) || "") : "Modo sin concentración estructurada",
+      expiryDate: med?.expiry || "",
+      expiryStatus: medicationExpiryInfo(med?.expiry || "").text,
+      inventoryDiscount: Number(entry.inventoryDeductionQty || 0) || 0,
+      inventoryDiscountUnit: entry.inventoryDeductionUnit || med?.unit || "",
+      manualAdjustment: Boolean(entry.manualDoseAdjusted),
+      notes: entry.notes || "",
+      conversionExplanation: entry.conversionExplanation || "",
+    });
+  }
+  return entry;
+}
+function addMedicationAppliedToEntry(entry) {
+  if (!entry?.medicationId) return false;
+  syncProcedureAnimalSummary(entry);
+  normalizeEntryMedicationApplied(entry);
+  const med = byId(state.meds, entry.medicationId);
+  entry.medicationsApplied.push({
+    id: uid("amed"),
+    medicationId: entry.medicationId || "",
+    medicationName: entry.medicationName || med?.brand || "",
+    speciesDetected: entry.species || "",
+    doseBase: Number(entry.doseBase || 0) || 0,
+    doseUnit: entry.doseUnit || "",
+    rule: entry.doseCalculationMode || "",
+    requiredDose: Number(entry.theoreticalDoseTotal || 0) || 0,
+    calculatedSuggestion: Number(entry.suggestedDoseQty || 0) || 0,
+    calculatedSuggestionUnit: entry.suggestedDoseUnit || "",
+    finalAppliedAmount: Number(entry.convertedDoseQty || 0) || 0,
+    finalUnit: entry.convertedDoseUnit || entry.suggestedDoseUnit || "",
+    route: med?.route || "",
+    concentrationSummary: usesStructuredConcentration(med) ? (medicationConcentrationSummary(med) || "") : "Modo sin concentración estructurada",
+    expiryDate: med?.expiry || "",
+    expiryStatus: medicationExpiryInfo(med?.expiry || "").text,
+    inventoryDiscount: Number(entry.inventoryDeductionQty || 0) || 0,
+    inventoryDiscountUnit: entry.inventoryDeductionUnit || med?.unit || "",
+    manualAdjustment: Boolean(entry.manualDoseAdjusted),
+    notes: entry.notes || "",
+    conversionExplanation: entry.conversionExplanation || "",
+  });
+  entry.medicationId = "";
+  entry.medicationName = "";
+  entry.doseReferenceMedicationId = "";
+  entry.medicationWarning = "";
+  entry.doseUnit = "";
+  entry.doseSummary = "";
+  entry.doseBase = 0;
+  entry.doseCalculationMode = "";
+  entry.theoreticalDoseTotal = 0;
+  entry.suggestedDoseQty = 0;
+  entry.suggestedDoseUnit = "";
+  entry.convertedDoseQty = 0;
+  entry.convertedDoseUnit = "";
+  entry.inventoryDeductionQty = 0;
+  entry.inventoryDeductionUnit = "";
+  entry.suggestedInventoryDeductionQty = 0;
+  entry.suggestedInventoryDeductionUnit = "";
+  entry.requiredActiveQty = 0;
+  entry.requiredActiveUnit = "";
+  entry.conversionApplied = false;
+  entry.conversionExplanation = "";
+  entry.manualDoseAdjusted = false;
+  entry.manualDoseAdjustmentReason = "";
+  return true;
 }
 function syncProcedureAnimalManualDoseFlags(entry) {
   const suggested = Number(entry.suggestedDoseQty || 0);
@@ -4590,15 +4676,17 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
   const meds = new Map();
   const vaccines = new Map();
   entries.map(syncProcedureAnimalSummary).forEach((entry) => {
-    if (entry.medicationId) {
-      const med = byId(state.meds, entry.medicationId);
-      if (med) {
-        const current = meds.get(med.id) || {
+    normalizeEntryMedicationApplied(entry);
+    const medications = entry.medicationsApplied || [];
+    medications.forEach((medicationItem) => {
+      const med = byId(state.meds, medicationItem.medicationId);
+      if (!med) return;
+      const current = meds.get(med.id) || {
           id: uid("pmed"),
           itemId: med.id,
           name: med.brand,
           unit: med.unit || "",
-          theoreticalUnit: entry.doseUnit || med.unit || "",
+          theoreticalUnit: medicationItem.doseUnit || med.unit || "",
           unitCost: med.unitCost,
           owner: med.owner,
           route: med.route || "",
@@ -4610,35 +4698,34 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
           inventoryDeductionQty: 0,
           linkedAnimals: [],
         };
-        current.theoreticalQty += Number(entry.theoreticalDoseTotal || 0);
-        current.convertedQty += Number(entry.inventoryDeductionQty || entry.convertedDoseQty || 0);
+      current.theoreticalQty += Number(medicationItem.requiredDose || 0);
+      current.convertedQty += Number(medicationItem.inventoryDiscount || medicationItem.finalAppliedAmount || 0);
         current.linkedAnimals.push({
           animalId: entry.animalId,
           identification: entry.identification,
           species: entry.species,
           weightKg: entry.weightRecordedKg,
-          doseBase: entry.doseBase,
-          doseUnit: entry.doseUnit,
-          dose: entry.theoreticalDoseTotal,
-          doseCalculationMode: entry.doseCalculationMode,
+          doseBase: medicationItem.doseBase,
+          doseUnit: medicationItem.doseUnit,
+          dose: medicationItem.requiredDose,
+          doseCalculationMode: medicationItem.rule,
           doseSummary: entry.doseSummary,
-          manualDoseAdjusted: Boolean(entry.manualDoseAdjusted),
-          suggestedDoseQty: entry.suggestedDoseQty,
-          suggestedDoseUnit: entry.suggestedDoseUnit,
-          inventoryDeductionQty: entry.inventoryDeductionQty,
-          suggestedInventoryDeductionQty: entry.suggestedInventoryDeductionQty,
-          convertedDoseQty: entry.convertedDoseQty,
-          convertedDoseUnit: entry.convertedDoseUnit,
-          conversionExplanation: entry.conversionExplanation,
-          medicationWarning: entry.medicationWarning,
+          manualDoseAdjusted: Boolean(medicationItem.manualAdjustment),
+          suggestedDoseQty: medicationItem.calculatedSuggestion,
+          suggestedDoseUnit: medicationItem.calculatedSuggestionUnit,
+          inventoryDeductionQty: medicationItem.inventoryDiscount,
+          suggestedInventoryDeductionQty: medicationItem.inventoryDiscount,
+          convertedDoseQty: medicationItem.finalAppliedAmount,
+          convertedDoseUnit: medicationItem.finalUnit,
+          conversionExplanation: medicationItem.conversionExplanation || "",
+          medicationWarning: entry.medicationWarning || "",
           weightMethod: entry.weightMethod,
           chestGirth: entry.chestGirth,
           bodyLength: entry.bodyLength,
-          notes: entry.notes,
+          notes: medicationItem.notes || entry.notes,
         });
-        meds.set(med.id, current);
-      }
-    }
+      meds.set(med.id, current);
+    });
     if (entry.vaccineId) {
       const vaccine = byId(state.vaccines, entry.vaccineId);
       if (vaccine) {
@@ -4711,15 +4798,19 @@ function validateProcedureAnimalEntries(entries = [], previousProcedure = null) 
   }
   entries.forEach((entry) => {
     const synced = syncProcedureAnimalSummary(entry);
-    if (synced.medicationId) {
-      const med = byId(state.meds, synced.medicationId);
-      const profile = med ? getMedicationDoseProfile(med, synced.species) : null;
+    normalizeEntryMedicationApplied(synced);
+    const medsToValidate = synced.medicationsApplied?.length
+      ? synced.medicationsApplied.map((item) => ({ medicationId: item.medicationId, species: item.speciesDetected || synced.species }))
+      : synced.medicationId ? [{ medicationId: synced.medicationId, species: synced.species }] : [];
+    medsToValidate.forEach((item) => {
+      const med = byId(state.meds, item.medicationId);
+      const profile = med ? getMedicationDoseProfile(med, item.species || synced.species) : null;
       if (!med) {
         problems.push(`No se encontró el medicamento seleccionado para ${synced.identification || synced.sourceLabel || 'el animal'}.`);
         return;
       }
       if (!profile) {
-        problems.push(`Falta definir la dosis de ${med.brand} para la especie ${synced.species || 'seleccionada'} en el módulo de medicamentos.`);
+        problems.push(`Falta definir la dosis de ${med.brand} para la especie ${item.species || synced.species || 'seleccionada'} en el módulo de medicamentos.`);
       }
       if (profile?.calculationMode === 'PER_KG' && Number(synced.weightRecordedKg || 0) <= 0) {
         problems.push(`Captura un peso utilizable mayor a 0 kg para calcular ${med.brand} en ${synced.identification || synced.sourceLabel || 'el animal'}.`);
@@ -4727,7 +4818,7 @@ function validateProcedureAnimalEntries(entries = [], previousProcedure = null) 
       if (!isGroupMedicationMode() && profile?.calculationMode === 'PER_LITER') {
         problems.push(`${med.brand} está configurado por litro y no puede usarse dentro de una tarjeta individual por animal.`);
       }
-    }
+    });
   });
   const aggregated = aggregateProcedureInventoryFromAnimals(entries);
   aggregated.meds.forEach((use) => {
@@ -4764,6 +4855,7 @@ function renderProcedureAnimalCards() {
     state.vaccines.map((vac) => `<option value="${vac.id}">${esc(vac.brand)}</option>`).join("");
   box.innerHTML = entries.map((entry, index) => {
     syncProcedureAnimalSummary(entry);
+    normalizeEntryMedicationApplied(entry);
     const methodOptions = getWeightMethodOptions(entry.species)
       .map((opt) => `<option value="${opt.value}" ${opt.value === entry.weightMethod ? "selected" : ""}>${opt.label}</option>`)
       .join("");
@@ -4824,6 +4916,10 @@ function renderProcedureAnimalCards() {
       ${entry.manualDoseAdjusted ? `<div class="help"><b>⚠️ Ajuste manual:</b> sugerida ${Number(entry.suggestedDoseQty || 0).toFixed(2)} ${esc(entry.suggestedDoseUnit || "")} · final ${Number(entry.convertedDoseQty || 0).toFixed(2)} ${esc(entry.convertedDoseUnit || "")}</div>` : `<div class="help"><b>Dosis final:</b> sin ajuste manual (coincide con la sugerencia automática).</div>`}
       ${isClinicalCase ? `<div class="help"><b>Flujo clínico:</b> selecciona medicamento → revisa cálculo automático → ajusta cantidad final si hace falta → pulsa <b>Agregar medicamento</b> para conservarlo y abrir otro registro.</div>` : ""}
       <div class="help"><b>Cálculo explicado:</b> ${esc(entry.conversionExplanation || "Sin cálculo automático disponible todavía.")}</div>`}
+      ${!groupMode ? `<div class="item" style="margin-top:8px;"><b>Medicamentos aplicados a este animal:</b>${(entry.medicationsApplied || []).length
+        ? `<ul style="margin:8px 0 0 18px;">${(entry.medicationsApplied || []).map((med) => `<li>${esc(med.medicationName || "Medicamento")} → ${Number(med.finalAppliedAmount || 0).toFixed(2)} ${esc(med.finalUnit || "")} → ${esc(med.route || "Sin vía")} <button class="btn small ghost" type="button" data-action="edit-medication" data-med-id="${esc(med.id)}">Editar</button> <button class="btn small bad" type="button" data-action="remove-medication" data-med-id="${esc(med.id)}">Eliminar</button></li>`).join("")}</ul>`
+        : '<div class="help">Aún no hay medicamentos agregados.</div>'}
+      </div>` : ""}
       ${groupMode ? `<div class="help">Modo grupal: esta tarjeta solo mantiene referencia del animal y datos clínicos.</div>` : ""}
       ${!groupMode && (entry.medicationWarning || medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning) ? `<div class="error inline-error" style="display:block;">${esc([entry.medicationWarning, medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning].filter(Boolean).join(" · "))}</div>` : ""}
       ${entry.examIncluded ? `<div class="grid cols-2"><div><label>Temperatura (°C)</label><input data-field="exam.temperature" type="number" step="0.1" value="${esc(entry.exam?.temperature || "")}"></div><div><label>Hallazgos examen</label><input data-field="exam.findings" type="text" value="${esc(entry.exam?.findings || "")}"></div></div>` : ""}
@@ -4863,30 +4959,27 @@ function renderProcedureAnimalCards() {
     });
     card.querySelector('[data-action="add-medication"]')?.addEventListener("click", () => {
       if (!entry.medicationId) return show("p_msg", "Primero selecciona un medicamento antes de agregar otro registro.", "warning");
-      syncProcedureAnimalSummary(entry);
-      const nextEntry = createProcedureAnimalEntry(byId(currentAnimals(), entry.animalId) || {}, {
-        animalId: entry.animalId,
-        sourceLabel: entry.sourceLabel,
-        identification: entry.identification,
-        species: entry.species,
-        weightMethod: entry.weightMethod,
-        weight: entry.weight,
-        chestGirth: entry.chestGirth,
-        bodyLength: entry.bodyLength,
-        estimatedWeight: entry.estimatedWeight,
-        weightRecordedKg: entry.weightRecordedKg,
-        notes: entry.notes,
-        generalState: entry.generalState,
-        examIncluded: entry.examIncluded,
-        exam: { ...(entry.exam || {}) },
-        medicationId: "",
-        vaccineId: "",
-        convertedDoseQty: 0,
-      });
-      state.draft.procedureAnimalEntries.push(nextEntry);
+      addMedicationAppliedToEntry(entry);
       renderProcedureDraftLists();
-      show("p_msg", "Medicamento aplicado al caso. Puedes seleccionar otro en la nueva tarjeta.", "success");
+      show("p_msg", "Medicamento agregado al animal. Ya puedes capturar otro sin sobrescribir el anterior.", "success");
     });
+    card.querySelectorAll('[data-action="remove-medication"]').forEach((btn) => btn.addEventListener("click", () => {
+      const medId = btn.getAttribute("data-med-id");
+      entry.medicationsApplied = (entry.medicationsApplied || []).filter((item) => item.id !== medId);
+      renderProcedureDraftLists();
+    }));
+    card.querySelectorAll('[data-action="edit-medication"]').forEach((btn) => btn.addEventListener("click", () => {
+      const medId = btn.getAttribute("data-med-id");
+      const medItem = (entry.medicationsApplied || []).find((item) => item.id === medId);
+      if (!medItem) return;
+      entry.medicationId = medItem.medicationId || "";
+      entry.convertedDoseQty = Number(medItem.finalAppliedAmount || 0) || 0;
+      entry.convertedDoseUnit = medItem.finalUnit || "";
+      entry.medicationsApplied = (entry.medicationsApplied || []).filter((item) => item.id !== medId);
+      syncProcedureAnimalSummary(entry);
+      renderProcedureDraftLists();
+      show("p_msg", "Medicamento cargado al formulario para editar. Guarda con “Agregar medicamento”.", "warning");
+    }));
   });
 }
 function addProcedureMedUse() {
@@ -4908,11 +5001,10 @@ function renderProcedureDraftLists() {
   renderProcedureFollowupMedicationDraft();
   renderProcedureAnimalCards();
   const aggregated = aggregateProcedureInventoryFromAnimals();
-  const caseMedicationList = ((state.draft.procedureAnimalEntries || []).map(syncProcedureAnimalSummary))
-    .filter((entry) => entry.medicationId)
-    .map((entry) => {
-      const med = byId(state.meds, entry.medicationId);
-      return `${med?.brand || entry.medicationName || "Medicamento"} → ${Number(entry.convertedDoseQty || 0).toFixed(2)} ${entry.convertedDoseUnit || entry.suggestedDoseUnit || med?.unit || ""} → ${med?.route || "Sin vía"}`;
+  const caseMedicationList = (state.draft.procedureAnimalEntries || [])
+    .flatMap((entry) => {
+      normalizeEntryMedicationApplied(entry);
+      return (entry.medicationsApplied || []).map((item) => `${entry.identification || entry.sourceLabel || "Animal"}: ${item.medicationName || "Medicamento"} → ${Number(item.finalAppliedAmount || 0).toFixed(2)} ${item.finalUnit || ""} → ${item.route || "Sin vía"}`);
     });
   renderSimpleList("#p_caseMedicationAppliedList", caseMedicationList, (x) => x);
   const groupDraft = calculateGroupMedicationDraft();
@@ -5120,7 +5212,11 @@ function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) 
   box.innerHTML = `${drawRows("Medicamentos del procedimiento", detail.medsProcedure)}${drawRows("Medicamentos de seguimiento", detail.medsFollowup)}${drawRows("Vacunas", detail.vaccines)}${drawRows("Insumos", detail.supplies)}${drawRows("Servicio", detail.service)}<h5>Total</h5><p><b>${money(breakdown.total || 0)}</b></p>`;
 }
 function collectProcedure() {
-  let animals = (state.draft.procedureAnimalEntries || []).map((entry) => syncProcedureAnimalSummary({ ...entry, exam: { ...(entry.exam || {}) } }));
+  let animals = (state.draft.procedureAnimalEntries || []).map((entry) => {
+    const cloned = syncProcedureAnimalSummary({ ...entry, exam: { ...(entry.exam || {}) } });
+    normalizeEntryMedicationApplied(cloned);
+    return cloned;
+  });
   const primary = animals[0] || {};
   const medicationApplicationMode = getProcedureMedicationApplicationMode();
   const groupMedication = calculateGroupMedicationDraft();
@@ -5269,7 +5365,11 @@ function fillProcedure(p) {
 }
 function procedureAnimalSummaryText(p) {
   const animals = p.animals || [];
-  return animals.map((entry) => `${entry.identification || entry.sourceLabel} · ${entry.species || ""} · ${Number(entry.weightRecordedKg || 0).toFixed(2)} kg · ${entry.weightMethod}${entry.medicationId ? " · medicamento" : ""}${entry.vaccineId ? " · vacuna" : ""}${entry.examIncluded ? " · con examen" : ""}`).join(" | ");
+  return animals.map((entry) => {
+    normalizeEntryMedicationApplied(entry);
+    const medsCount = (entry.medicationsApplied || []).length;
+    return `${entry.identification || entry.sourceLabel} · ${entry.species || ""} · ${Number(entry.weightRecordedKg || 0).toFixed(2)} kg · ${entry.weightMethod}${medsCount ? ` · ${medsCount} medicamento(s)` : ""}${entry.vaccineId ? " · vacuna" : ""}${entry.examIncluded ? " · con examen" : ""}`;
+  }).join(" | ");
 }
 function renderProcedureList() {
   const list = $("#p_list"); if (!list) return; list.innerHTML = ""; if ($("#p_count")) $("#p_count").textContent = state.procedures.length;
@@ -5286,11 +5386,13 @@ function renderProcedureList() {
   });
 }
 function caseMedicationAppliedTable(entries = []) {
-  const meds = (entries || []).filter((entry) => entry?.medicationId);
+  const meds = (entries || []).flatMap((entry) => {
+    normalizeEntryMedicationApplied(entry);
+    return (entry.medicationsApplied || []).map((item) => ({ entry, item }));
+  });
   if (!meds.length) return "<p>Sin medicamentos aplicados en el caso clínico.</p>";
-  return `<h3>Tratamiento farmacológico</h3><table><tr><th>#</th><th>Medicamento</th><th>Cantidad final</th><th>Vía</th><th>Ajuste manual</th></tr>${meds.map((entry, idx) => {
-    const med = byId(state.meds, entry.medicationId);
-    return `<tr><td>${idx + 1}</td><td>${esc(med?.brand || entry.medicationName || "")}</td><td>${esc(`${Number(entry.convertedDoseQty || 0).toFixed(2)} ${entry.convertedDoseUnit || entry.suggestedDoseUnit || med?.unit || ""}`.trim())}</td><td>${esc(med?.route || "Sin vía de administración registrada")}</td><td>${entry.manualDoseAdjusted ? "Sí" : "No"}</td></tr>`;
+  return `<h3>Tratamiento farmacológico</h3><table><tr><th>#</th><th>Animal</th><th>Medicamento</th><th>Cantidad final</th><th>Vía</th><th>Ajuste manual</th></tr>${meds.map(({ entry, item }, idx) => {
+    return `<tr><td>${idx + 1}</td><td>${esc(entry.identification || entry.sourceLabel || "")}</td><td>${esc(item.medicationName || "")}</td><td>${esc(`${Number(item.finalAppliedAmount || 0).toFixed(2)} ${item.finalUnit || ""}`.trim())}</td><td>${esc(item.route || "Sin vía de administración registrada")}</td><td>${item.manualAdjustment ? "Sí" : "No"}</td></tr>`;
   }).join("")}</table>`;
 }
 function followupMedicationAppliedTable(items = []) {
@@ -5314,7 +5416,11 @@ function chargeBreakdownTable(charge = {}) {
   return `<table><tr><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th></tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
 }
 function procedureAnimalsTable(animals = []) {
-  return `<table><tr><th>Identificación</th><th>Especie</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>Volumen (L)</th><th>PT</th><th>LC</th><th>Medicamento</th><th>Dosis base especie</th><th>Dosis teórica</th><th>Sugerida automática</th><th>Cantidad final</th><th>Ajuste manual</th><th>Descuento inventario</th><th>Vacuna</th><th>Estado general</th><th>Examen físico</th><th>Cálculo explicado</th><th>Observaciones</th></tr>${animals.map((a) => `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${Number(a.doseVolumeLiters || 0).toFixed(2)}</td><td>${a.chestGirth || ""}</td><td>${a.bodyLength || ""}</td><td>${esc(a.medicationName || byId(state.meds, a.medicationId)?.brand || "")}</td><td>${esc(a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ""}/${doseRuleDenominator(a.doseCalculationMode)}` : a.doseSummary || "")}</td><td>${esc(a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "")}</td><td>${esc(a.suggestedDoseQty ? `${Number(a.suggestedDoseQty).toFixed(2)} ${a.suggestedDoseUnit || a.doseUnit || ""}` : "")}</td><td>${esc(a.convertedDoseQty ? `${Number(a.convertedDoseQty).toFixed(2)} ${a.convertedDoseUnit || a.doseUnit || ""}` : "")}</td><td>${a.manualDoseAdjusted ? "Sí" : "No"}</td><td>${esc(a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${esc(a.generalState || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc(a.conversionExplanation || "")}</td><td>${esc([a.notes || "", a.medicationWarning || "", a.manualDoseAdjusted ? "Ajuste manual de dosis/cantidad final" : "", `Vía: ${byId(state.meds, a.medicationId)?.route || "Sin vía de administración registrada"}`, `Caducidad: ${byId(state.meds, a.medicationId)?.expiry || "Sin fecha de caducidad registrada"}`].filter(Boolean).join(" · "))}</td></tr>`).join("")}</table>`;
+  return `<table><tr><th>Identificación</th><th>Especie</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>Volumen (L)</th><th>PT</th><th>LC</th><th>Medicamentos aplicados</th><th>Vacuna</th><th>Estado general</th><th>Examen físico</th><th>Observaciones</th></tr>${animals.map((a) => {
+    normalizeEntryMedicationApplied(a);
+    const medsText = (a.medicationsApplied || []).map((med, idx) => `${idx + 1}. ${med.medicationName || ""} (${Number(med.finalAppliedAmount || 0).toFixed(2)} ${med.finalUnit || ""}, ${med.route || "Sin vía"})`).join(" | ");
+    return `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${Number(a.doseVolumeLiters || 0).toFixed(2)}</td><td>${a.chestGirth || ""}</td><td>${a.bodyLength || ""}</td><td>${esc(medsText || "Sin medicamentos agregados")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${esc(a.generalState || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc([a.notes || "", medsText ? `Total medicamentos: ${(a.medicationsApplied || []).length}` : ""].filter(Boolean).join(" · "))}</td></tr>`;
+  }).join("")}</table>`;
 }
 function procedureWordHtml(p) {
   const prod = byId(state.producers, p.producerId); const labs = state.labTests.filter((l) => (p.labIds || []).includes(l.id) || l.linkedProcedureId === p.id);
@@ -5327,7 +5433,11 @@ function procedureWordHtml(p) {
 function procedureSummaryHtml() { return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`; }
 function producerExcelSheets(producers = state.producers, animals = [], meds = state.meds, vaccines = state.vaccines, supplies = state.supplies, procedures = state.procedures, labs = state.labTests) {
   const animalRows = animals.length ? animals : producers.flatMap((p) => (p.animals || []).map((a) => ({ producer: p.basic.name, ...a })));
-  const procedureRows = procedures.flatMap((p) => (p.animals || []).length ? (p.animals || []).map((a) => [p.date, p.type, p.scope, producerName(p.producerId), a.identification || a.sourceLabel || "", a.species || "", a.weightMethod || "", Number(a.weightRecordedKg || 0).toFixed(2), Number(a.doseVolumeLiters || 0).toFixed(2), a.chestGirth || "", a.bodyLength || "", a.medicationName || byId(state.meds, a.medicationId)?.brand || "", a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ''}/${doseRuleDenominator(a.doseCalculationMode)}` : a.doseSummary || '', a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "", a.suggestedDoseQty ? `${Number(a.suggestedDoseQty).toFixed(2)} ${a.suggestedDoseUnit || a.doseUnit || ""}` : "", a.convertedDoseQty ? `${Number(a.convertedDoseQty).toFixed(2)} ${a.convertedDoseUnit || a.doseUnit || ""}` : "", a.manualDoseAdjusted ? "Sí" : "No", a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "", byId(state.vaccines, a.vaccineId)?.brand || "", a.generalState || "", a.examIncluded ? "Sí" : "No", a.exam?.findings || "", a.conversionExplanation || "", [a.notes || '', a.medicationWarning || '', a.manualDoseAdjusted ? 'Ajuste manual de dosis/cantidad final' : ''].filter(Boolean).join(' · ')]) : [[p.date, p.type, p.scope, producerName(p.producerId), p.identification || "", p.species || "", "", p.weight || "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]]);
+  const procedureRows = procedures.flatMap((p) => (p.animals || []).length ? (p.animals || []).map((a) => {
+    normalizeEntryMedicationApplied(a);
+    const medsText = (a.medicationsApplied || []).map((med) => `${med.medicationName || ""}: ${Number(med.finalAppliedAmount || 0).toFixed(2)} ${med.finalUnit || ""} (${med.route || "Sin vía"})`).join(" | ");
+    return [p.date, p.type, p.scope, producerName(p.producerId), a.identification || a.sourceLabel || "", a.species || "", a.weightMethod || "", Number(a.weightRecordedKg || 0).toFixed(2), Number(a.doseVolumeLiters || 0).toFixed(2), a.chestGirth || "", a.bodyLength || "", medsText, "", "", "", "", "", "", byId(state.vaccines, a.vaccineId)?.brand || "", a.generalState || "", a.examIncluded ? "Sí" : "No", a.exam?.findings || "", "", [a.notes || '', medsText ? `Total medicamentos: ${(a.medicationsApplied || []).length}` : ''].filter(Boolean).join(' · ')];
+  }) : [[p.date, p.type, p.scope, producerName(p.producerId), p.identification || "", p.species || "", "", p.weight || "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]]);
   const medRows = procedures.flatMap((p) => (p.inventory?.meds || []).map((m) => [p.date, p.type, producerName(p.producerId), m.name, m.route || "Sin vía de administración registrada", m.expiry || "Sin fecha de caducidad registrada", doseRuleLabel(m.calculationMode || ""), m.calculationSummary || "", `${Number(m.theoreticalQty || 0).toFixed(2)} ${m.theoreticalUnit || m.unit || ""}`.trim(), `${Number(m.marginQty || 0).toFixed(2)} ${m.unit || ""} (${Number(m.marginPct || 0).toFixed(2)}%)`.trim(), `${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${m.unit || ""}`.trim(), `${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${m.inventoryDeductionUnit || m.unit || ""}`.trim(), Number(m.unitCost || 0).toFixed(2), money(Number(m.inventoryDeductionQty || m.totalUsedQty || m.chargeableQty || 0) * Number(m.unitCost || 0)), m.marginRationale || ""]));
   const chargeDetailRows = procedures.flatMap((p) => {
     const blocks = p.charge?.breakdown || {};
