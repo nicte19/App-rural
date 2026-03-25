@@ -1833,7 +1833,12 @@ function reconcileAnaRosaDebtFromProcedures() {
     (proc.inventory?.meds || []).forEach((use) => {
       const med = byId(state.meds, use.itemId);
       if (!med || med.owner !== "DRA_ANA_ROSA") return;
-      const qtyUsed = Number(use.inventoryDeductionQty || use.totalUsedQty || use.chargeableQty || use.qty || 0);
+      const applied = resolveMedicationAppliedAmount({
+        med,
+        qty: use.inventoryDeductionQty || use.totalUsedQty || use.chargeableQty || use.qty || 0,
+        unit: use.inventoryDeductionUnit || use.unit || med.unit || "",
+      });
+      const qtyUsed = Number(applied.qty || 0);
       if (qtyUsed <= 0) return;
       const amount = Number((qtyUsed * Number(use.unitCost || med.unitCost || 0)).toFixed(2));
       const debtKey = `${proc.id}::${use.itemId}`;
@@ -1846,7 +1851,7 @@ function reconcileAnaRosaDebtFromProcedures() {
         medicationId: med.id,
         medicationName: med.brand || "Medicamento",
       };
-      rebuilt.push({ ...base, qtyUsed, unit: use.unit || med.unit || "", amount, paid: false });
+      rebuilt.push({ ...base, qtyUsed, unit: applied.unit || med.unit || "", amount, paid: false });
     });
   });
   state.anaRosaDebt.records = rebuilt.filter((item) => !paidByKey.has(item.debtKey));
@@ -1976,6 +1981,18 @@ function convertCompatibleUnits(value = 0, fromUnit = "", toUnit = "") {
   const toVolume = VOLUME_UNIT_FACTORS_ML[normalizeUnitToken(to)];
   if (fromVolume && toVolume) return (Number(value || 0) * fromVolume) / toVolume;
   return null;
+}
+function resolveMedicationAppliedAmount({ med = null, qty = 0, unit = "" }) {
+  const requestedQty = Number(qty || 0);
+  const requestedUnit = canonicalUnit(unit || "");
+  const inventoryUnit = canonicalUnit(med?.unit || "");
+  if (!inventoryUnit) return { qty: requestedQty, unit: requestedUnit || "" };
+  if (!requestedUnit || requestedUnit === inventoryUnit) return { qty: requestedQty, unit: inventoryUnit };
+  const converted = convertCompatibleUnits(requestedQty, requestedUnit, inventoryUnit);
+  return {
+    qty: Number((converted != null ? converted : requestedQty).toFixed(4)),
+    unit: inventoryUnit,
+  };
 }
 function medicationConcentrationSummary(med = {}) {
   const c = med?.concentration || {};
@@ -4526,11 +4543,17 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
     if (groupDraft.medicationId && groupDraft.totalQty > 0) {
       const med = byId(state.meds, groupDraft.medicationId);
       if (med) {
+        const convertedApplied = resolveMedicationAppliedAmount({
+          med,
+          qty: groupDraft.convertedQty,
+          unit: groupDraft.convertedUnit || groupDraft.doseUnit || med.unit,
+        });
         meds.push({
           id: uid("pmed"),
           itemId: med.id,
           name: med.brand,
-          unit: groupDraft.doseUnit || med.unit,
+          unit: med.unit || convertedApplied.unit || "",
+          theoreticalUnit: groupDraft.doseUnit || med.unit || "",
           unitCost: med.unitCost,
           owner: med.owner,
           route: med.route || "",
@@ -4538,10 +4561,11 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
           expiryLabel: med.expiry || "Sin fecha de caducidad registrada",
           calculationMode: groupDraft.rule,
           theoreticalQty: groupDraft.totalQty,
-          totalUsedQty: groupDraft.convertedQty,
-          inventoryDeductionQty: groupDraft.convertedQty,
-          chargeableQty: groupDraft.convertedQty,
-          qty: groupDraft.convertedQty,
+          totalUsedQty: convertedApplied.qty,
+          inventoryDeductionQty: convertedApplied.qty,
+          inventoryDeductionUnit: convertedApplied.unit || med.unit || "",
+          chargeableQty: convertedApplied.qty,
+          qty: convertedApplied.qty,
           marginQty: 0,
           marginPct: 0,
           marginRationale: "Modo grupal sin margen por animal",
@@ -4563,7 +4587,8 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
           id: uid("pmed"),
           itemId: med.id,
           name: med.brand,
-          unit: entry.doseUnit || med.unit,
+          unit: med.unit || "",
+          theoreticalUnit: entry.doseUnit || med.unit || "",
           unitCost: med.unitCost,
           owner: med.owner,
           route: med.route || "",
@@ -4576,7 +4601,7 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
           linkedAnimals: [],
         };
         current.theoreticalQty += Number(entry.theoreticalDoseTotal || 0);
-        current.convertedQty += Number(entry.convertedDoseQty || entry.inventoryDeductionQty || 0);
+        current.convertedQty += Number(entry.inventoryDeductionQty || entry.convertedDoseQty || 0);
         current.linkedAnimals.push({
           animalId: entry.animalId,
           identification: entry.identification,
@@ -4648,7 +4673,7 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
       inventoryDeductionQty: Number(totalUsedQty.toFixed(4)),
       chargeableQty: Number(totalUsedQty.toFixed(4)),
       qty: Number(totalUsedQty.toFixed(4)),
-      calculationSummary: `Suma individual (${item.linkedAnimals.length} animales) · requerido ${Number(item.theoreticalQty || 0).toFixed(2)} ${item.linkedAnimals[0]?.doseUnit || item.unit || ""} · convertido ${Number(baseQtyForUse || 0).toFixed(2)} ${item.unit || ""} · ajustes manuales ${manualAdjustments}`,
+      calculationSummary: `Suma individual (${item.linkedAnimals.length} animales) · requerido ${Number(item.theoreticalQty || 0).toFixed(2)} ${item.theoreticalUnit || item.linkedAnimals[0]?.doseUnit || item.unit || ""} · aplicado ${Number(baseQtyForUse || 0).toFixed(2)} ${item.unit || ""} · ajustes manuales ${manualAdjustments}`,
       marginRationale: marginOverridePct > 0
         ? `Margen manual ${Number(marginOverridePct).toFixed(2)}%`
         : config.rationale,
@@ -4948,6 +4973,11 @@ function buildProcedureFollowupMedicationDraft(medicationId = "", qtyOverride = 
   });
   const suggestedQty = Number(converted.convertedQty || 0);
   const finalQty = qtyOverride == null ? suggestedQty : Number(qtyOverride || 0);
+  const applied = resolveMedicationAppliedAmount({
+    med,
+    qty: finalQty,
+    unit: converted.convertedUnit || med.unit || "",
+  });
   return {
     id: uid("followmed"),
     date: $("#p_cc_followMedDate")?.value || new Date().toISOString().slice(0, 10),
@@ -4962,10 +4992,12 @@ function buildProcedureFollowupMedicationDraft(medicationId = "", qtyOverride = 
     calculationSummary: converted.explanation || "",
     suggestedQty,
     suggestedUnit: converted.convertedUnit || med.unit || "",
-    qty: Number(finalQty.toFixed(4)),
-    unit: converted.convertedUnit || med.unit || "",
+    theoreticalQty: Number(theoreticalQty.toFixed(4)),
+    theoreticalUnit: doseUnit,
+    qty: Number((applied.qty || 0).toFixed(4)),
+    unit: applied.unit || med.unit || "",
     unitCost: Number(med.unitCost || 0),
-    subtotal: Number((Number(finalQty || 0) * Number(med.unitCost || 0)).toFixed(4)),
+    subtotal: Number((Number(applied.qty || 0) * Number(med.unitCost || 0)).toFixed(4)),
     notes: $("#p_cc_followMedObs")?.value?.trim() || "",
     animalId: context.animalId,
     animalIdentification: context.identification,
@@ -5031,7 +5063,7 @@ function removeProcedureFollowupMedication(id) {
 function calculateProcedureChargeBreakdown() {
   const aggregated = aggregateProcedureInventoryFromAnimals();
   const medsProcedure = aggregated.meds.map((x) => {
-    const qty = Number(x.totalUsedQty || x.inventoryDeductionQty || x.chargeableQty || x.qty || 0);
+    const qty = Number(x.inventoryDeductionQty || x.totalUsedQty || x.chargeableQty || x.qty || 0);
     const unitCost = Number(x.unitCost || 0);
     return { category: "Medicamento procedimiento", name: x.name, qty, qtyLabel: `${qty.toFixed(2)} ${x.unit || ""}`.trim(), unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.calculationSummary || "" };
   });
@@ -5089,9 +5121,12 @@ function collectProcedure() {
     name: item.medicationName,
     unit: item.unit,
     unitCost: item.unitCost,
+    theoreticalQty: item.theoreticalQty || 0,
+    theoreticalUnit: item.theoreticalUnit || item.unit,
     qty: item.qty,
     totalUsedQty: item.qty,
     inventoryDeductionQty: item.qty,
+    inventoryDeductionUnit: item.unit,
     chargeableQty: item.qty,
     route: item.route,
     calculationMode: item.doseCalculationMode || "PER_KG",
@@ -5254,7 +5289,7 @@ function followupMedicationAppliedTable(items = []) {
   return `<h3>Seguimiento farmacológico</h3><table><tr><th>Fecha</th><th>Medicamento</th><th>Cantidad final</th><th>Vía</th><th>Costo</th><th>Cálculo</th><th>Observaciones</th></tr>${rows.map((item) => `<tr><td>${esc(item.date || "")}</td><td>${esc(item.medicationName || "")}</td><td>${esc(`${Number(item.qty || 0).toFixed(2)} ${item.unit || ""}`.trim())}</td><td>${esc(item.route || "")}</td><td>${money(Number(item.subtotal || (Number(item.qty || 0) * Number(item.unitCost || 0))))}</td><td>${esc(item.calculationSummary || "")}</td><td>${esc(item.notes || "")}</td></tr>`).join("")}</table>`;
 }
 function medicationBreakdownTable(meds = []) {
-  return `<table><tr><th>Medicamento</th><th>Base</th><th>Vía</th><th>Caducidad</th><th>Dosis teórica</th><th>Margen</th><th>Total usado</th><th>Descuento inventario</th><th>Costo</th><th>Explicación</th></tr>${meds.map((m) => `<tr><td>${esc(m.name)}</td><td>${esc(doseRuleLabel(m.calculationMode))}</td><td>${esc(m.route || "Sin vía de administración registrada")}</td><td>${esc(m.expiryLabel || "Sin fecha de caducidad registrada")}</td><td>${Number(m.theoreticalQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.marginQty || 0).toFixed(2)} ${esc(m.unit || "")} (${Number(m.marginPct || 0).toFixed(2)}%)</td><td>${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0))}</td><td>${esc(m.calculationSummary || "")} · ${esc(m.marginRationale || "")}</td></tr>`).join("")}</table>`;
+  return `<table><tr><th>Medicamento</th><th>Base</th><th>Vía</th><th>Caducidad</th><th>Dosis teórica</th><th>Margen</th><th>Total usado</th><th>Descuento inventario</th><th>Costo</th><th>Explicación</th></tr>${meds.map((m) => `<tr><td>${esc(m.name)}</td><td>${esc(doseRuleLabel(m.calculationMode))}</td><td>${esc(m.route || "Sin vía de administración registrada")}</td><td>${esc(m.expiryLabel || "Sin fecha de caducidad registrada")}</td><td>${Number(m.theoreticalQty || 0).toFixed(2)} ${esc(m.theoreticalUnit || m.unit || "")}</td><td>${Number(m.marginQty || 0).toFixed(2)} ${esc(m.unit || "")} (${Number(m.marginPct || 0).toFixed(2)}%)</td><td>${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${esc(m.inventoryDeductionUnit || m.unit || "")}</td><td>${money(Number(m.inventoryDeductionQty || m.totalUsedQty || m.chargeableQty || 0) * Number(m.unitCost || 0))}</td><td>${esc(m.calculationSummary || "")} · ${esc(m.marginRationale || "")}</td></tr>`).join("")}</table>`;
 }
 function chargeBreakdownTable(charge = {}) {
   const breakdown = charge.breakdown || {};
@@ -5283,7 +5318,7 @@ function procedureSummaryHtml() { return `<h1>Procedimientos consolidados</h1>${
 function producerExcelSheets(producers = state.producers, animals = [], meds = state.meds, vaccines = state.vaccines, supplies = state.supplies, procedures = state.procedures, labs = state.labTests) {
   const animalRows = animals.length ? animals : producers.flatMap((p) => (p.animals || []).map((a) => ({ producer: p.basic.name, ...a })));
   const procedureRows = procedures.flatMap((p) => (p.animals || []).length ? (p.animals || []).map((a) => [p.date, p.type, p.scope, producerName(p.producerId), a.identification || a.sourceLabel || "", a.species || "", a.weightMethod || "", Number(a.weightRecordedKg || 0).toFixed(2), Number(a.doseVolumeLiters || 0).toFixed(2), a.chestGirth || "", a.bodyLength || "", a.medicationName || byId(state.meds, a.medicationId)?.brand || "", a.doseBase ? `${Number(a.doseBase).toFixed(4)} ${a.doseUnit || ''}/${doseRuleDenominator(a.doseCalculationMode)}` : a.doseSummary || '', a.theoreticalDoseTotal ? `${Number(a.theoreticalDoseTotal).toFixed(2)} ${a.doseUnit || ""}` : "", a.suggestedDoseQty ? `${Number(a.suggestedDoseQty).toFixed(2)} ${a.suggestedDoseUnit || a.doseUnit || ""}` : "", a.convertedDoseQty ? `${Number(a.convertedDoseQty).toFixed(2)} ${a.convertedDoseUnit || a.doseUnit || ""}` : "", a.manualDoseAdjusted ? "Sí" : "No", a.inventoryDeductionQty ? `${Number(a.inventoryDeductionQty).toFixed(2)} ${a.inventoryDeductionUnit || a.doseUnit || ""}` : "", byId(state.vaccines, a.vaccineId)?.brand || "", a.generalState || "", a.examIncluded ? "Sí" : "No", a.exam?.findings || "", a.conversionExplanation || "", [a.notes || '', a.medicationWarning || '', a.manualDoseAdjusted ? 'Ajuste manual de dosis/cantidad final' : ''].filter(Boolean).join(' · ')]) : [[p.date, p.type, p.scope, producerName(p.producerId), p.identification || "", p.species || "", "", p.weight || "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]]);
-  const medRows = procedures.flatMap((p) => (p.inventory?.meds || []).map((m) => [p.date, p.type, producerName(p.producerId), m.name, m.route || "Sin vía de administración registrada", m.expiry || "Sin fecha de caducidad registrada", doseRuleLabel(m.calculationMode || ""), m.calculationSummary || "", Number(m.theoreticalQty || 0).toFixed(2), `${Number(m.marginQty || 0).toFixed(2)} (${Number(m.marginPct || 0).toFixed(2)}%)`, Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2), Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2), Number(m.unitCost || 0).toFixed(2), money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0)), m.marginRationale || ""]));
+  const medRows = procedures.flatMap((p) => (p.inventory?.meds || []).map((m) => [p.date, p.type, producerName(p.producerId), m.name, m.route || "Sin vía de administración registrada", m.expiry || "Sin fecha de caducidad registrada", doseRuleLabel(m.calculationMode || ""), m.calculationSummary || "", `${Number(m.theoreticalQty || 0).toFixed(2)} ${m.theoreticalUnit || m.unit || ""}`.trim(), `${Number(m.marginQty || 0).toFixed(2)} ${m.unit || ""} (${Number(m.marginPct || 0).toFixed(2)}%)`.trim(), `${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${m.unit || ""}`.trim(), `${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${m.inventoryDeductionUnit || m.unit || ""}`.trim(), Number(m.unitCost || 0).toFixed(2), money(Number(m.inventoryDeductionQty || m.totalUsedQty || m.chargeableQty || 0) * Number(m.unitCost || 0)), m.marginRationale || ""]));
   const chargeDetailRows = procedures.flatMap((p) => {
     const blocks = p.charge?.breakdown || {};
     const items = []
