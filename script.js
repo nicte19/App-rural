@@ -36,6 +36,8 @@ const state = {
     procedureSupplyUses: [],
     procedureLabIds: [],
     procedureAnimalEntries: [],
+    procedureFollowupMedicationEntries: [],
+    procedureFollowupMedicationEditId: null,
     labImages: [],
     labSupplyUses: [],
   },
@@ -1100,6 +1102,8 @@ function clearProducerScopedDraftState() {
   state.draft.animalPhotos = [];
   state.draft.labSelectedAnimalIds = [];
   state.draft.procedureAnimalEntries = [];
+  state.draft.procedureFollowupMedicationEntries = [];
+  state.draft.procedureFollowupMedicationEditId = null;
   if ($("#a_especie")) resetAnimalEntry();
   if ($("#a_diseaseList")) resetDiseaseForm();
   if ($("#a_programasList")) resetProgramForm();
@@ -3457,6 +3461,7 @@ function renderProcedureList() {
 }
 function bindProcedures() {
   renderProcedureType();
+  resetProcedureFollowupMedicationForm();
   $("#p_producer")?.addEventListener("change", () => {
     state.selectedProducerId =
       $("#p_producer").value || state.selectedProducerId;
@@ -4865,6 +4870,7 @@ function addProcedureMedUse() {
   show("p_msg", `Medicamento ${med.brand} agregado y vinculado en ${updates} animal(es).`, "success");
 }
 function renderProcedureDraftLists() {
+  renderProcedureFollowupMedicationDraft();
   renderProcedureAnimalCards();
   const aggregated = aggregateProcedureInventoryFromAnimals();
   const caseMedicationList = ((state.draft.procedureAnimalEntries || []).map(syncProcedureAnimalSummary))
@@ -4909,15 +4915,167 @@ function renderProcedureDraftLists() {
   setThumb("p_charge_preview", state.draft.procedureChargePhoto, "Sin<br/>evidencia");
   const breakdown = calculateProcedureCharge();
   $("#p_chargeCalculated").value = breakdown.total.toFixed(2);
+  renderProcedureChargeBreakdown(breakdown);
+}
+function getProcedureFollowupAnimalContext() {
+  const fromDraft = (state.draft.procedureAnimalEntries || [])[0];
+  const selected = byId(currentAnimals(), $("#p_animalGroup")?.value || "");
+  const source = fromDraft || selected || {};
+  return {
+    animalId: source.animalId || source.id || "",
+    identification: source.identification || source.sourceLabel || animalLabel(source || {}) || "",
+    species: source.species || "",
+    weightKg: Number(source.weightRecordedKg || source.weight || $("#p_weight")?.value || 0),
+  };
+}
+function buildProcedureFollowupMedicationDraft(medicationId = "", qtyOverride = null) {
+  const med = byId(state.meds, medicationId || $("#p_cc_followMedSelect")?.value);
+  if (!med) return null;
+  const context = getProcedureFollowupAnimalContext();
+  const profile = getMedicationDoseProfile(med, context.species || "");
+  const doseBase = Number(profile?.dose || 0);
+  const doseUnit = profile?.doseUnit || med.unit || "";
+  const mode = profile?.calculationMode || "PER_KG";
+  const basis = mode === "PER_KG" ? Number(context.weightKg || 0) : 1;
+  const theoreticalQty = mode === "PER_KG" ? doseBase * basis : doseBase;
+  const converted = calculateConvertedMedicationDose({
+    med,
+    theoreticalQty,
+    theoreticalUnit: doseUnit,
+    rule: mode,
+    basisValue: basis,
+    basisLabel: mode === "PER_KG" ? `Peso usado: ${Number(context.weightKg || 0).toFixed(2)} kg` : "Regla: por animal",
+  });
+  const suggestedQty = Number(converted.convertedQty || 0);
+  const finalQty = qtyOverride == null ? suggestedQty : Number(qtyOverride || 0);
+  return {
+    id: uid("followmed"),
+    date: $("#p_cc_followMedDate")?.value || new Date().toISOString().slice(0, 10),
+    medicationId: med.id,
+    medicationName: med.brand,
+    route: med.route || "Sin vía de administración registrada",
+    species: context.species || "",
+    weightKg: Number(context.weightKg || 0),
+    doseBase,
+    doseUnit,
+    doseCalculationMode: mode,
+    calculationSummary: converted.explanation || "",
+    suggestedQty,
+    suggestedUnit: converted.convertedUnit || med.unit || "",
+    qty: Number(finalQty.toFixed(4)),
+    unit: converted.convertedUnit || med.unit || "",
+    unitCost: Number(med.unitCost || 0),
+    subtotal: Number((Number(finalQty || 0) * Number(med.unitCost || 0)).toFixed(4)),
+    notes: $("#p_cc_followMedObs")?.value?.trim() || "",
+    animalId: context.animalId,
+    animalIdentification: context.identification,
+  };
+}
+function renderProcedureFollowupMedicationDraft() {
+  const select = $("#p_cc_followMedSelect");
+  if (select) {
+    const prev = select.value || "";
+    select.innerHTML = '<option value="">— Selecciona —</option>' + state.meds.map((m) => `<option value="${m.id}">${esc(m.brand)} · ${esc(m.route || "Sin vía")} · ${money(m.unitCost || 0)}/${esc(m.unit || "u")}</option>`).join("");
+    select.value = prev;
+  }
+  const list = $("#p_cc_followMedicationList");
+  const items = state.draft.procedureFollowupMedicationEntries || [];
+  if (list) {
+    list.innerHTML = items.length
+      ? items.map((item) => `<div class="item"><div><b>${esc(item.date || "")}</b> · ${esc(item.medicationName)} · ${Number(item.qty || 0).toFixed(2)} ${esc(item.unit || "")} · ${esc(item.route || "")} · ${money(item.subtotal || 0)}</div><div class="help">${esc(item.calculationSummary || "")}</div><div class="row"><button class="btn small ghost" type="button" data-followmed-edit="${item.id}">Editar</button><button class="btn small bad" type="button" data-followmed-del="${item.id}">Eliminar</button></div></div>`).join("")
+      : '<div class="help">Aún no hay aplicaciones de medicamento registradas en seguimiento.</div>';
+    list.querySelectorAll("[data-followmed-edit]").forEach((btn) => btn.addEventListener("click", () => editProcedureFollowupMedication(btn.getAttribute("data-followmed-edit"))));
+    list.querySelectorAll("[data-followmed-del]").forEach((btn) => btn.addEventListener("click", () => removeProcedureFollowupMedication(btn.getAttribute("data-followmed-del"))));
+  }
+}
+function syncProcedureFollowupMedicationForm() {
+  const draft = buildProcedureFollowupMedicationDraft($("#p_cc_followMedSelect")?.value, $("#p_cc_followMedQty")?.value);
+  if ($("#p_cc_followMedRoute")) $("#p_cc_followMedRoute").value = draft?.route || "";
+  if ($("#p_cc_followMedCalc")) $("#p_cc_followMedCalc").value = draft?.calculationSummary || "Selecciona medicamento para calcular automáticamente.";
+  if ($("#p_cc_followMedQty") && document.activeElement !== $("#p_cc_followMedQty")) $("#p_cc_followMedQty").value = draft?.suggestedQty ? Number(draft.suggestedQty).toFixed(4) : "";
+}
+function resetProcedureFollowupMedicationForm() {
+  state.draft.procedureFollowupMedicationEditId = null;
+  if ($("#p_cc_followMedDate")) $("#p_cc_followMedDate").value = new Date().toISOString().slice(0, 10);
+  ["p_cc_followMedSelect","p_cc_followMedRoute","p_cc_followMedCalc","p_cc_followMedQty","p_cc_followMedObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+}
+function addOrUpdateProcedureFollowupMedication() {
+  const draft = buildProcedureFollowupMedicationDraft($("#p_cc_followMedSelect")?.value, $("#p_cc_followMedQty")?.value);
+  if (!draft?.medicationId) return show("p_msg", "Selecciona un medicamento para el seguimiento farmacológico.", "warning");
+  if (!draft.date) return show("p_msg", "Captura la fecha de aplicación en seguimiento.", "warning");
+  if (Number(draft.qty || 0) <= 0) return show("p_msg", "La cantidad final aplicada debe ser mayor a 0.", "warning");
+  const editingId = state.draft.procedureFollowupMedicationEditId;
+  const current = state.draft.procedureFollowupMedicationEntries || [];
+  if (editingId) {
+    state.draft.procedureFollowupMedicationEntries = current.map((item) => item.id === editingId ? { ...draft, id: editingId } : item);
+  } else {
+    state.draft.procedureFollowupMedicationEntries = [...current, draft];
+  }
+  resetProcedureFollowupMedicationForm();
+  renderProcedureDraftLists();
+}
+function editProcedureFollowupMedication(id) {
+  const item = (state.draft.procedureFollowupMedicationEntries || []).find((x) => x.id === id);
+  if (!item) return;
+  state.draft.procedureFollowupMedicationEditId = id;
+  $("#p_cc_followMedDate").value = item.date || "";
+  $("#p_cc_followMedSelect").value = item.medicationId || "";
+  $("#p_cc_followMedQty").value = Number(item.qty || 0).toFixed(4);
+  $("#p_cc_followMedObs").value = item.notes || "";
+  syncProcedureFollowupMedicationForm();
+}
+function removeProcedureFollowupMedication(id) {
+  state.draft.procedureFollowupMedicationEntries = (state.draft.procedureFollowupMedicationEntries || []).filter((item) => item.id !== id);
+  renderProcedureDraftLists();
+}
+function calculateProcedureChargeBreakdown() {
+  const aggregated = aggregateProcedureInventoryFromAnimals();
+  const medsProcedure = aggregated.meds.map((x) => {
+    const qty = Number(x.totalUsedQty || x.inventoryDeductionQty || x.chargeableQty || x.qty || 0);
+    const unitCost = Number(x.unitCost || 0);
+    return { category: "Medicamento procedimiento", name: x.name, qty, qtyLabel: `${qty.toFixed(2)} ${x.unit || ""}`.trim(), unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.calculationSummary || "" };
+  });
+  const medsFollowup = (state.draft.procedureFollowupMedicationEntries || []).map((x) => {
+    const qty = Number(x.qty || 0);
+    const unitCost = Number(x.unitCost || 0);
+    return { category: "Medicamento seguimiento", name: `${x.date || ""} · ${x.medicationName || ""}`.trim(), qty, qtyLabel: `${qty.toFixed(2)} ${x.unit || ""}`.trim(), unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.notes || x.calculationSummary || "" };
+  });
+  const vaccines = aggregated.vaccines.map((x) => {
+    const qty = Number(x.animalsApplied || 0);
+    const unitCost = Number(x.unitCost || 0);
+    return { category: "Vacuna", name: x.name, qty, qtyLabel: `${qty} animales`, unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.notes || "" };
+  });
+  const supplies = (state.draft.procedureSupplyUses || []).map((x) => {
+    const qty = Number(x.qty || 0);
+    const unitCost = Number(x.unitCost || 0);
+    return { category: "Insumo", name: x.name, qty, qtyLabel: `${qty.toFixed(2)} ${x.type === "NON_DISPOSABLE" ? "usos" : "pzas"}`, unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.notes || "" };
+  });
+  const base = Number($("#p_costTotal").value || 0);
+  const service = base > 0 ? [{ category: "Servicio", name: $("#p_type")?.selectedOptions?.[0]?.textContent || "Servicio", qty: 1, qtyLabel: "1 servicio", unitCost: base, unitCostLabel: money(base), subtotal: base, extraLabel: "Costo base del procedimiento" }] : [];
+  return { medsProcedure, medsFollowup, vaccines, supplies, service };
 }
 function calculateProcedureCharge() {
   const base = Number($("#p_costTotal").value || 0);
-  const aggregated = aggregateProcedureInventoryFromAnimals();
-  const meds = aggregated.meds.reduce((a, x) => a + Number(x.totalUsedQty || x.inventoryDeductionQty || x.chargeableQty || x.qty || 0) * Number(x.unitCost || 0), 0);
-  const vaccines = aggregated.vaccines.reduce((a, x) => a + Number(x.animalsApplied || 0) * (Number(x.unitCost || 0) || Number(x.price || 0)), 0);
-  const supplies = state.draft.procedureSupplyUses.reduce((a, x) => a + Number(x.qty || 0) * Number(x.unitCost || 0), 0);
+  const detail = calculateProcedureChargeBreakdown();
+  const meds = [...(detail.medsProcedure || []), ...(detail.medsFollowup || [])].reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+  const vaccines = (detail.vaccines || []).reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+  const supplies = (detail.supplies || []).reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
   const subtotal = base + meds + vaccines + supplies;
-  return { base, meds, vaccines, supplies, subtotal, total: subtotal };
+  return { base, meds, vaccines, supplies, subtotal, total: subtotal, breakdown: detail };
+}
+function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) {
+  const box = $("#p_chargeBreakdown");
+  if (!box) return;
+  const detail = breakdown?.breakdown || calculateProcedureChargeBreakdown();
+  const drawRows = (title, items = []) => items.length
+    ? `<h5>${title}</h5><ul>${items.map((item) => `<li><b>${esc(item.name || "")}</b> → ${esc(item.qtyLabel || "")} → ${esc(item.unitCostLabel || "")} → <b>${money(item.subtotal || 0)}</b>${item.extraLabel ? ` <small>(${esc(item.extraLabel)})</small>` : ""}</li>`).join("")}</ul>`
+    : `<h5>${title}</h5><div class="help">Sin registros.</div>`;
+  const hasItems = ["medsProcedure", "medsFollowup", "vaccines", "supplies", "service"].some((key) => (detail[key] || []).length);
+  if (!hasItems) {
+    box.innerHTML = '<div class="help">Aún no hay conceptos cobrables registrados.</div>';
+    return;
+  }
+  box.innerHTML = `${drawRows("Medicamentos del procedimiento", detail.medsProcedure)}${drawRows("Medicamentos de seguimiento", detail.medsFollowup)}${drawRows("Vacunas", detail.vaccines)}${drawRows("Insumos", detail.supplies)}${drawRows("Servicio", detail.service)}<h5>Total</h5><p><b>${money(breakdown.total || 0)}</b></p>`;
 }
 function collectProcedure() {
   let animals = (state.draft.procedureAnimalEntries || []).map((entry) => syncProcedureAnimalSummary({ ...entry, exam: { ...(entry.exam || {}) } }));
@@ -4925,6 +5083,27 @@ function collectProcedure() {
   const medicationApplicationMode = getProcedureMedicationApplicationMode();
   const groupMedication = calculateGroupMedicationDraft();
   const aggregated = aggregateProcedureInventoryFromAnimals(animals);
+  const followupInventoryMeds = (state.draft.procedureFollowupMedicationEntries || []).map((item) => ({
+    id: item.id || uid("pmed"),
+    itemId: item.medicationId,
+    name: item.medicationName,
+    unit: item.unit,
+    unitCost: item.unitCost,
+    qty: item.qty,
+    totalUsedQty: item.qty,
+    inventoryDeductionQty: item.qty,
+    chargeableQty: item.qty,
+    route: item.route,
+    calculationMode: item.doseCalculationMode || "PER_KG",
+    calculationSummary: item.calculationSummary || "",
+    marginQty: 0,
+    marginPct: 0,
+    marginRationale: "Seguimiento farmacológico",
+    source: "FOLLOWUP",
+    applicationDate: item.date,
+    notes: item.notes || "",
+    owner: byId(state.meds, item.medicationId)?.owner || "",
+  }));
   const groupIdentification = groupMedication?.groupAnimalLabel || "";
   const groupSpecies = groupMedication?.species || "";
   return {
@@ -4949,11 +5128,11 @@ function collectProcedure() {
     groupMedication,
     animals: animals,
     inventory: {
-      meds: aggregated.meds,
+      meds: [...aggregated.meds, ...followupInventoryMeds],
       vaccines: aggregated.vaccines,
       supplies: [...state.draft.procedureSupplyUses],
     },
-    caseClinical: { reason: $("#p_cc_reason").value.trim(), anamnesis: $("#p_cc_anamnesis").value.trim(), bodyCondition: $("#p_cc_bodyCondition").value.trim(), mucosa: $("#p_cc_mucosa").value.trim(), tllc: $("#p_cc_tllc").value.trim(), hydration: $("#p_cc_hydration").value.trim(), fc: $("#p_cc_fc").value.trim(), fr: $("#p_cc_fr").value.trim(), temp: $("#p_cc_temp").value.trim(), weight: $("#p_cc_weight2").value.trim(), exam: $("#p_cc_exam").value.trim(), presumptiveDx: $("#p_cc_presumptiveDx").value.trim(), treatment: $("#p_cc_treatment").value.trim(), recommendations: $("#p_cc_recommendations").value.trim(), followup: $("#p_cc_followup").value.trim(), photos: [...state.draft.procedureCasePhotos] },
+    caseClinical: { reason: $("#p_cc_reason").value.trim(), anamnesis: $("#p_cc_anamnesis").value.trim(), bodyCondition: $("#p_cc_bodyCondition").value.trim(), mucosa: $("#p_cc_mucosa").value.trim(), tllc: $("#p_cc_tllc").value.trim(), hydration: $("#p_cc_hydration").value.trim(), fc: $("#p_cc_fc").value.trim(), fr: $("#p_cc_fr").value.trim(), temp: $("#p_cc_temp").value.trim(), weight: $("#p_cc_weight2").value.trim(), exam: $("#p_cc_exam").value.trim(), presumptiveDx: $("#p_cc_presumptiveDx").value.trim(), treatment: $("#p_cc_treatment").value.trim(), recommendations: $("#p_cc_recommendations").value.trim(), followup: $("#p_cc_followup").value.trim(), followupMedications: [...(state.draft.procedureFollowupMedicationEntries || [])], photos: [...state.draft.procedureCasePhotos] },
     necropsy: { idAnimal: $("#p_nec_idAnimal").value.trim(), species: $("#p_nec_species").value.trim(), breed: $("#p_nec_breed").value.trim(), sex: $("#p_nec_sex").value.trim(), age: $("#p_nec_age").value.trim(), sterilized: $("#p_nec_sterilized").value.trim(), color: $("#p_nec_color").value.trim(), weight: $("#p_nec_weight").value.trim(), birthDate: $("#p_nec_birthDate").value, deathDate: $("#p_nec_deathDate").value, timeDeathNec: $("#p_nec_timeDeathNec").value.trim(), sender: $("#p_nec_sender").value.trim(), caseNumber: $("#p_nec_caseNumber").value.trim(), clinicalDx: $("#p_nec_clinicalDx").value.trim(), additionalData: $("#p_nec_additionalData").value.trim(), externalInspection: $("#p_nec_externalInspection").value.trim(), primaryIncision: $("#p_nec_primaryIncision").value.trim(), secondaryIncision: $("#p_nec_secondaryIncision").value.trim(), organExtraction: $("#p_nec_organExtraction").value.trim(), respiratory: $("#p_nec_respiratory").value.trim(), heart: $("#p_nec_heart").value.trim(), spleen: $("#p_nec_spleen").value.trim(), kidneys: $("#p_nec_kidneys").value.trim(), stomach: $("#p_nec_stomach").value.trim(), preliminaryReport: $("#p_nec_preliminaryReport").value.trim(), morphDx: $("#p_nec_morphDx").value.trim(), finalDx: $("#p_nec_finalDx").value.trim(), comments: $("#p_nec_comments").value.trim(), biblioSummary: $("#p_nec_biblioSummary").value.trim(), bibliography: $("#p_nec_bibliography").value.trim(), photos: [...state.draft.procedureNecropsyPhotos] },
     zootecnia: { activity: $("#p_zoo_activity").value.trim(), evaluation: $("#p_zoo_evaluation").value.trim(), intervention: $("#p_zoo_intervention").value.trim(), plan: $("#p_zoo_plan").value.trim(), followup: $("#p_zoo_followup").value.trim() },
     surgery: {},
@@ -4990,6 +5169,15 @@ function saveProcedure() {
   const previous = idx >= 0 ? state.procedures[idx] : null;
   const validationProblems = validateProcedureAnimalEntries(p.animals || [], previous);
   if (validationProblems.length) return show("p_err", validationProblems[0], "error");
+  const followupStockProblems = (p.caseClinical?.followupMedications || []).map((item) => {
+    const med = byId(state.meds, item.medicationId);
+    if (!med) return `No se encontró el medicamento de seguimiento (${item.medicationName || "sin nombre"}).`;
+    const prevQty = Number((previous?.caseClinical?.followupMedications || []).filter((old) => old.medicationId === item.medicationId).reduce((acc, old) => acc + Number(old.qty || 0), 0));
+    const available = Number(medRemaining(med) || 0) + prevQty;
+    const required = Number(item.qty || 0);
+    return required > available + 0.0001 ? `No hay stock suficiente de ${med.brand} para seguimiento. Disponible: ${available.toFixed(2)} ${med.unit || ""}. Requerido: ${required.toFixed(2)} ${item.unit || med.unit || ""}.` : "";
+  }).filter(Boolean);
+  if (followupStockProblems.length) return show("p_err", followupStockProblems[0], "error");
   if (idx >= 0) state.procedures[idx] = p; else state.procedures.unshift(p);
   reconcileAnaRosaDebtFromProcedures();
   if (p.type === "NECROPSIA" && p.animalId) {
@@ -5011,6 +5199,9 @@ function resetProcedure() {
   state.draft.procedureNecropsyPhotos = [];
   state.draft.procedureChargePhoto = null;
   state.draft.procedureAnimalEntries = [];
+  state.draft.procedureFollowupMedicationEntries = [];
+  state.draft.procedureFollowupMedicationEditId = null;
+  resetProcedureFollowupMedicationForm();
   renderProcedureType(); renderProcedureDraftLists(); renderProcedureAnimalSelect();
 }
 function fillProcedure(p) {
@@ -5024,6 +5215,9 @@ function fillProcedure(p) {
   state.draft.procedureSupplyUses = [...(p.inventory?.supplies || [])];
   state.draft.procedureLabIds = [...(p.labIds || [])];
   state.draft.procedureCasePhotos = [...(p.caseClinical?.photos || [])];
+  state.draft.procedureFollowupMedicationEntries = [...(p.caseClinical?.followupMedications || [])];
+  state.draft.procedureFollowupMedicationEditId = null;
+  resetProcedureFollowupMedicationForm();
   state.draft.procedureNecropsyPhotos = [...(p.necropsy?.photos || [])];
   state.draft.procedureChargePhoto = p.charge?.photo || null;
   renderProcedureType(); renderProcedureDraftLists();
@@ -5054,18 +5248,24 @@ function caseMedicationAppliedTable(entries = []) {
     return `<tr><td>${idx + 1}</td><td>${esc(med?.brand || entry.medicationName || "")}</td><td>${esc(`${Number(entry.convertedDoseQty || 0).toFixed(2)} ${entry.convertedDoseUnit || entry.suggestedDoseUnit || med?.unit || ""}`.trim())}</td><td>${esc(med?.route || "Sin vía de administración registrada")}</td><td>${entry.manualDoseAdjusted ? "Sí" : "No"}</td></tr>`;
   }).join("")}</table>`;
 }
+function followupMedicationAppliedTable(items = []) {
+  const rows = items || [];
+  if (!rows.length) return "<p>Sin medicamentos registrados en seguimiento.</p>";
+  return `<h3>Seguimiento farmacológico</h3><table><tr><th>Fecha</th><th>Medicamento</th><th>Cantidad final</th><th>Vía</th><th>Costo</th><th>Cálculo</th><th>Observaciones</th></tr>${rows.map((item) => `<tr><td>${esc(item.date || "")}</td><td>${esc(item.medicationName || "")}</td><td>${esc(`${Number(item.qty || 0).toFixed(2)} ${item.unit || ""}`.trim())}</td><td>${esc(item.route || "")}</td><td>${money(Number(item.subtotal || (Number(item.qty || 0) * Number(item.unitCost || 0))))}</td><td>${esc(item.calculationSummary || "")}</td><td>${esc(item.notes || "")}</td></tr>`).join("")}</table>`;
+}
 function medicationBreakdownTable(meds = []) {
   return `<table><tr><th>Medicamento</th><th>Base</th><th>Vía</th><th>Caducidad</th><th>Dosis teórica</th><th>Margen</th><th>Total usado</th><th>Descuento inventario</th><th>Costo</th><th>Explicación</th></tr>${meds.map((m) => `<tr><td>${esc(m.name)}</td><td>${esc(doseRuleLabel(m.calculationMode))}</td><td>${esc(m.route || "Sin vía de administración registrada")}</td><td>${esc(m.expiryLabel || "Sin fecha de caducidad registrada")}</td><td>${Number(m.theoreticalQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.marginQty || 0).toFixed(2)} ${esc(m.unit || "")} (${Number(m.marginPct || 0).toFixed(2)}%)</td><td>${Number(m.totalUsedQty || m.chargeableQty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${esc(m.unit || "")}</td><td>${money(Number(m.totalUsedQty || m.inventoryDeductionQty || m.chargeableQty || 0) * Number(m.unitCost || 0))}</td><td>${esc(m.calculationSummary || "")} · ${esc(m.marginRationale || "")}</td></tr>`).join("")}</table>`;
 }
 function chargeBreakdownTable(charge = {}) {
   const breakdown = charge.breakdown || {};
   const rows = [
-    ...(breakdown.meds || []).map((item) => ["Medicamento", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
+    ...(breakdown.medsProcedure || breakdown.meds || []).map((item) => ["Medicamento (procedimiento)", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
+    ...(breakdown.medsFollowup || []).map((item) => ["Medicamento (seguimiento)", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
     ...(breakdown.vaccines || []).map((item) => ["Vacuna", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
     ...(breakdown.supplies || []).map((item) => ["Insumo", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
     ...(breakdown.service || []).map((item) => ["Servicio", item.name, item.qtyLabel, item.unitCostLabel, money(item.subtotal)]),
   ];
-  if (!rows.length) return "<div class=\"help\">Sin desglose capturado.</div>";
+  if (!rows.length) return "<div class=\"help\">Aún no hay conceptos cobrables registrados.</div>";
   return `<table><tr><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th></tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
 }
 function procedureAnimalsTable(animals = []) {
@@ -5077,7 +5277,7 @@ function procedureWordHtml(p) {
   const groupText = medicationMode === "GROUP_WATER_FEED"
     ? `Se administró medicamento en ${safe((p.groupMedication?.administrationType || "AGUA")).toLowerCase()}: ${Number(p.groupMedication?.totalQty || 0).toFixed(2)} ${p.groupMedication?.doseUnit || ""} en ${Number(p.groupMedication?.totalVolumeKg || 0).toFixed(2)} ${p.groupMedication?.rule === "PER_KG_FEED" ? "kg" : "L"}.`
     : `Se aplicó a ${(p.animals || []).length} animales con dosis individual por peso/registro.`;
-  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Modalidad:</b> ${esc(p.scope)}</p><p><b>Tipo de aplicación de medicamento:</b> ${esc(medicationMode === "GROUP_WATER_FEED" ? "Grupal (agua / alimento)" : "Individual por animal")}</p><p><b>Animales incluidos:</b> ${(p.animals || []).length}</p><p><b>Resumen de medicación:</b> ${esc(groupText)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, subtipo_preventiva: p.preventiveSubtype || "", actividad_zootecnia: p.zootecniaActivity || p.zootecnia?.activity || "", alcance: p.scope, lugar: p.place, productor: prod?.basic?.name || "", cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes, tipo_aplicacion_medicamento: medicationMode, grupo_animal_base: p.groupMedication?.groupAnimalLabel || "", especie_detectada_grupal: p.groupMedication?.species || "", regla_grupal: doseRuleLabel(p.groupMedication?.rule || ""), dosis_base_grupal: p.groupMedication?.doseBase ? `${Number(p.groupMedication?.doseBase || 0).toFixed(4)} ${p.groupMedication?.doseUnit || ""}` : "", medicacion_grupal: medicationMode === "GROUP_WATER_FEED" ? `${p.groupMedication?.medicationName || ""} · ${p.groupMedication?.summary || ""}` : "" })}<h2>Animales tratados</h2>${procedureAnimalsTable(p.animals || [])}<h2>Inventario usado</h2>${medicationBreakdownTable(p.inventory?.meds || [])}<table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${caseMedicationAppliedTable(p.animals || [])}${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${chargeBreakdownTable(p.charge || {})}${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
+  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(prod?.basic?.name || "")}</p><p><b>Modalidad:</b> ${esc(p.scope)}</p><p><b>Tipo de aplicación de medicamento:</b> ${esc(medicationMode === "GROUP_WATER_FEED" ? "Grupal (agua / alimento)" : "Individual por animal")}</p><p><b>Animales incluidos:</b> ${(p.animals || []).length}</p><p><b>Resumen de medicación:</b> ${esc(groupText)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, subtipo_preventiva: p.preventiveSubtype || "", actividad_zootecnia: p.zootecniaActivity || p.zootecnia?.activity || "", alcance: p.scope, lugar: p.place, productor: prod?.basic?.name || "", cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes, tipo_aplicacion_medicamento: medicationMode, grupo_animal_base: p.groupMedication?.groupAnimalLabel || "", especie_detectada_grupal: p.groupMedication?.species || "", regla_grupal: doseRuleLabel(p.groupMedication?.rule || ""), dosis_base_grupal: p.groupMedication?.doseBase ? `${Number(p.groupMedication?.doseBase || 0).toFixed(4)} ${p.groupMedication?.doseUnit || ""}` : "", medicacion_grupal: medicationMode === "GROUP_WATER_FEED" ? `${p.groupMedication?.medicationName || ""} · ${p.groupMedication?.summary || ""}` : "" })}<h2>Animales tratados</h2>${procedureAnimalsTable(p.animals || [])}<h2>Inventario usado</h2>${medicationBreakdownTable(p.inventory?.meds || [])}<table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${caseMedicationAppliedTable(p.animals || [])}${followupMedicationAppliedTable(p.caseClinical?.followupMedications || [])}${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${chargeBreakdownTable(p.charge || {})}${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
 }
 function procedureSummaryHtml() { return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`; }
 function producerExcelSheets(producers = state.producers, animals = [], meds = state.meds, vaccines = state.vaccines, supplies = state.supplies, procedures = state.procedures, labs = state.labTests) {
@@ -5087,7 +5287,8 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
   const chargeDetailRows = procedures.flatMap((p) => {
     const blocks = p.charge?.breakdown || {};
     const items = []
-      .concat((blocks.meds || []).map((item) => ["Medicamento", item]))
+      .concat((blocks.medsProcedure || blocks.meds || []).map((item) => ["Medicamento procedimiento", item]))
+      .concat((blocks.medsFollowup || []).map((item) => ["Medicamento seguimiento", item]))
       .concat((blocks.vaccines || []).map((item) => ["Vacuna", item]))
       .concat((blocks.supplies || []).map((item) => ["Insumo", item]))
       .concat((blocks.service || []).map((item) => ["Servicio", item]));
@@ -5372,7 +5573,7 @@ function bindProcedures() {
   $("#p_type")?.addEventListener("change", renderProcedureType);
   $("#p_scope")?.addEventListener("change", renderProcedureType);
   $("#p_medicationApplicationMode")?.addEventListener("change", () => { toggleProcedureMedicationModeUi(); renderProcedureDraftLists(); });
-  ["p_groupMedSelect", "p_groupAnimalBase", "p_groupAdministrationType", "p_groupTotalVolumeKg", "p_groupDoseRule", "p_groupDoseBase", "p_groupDoseUnit", "p_medApplicationType", "p_medMarginProfile", "p_medMarginOverride"].forEach((id) => {
+  ["p_groupMedSelect", "p_groupAnimalBase", "p_groupAdministrationType", "p_groupTotalVolumeKg", "p_groupDoseRule", "p_groupDoseBase", "p_groupDoseUnit", "p_medApplicationType", "p_medMarginProfile", "p_medMarginOverride", "p_costTotal"].forEach((id) => {
     $("#" + id)?.addEventListener("input", renderProcedureDraftLists);
     $("#" + id)?.addEventListener("change", renderProcedureDraftLists);
   });
@@ -5385,6 +5586,12 @@ function bindProcedures() {
   });
   $("#p_addGroupAnimal")?.addEventListener("click", addProcedureAnimalEntry);
   $("#p_animalsQtyUsed")?.addEventListener("change", renderProcedureDraftLists);
+  ["p_cc_followMedDate", "p_cc_followMedSelect", "p_cc_followMedQty", "p_cc_followMedObs"].forEach((id) => {
+    $("#" + id)?.addEventListener("input", syncProcedureFollowupMedicationForm);
+    $("#" + id)?.addEventListener("change", syncProcedureFollowupMedicationForm);
+  });
+  $("#p_cc_followMedAdd")?.addEventListener("click", addOrUpdateProcedureFollowupMedication);
+  $("#p_cc_followMedCancelEdit")?.addEventListener("click", () => { resetProcedureFollowupMedicationForm(); renderProcedureDraftLists(); });
     $("#p_addMedUse")?.addEventListener("click", addProcedureMedUse);
   $("#p_addVaccineUse")?.addEventListener("click", addProcedureVaccineUse);
   $("#p_addSupplyUse")?.addEventListener("click", addProcedureSupplyUse);

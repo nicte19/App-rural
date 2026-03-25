@@ -2249,6 +2249,27 @@
                     <label for="p_cc_followup">Seguimiento</label>
                     <textarea id="p_cc_followup"></textarea>
                   </div>
+                  <div class="card" style="margin-top:10px;">
+                    <h4>Seguimiento farmacológico</h4>
+                    <div class="help">Registra aplicaciones posteriores usando el inventario real y cálculo automático por especie/peso.</div>
+                    <div class="grid cols-3">
+                      <div><label for="p_cc_followMedDate">Fecha</label><input id="p_cc_followMedDate" type="date" /></div>
+                      <div><label for="p_cc_followMedSelect">Medicamento</label><select id="p_cc_followMedSelect"><option value="">— Selecciona —</option></select></div>
+                      <div><label for="p_cc_followMedRoute">Vía</label><input id="p_cc_followMedRoute" type="text" disabled /></div>
+                    </div>
+                    <div class="grid cols-2">
+                      <div><label for="p_cc_followMedCalc">Cálculo automático</label><textarea id="p_cc_followMedCalc" disabled></textarea></div>
+                      <div><label for="p_cc_followMedQty">Cantidad final aplicada (editable)</label><input id="p_cc_followMedQty" type="number" min="0" step="0.0001" /></div>
+                    </div>
+                    <div class="grid cols-2">
+                      <div><label for="p_cc_followMedObs">Observaciones</label><input id="p_cc_followMedObs" type="text" /></div>
+                      <div class="row" style="align-items:flex-end;">
+                        <button class="btn small" type="button" id="p_cc_followMedAdd">➕ Aplicar medicamento</button>
+                        <button class="btn small ghost" type="button" id="p_cc_followMedCancelEdit">Cancelar edición</button>
+                      </div>
+                    </div>
+                    <div class="list" id="p_cc_followMedicationList"></div>
+                  </div>
 
                   <div>
                     <label>Medicamentos aplicados en este caso clínico</label>
