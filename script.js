@@ -5173,15 +5173,42 @@ function removeProcedureFollowupMedication(id) {
 }
 function calculateProcedureChargeBreakdown() {
   const aggregated = aggregateProcedureInventoryFromAnimals();
-  const medsProcedure = aggregated.meds.map((x) => {
-    const qty = Number(x.inventoryDeductionQty || x.totalUsedQty || x.chargeableQty || x.qty || 0);
-    const unitCost = Number(x.unitCost || 0);
-    return { category: "Medicamento procedimiento", name: x.name, qty, qtyLabel: `${qty.toFixed(2)} ${x.unit || ""}`.trim(), unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.calculationSummary || "" };
+  const medsProcedure = (state.draft.procedureAnimalEntries || []).flatMap((entry) => {
+    normalizeEntryMedicationApplied(entry);
+    return (entry.medicationsApplied || []).map((item) => {
+      const qty = Number(item.inventoryDiscount || item.finalAppliedAmount || 0);
+      const unitCost = Number(byId(state.meds, item.medicationId)?.unitCost || 0);
+      return {
+        category: "Medicamento procedimiento",
+        name: `${entry.identification || entry.sourceLabel || "Animal"} · ${item.medicationName || "Medicamento"}`,
+        qty,
+        qtyLabel: `${qty.toFixed(2)} ${item.inventoryDiscountUnit || item.finalUnit || ""}`.trim(),
+        unitCost,
+        unitCostLabel: money(unitCost),
+        subtotal: qty * unitCost,
+        extraLabel: item.notes || item.conversionExplanation || item.route || "",
+        removable: true,
+        removeType: "procedure-medication",
+        removeTarget: { entryId: entry.id, medicationApplicationId: item.id },
+      };
+    });
   });
   const medsFollowup = (state.draft.procedureFollowupMedicationEntries || []).map((x) => {
     const qty = Number(x.qty || 0);
     const unitCost = Number(x.unitCost || 0);
-    return { category: "Medicamento seguimiento", name: `${x.date || ""} · ${x.medicationName || ""}`.trim(), qty, qtyLabel: `${qty.toFixed(2)} ${x.unit || ""}`.trim(), unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.notes || x.calculationSummary || "" };
+    return {
+      category: "Medicamento seguimiento",
+      name: `${x.date || ""} · ${x.medicationName || ""}`.trim(),
+      qty,
+      qtyLabel: `${qty.toFixed(2)} ${x.unit || ""}`.trim(),
+      unitCost,
+      unitCostLabel: money(unitCost),
+      subtotal: qty * unitCost,
+      extraLabel: x.notes || x.calculationSummary || "",
+      removable: true,
+      removeType: "followup-medication",
+      removeTarget: { followupId: x.id },
+    };
   });
   const vaccines = aggregated.vaccines.map((x) => {
     const qty = Number(x.animalsApplied || 0);
@@ -5191,11 +5218,42 @@ function calculateProcedureChargeBreakdown() {
   const supplies = (state.draft.procedureSupplyUses || []).map((x) => {
     const qty = Number(x.qty || 0);
     const unitCost = Number(x.unitCost || 0);
-    return { category: "Insumo", name: x.name, qty, qtyLabel: `${qty.toFixed(2)} ${x.type === "NON_DISPOSABLE" ? "usos" : "pzas"}`, unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.notes || "" };
+    return {
+      category: "Insumo",
+      name: x.name,
+      qty,
+      qtyLabel: `${qty.toFixed(2)} ${x.type === "NON_DISPOSABLE" ? "usos" : "pzas"}`,
+      unitCost,
+      unitCostLabel: money(unitCost),
+      subtotal: qty * unitCost,
+      extraLabel: x.notes || "",
+      removable: true,
+      removeType: "supply",
+      removeTarget: { supplyUseId: x.id },
+    };
   });
   const base = Number($("#p_costTotal").value || 0);
   const service = base > 0 ? [{ category: "Servicio", name: $("#p_type")?.selectedOptions?.[0]?.textContent || "Servicio", qty: 1, qtyLabel: "1 servicio", unitCost: base, unitCostLabel: money(base), subtotal: base, extraLabel: "Costo base del procedimiento" }] : [];
   return { medsProcedure, medsFollowup, vaccines, supplies, service };
+}
+function removeProcedureChargeBreakdownItem(item) {
+  if (!item?.removable || !item.removeType) return;
+  if (!window.confirm("¿Seguro que quieres eliminar este elemento del cobro?")) return;
+  if (item.removeType === "procedure-medication") {
+    const target = item.removeTarget || {};
+    const entry = (state.draft.procedureAnimalEntries || []).find((candidate) => candidate.id === target.entryId);
+    if (!entry) return;
+    normalizeEntryMedicationApplied(entry);
+    entry.medicationsApplied = (entry.medicationsApplied || []).filter((medItem) => medItem.id !== target.medicationApplicationId);
+  }
+  if (item.removeType === "followup-medication") {
+    state.draft.procedureFollowupMedicationEntries = (state.draft.procedureFollowupMedicationEntries || []).filter((candidate) => candidate.id !== item.removeTarget?.followupId);
+  }
+  if (item.removeType === "supply") {
+    state.draft.procedureSupplyUses = (state.draft.procedureSupplyUses || []).filter((candidate) => candidate.id !== item.removeTarget?.supplyUseId);
+  }
+  renderProcedureDraftLists();
+  show("p_msg", "Elemento eliminado del desglose y del cobro.", "success");
 }
 function calculateProcedureCharge() {
   const base = Number($("#p_costTotal").value || 0);
@@ -5210,15 +5268,31 @@ function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) 
   const box = $("#p_chargeBreakdown");
   if (!box) return;
   const detail = breakdown?.breakdown || calculateProcedureChargeBreakdown();
-  const drawRows = (title, items = []) => items.length
-    ? `<h5>${title}</h5><ul>${items.map((item) => `<li><b>${esc(item.name || "")}</b> → ${esc(item.qtyLabel || "")} → ${esc(item.unitCostLabel || "")} → <b>${money(item.subtotal || 0)}</b>${item.extraLabel ? ` <small>(${esc(item.extraLabel)})</small>` : ""}</li>`).join("")}</ul>`
+  const drawRows = (title, items = [], keyPrefix = "") => items.length
+    ? `<h5>${title}</h5><ul>${items.map((item, index) => `<li><span><b>${esc(item.name || "")}</b> → ${esc(item.qtyLabel || "")} → ${esc(item.unitCostLabel || "")} → <b>${money(item.subtotal || 0)}</b>${item.extraLabel ? ` <small>(${esc(item.extraLabel)})</small>` : ""}</span>${item.removable ? ` <button class="btn small bad" type="button" data-remove-charge-item="${esc(`${keyPrefix}-${index}`)}">Eliminar</button>` : ""}</li>`).join("")}</ul>`
     : `<h5>${title}</h5><div class="help">Sin registros.</div>`;
   const hasItems = ["medsProcedure", "medsFollowup", "vaccines", "supplies", "service"].some((key) => (detail[key] || []).length);
   if (!hasItems) {
     box.innerHTML = '<div class="help">Aún no hay conceptos cobrables registrados.</div>';
     return;
   }
-  box.innerHTML = `${drawRows("Medicamentos del procedimiento", detail.medsProcedure)}${drawRows("Medicamentos de seguimiento", detail.medsFollowup)}${drawRows("Vacunas", detail.vaccines)}${drawRows("Insumos", detail.supplies)}${drawRows("Servicio", detail.service)}<h5>Total</h5><p><b>${money(breakdown.total || 0)}</b></p>`;
+  box.innerHTML = `${drawRows("Medicamentos del procedimiento", detail.medsProcedure, "medsProcedure")}${drawRows("Medicamentos de seguimiento", detail.medsFollowup, "medsFollowup")}${drawRows("Vacunas", detail.vaccines, "vaccines")}${drawRows("Insumos", detail.supplies, "supplies")}${drawRows("Servicio", detail.service, "service")}<h5>Total</h5><p><b>${money(breakdown.total || 0)}</b></p>`;
+  const allRows = {
+    medsProcedure: detail.medsProcedure || [],
+    medsFollowup: detail.medsFollowup || [],
+    vaccines: detail.vaccines || [],
+    supplies: detail.supplies || [],
+    service: detail.service || [],
+  };
+  box.querySelectorAll("[data-remove-charge-item]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const marker = btn.getAttribute("data-remove-charge-item") || "";
+      const [groupKey, itemIndexRaw] = marker.split("-");
+      const itemIndex = Number(itemIndexRaw);
+      const item = allRows[groupKey]?.[itemIndex];
+      removeProcedureChargeBreakdownItem(item);
+    });
+  });
 }
 function collectProcedure() {
   let animals = (state.draft.procedureAnimalEntries || []).map((entry) => {

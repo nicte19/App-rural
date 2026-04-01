@@ -175,6 +175,12 @@ main {
   margin: 0;
   padding-left: 18px;
 }
+.charge-breakdown li {
+  margin: 6px 0;
+}
+.charge-breakdown li .btn {
+  margin-left: 8px;
+}
 .row {
   display: flex;
   gap: 10px;
