@@ -35,21 +35,8 @@
     <button class="tab" id="tabSupplies" type="button">🧰 Insumos</button>
     <button class="tab" id="tabLab" type="button">🧪 Laboratorio</button>
     <button class="tab" id="tabProcedures" type="button">🩺 Procedimientos</button>
+    <button class="tab" id="tabDebt" type="button">💸 Deuda</button>
   </nav>
-
-  <aside class="card debt-sidebar" id="anaRosaDebtSidebar">
-    <h2>💸 Deuda con Dra. Ana Rosa</h2>
-    <div class="content">
-      <div class="line"><b>Total activo:</b> <span id="anaRosaDebtTotal">$0.00</span></div>
-      <div class="help">Se genera solo cuando realmente se usa un medicamento con origen "Dra. Ana Rosa" en un procedimiento.</div>
-      <div class="sep"></div>
-      <h3>Deuda activa</h3>
-      <div class="list" id="anaRosaDebtActiveList"></div>
-      <div class="sep"></div>
-      <h3>Historial pagado</h3>
-      <div class="list" id="anaRosaDebtPaidList"></div>
-    </div>
-  </aside>
 
   <div class="pages">
 
@@ -542,7 +529,7 @@
 
               <div class="sep"></div>
 
-              <details open>
+              <details open id="questionnaireSectionIII">
                 <summary>III. Campo, manejo, vacunación y desparasitación</summary>
                 <div class="inner grid">
 
@@ -689,12 +676,16 @@
                     <label for="a_recommendWho">¿Quién recomendó esos manejos?</label>
                     <textarea id="a_recommendWho"></textarea>
                   </div>
+                  <div class="row" style="justify-content:flex-start;">
+                    <button class="btn small ghost" type="button" id="btnSaveQuestionnaireIII">💾 Guardar sección</button>
+                    <span class="help" id="saveStatusIII"></span>
+                  </div>
                 </div>
               </details>
 
               <div class="sep"></div>
 
-              <details open>
+              <details open id="questionnaireSectionIV">
                 <summary>IV. Personas que curan animales y prácticas</summary>
                 <div class="inner grid">
                   <div class="grid cols-2">
@@ -738,6 +729,10 @@
                       <option>Sí</option>
                       <option>No</option>
                     </select>
+                  </div>
+                  <div class="row" style="justify-content:flex-start;">
+                    <button class="btn small ghost" type="button" id="btnSaveQuestionnaireIV">💾 Guardar sección</button>
+                    <span class="help" id="saveStatusIV"></span>
                   </div>
                 </div>
               </details>
@@ -876,7 +871,7 @@
 
               <div class="sep"></div>
 
-              <details open>
+              <details open id="questionnaireSectionFauna">
                 <summary>VI. Programas, entorno, agua y saberes locales</summary>
                 <div class="inner grid">
 
@@ -1024,12 +1019,16 @@
                       <option>Nada</option>
                     </select>
                   </div>
+                  <div class="row" style="justify-content:flex-start;">
+                    <button class="btn small ghost" type="button" id="btnSaveQuestionnaireFauna">💾 Guardar sección</button>
+                    <span class="help" id="saveStatusFauna"></span>
+                  </div>
                 </div>
               </details>
 
               <div class="sep"></div>
 
-              <details open>
+              <details open id="questionnaireSectionRumiants">
                 <summary>VII. Interés en pequeños rumiantes</summary>
                 <div class="inner grid">
                   <div class="grid cols-2">
@@ -1105,6 +1104,10 @@
                       <label><input type="checkbox" name="a_rumiantsTrainingTopics" value="Manejo de estiércol y aprovechamiento de residuos" /> Manejo de estiércol y aprovechamiento de residuos</label>
                       <label><input type="checkbox" name="a_rumiantsTrainingTopics" value="Relación entre manejo animal y cuidado del ambiente" /> Relación entre manejo animal y cuidado del ambiente</label>
                     </div>
+                  </div>
+                  <div class="row" style="justify-content:flex-start;">
+                    <button class="btn small ghost" type="button" id="btnSaveQuestionnaireRumiants">💾 Guardar sección</button>
+                    <span class="help" id="saveStatusRumiants"></span>
                   </div>
                 </div>
               </details>
@@ -2621,6 +2624,24 @@
             <div class="list" id="p_list"></div>
           </div>
         </aside>
+      </main>
+    </section>
+
+    <section id="pageDebt" class="page">
+      <main style="grid-template-columns:1fr;">
+        <section class="card debt-sidebar" id="anaRosaDebtSidebar">
+          <h2>💸 Deuda con Dra. Ana Rosa</h2>
+          <div class="content">
+            <div class="line"><b>Total activo:</b> <span id="anaRosaDebtTotal">$0.00</span></div>
+            <div class="help">Se genera automáticamente cuando se usa un medicamento con origen "Dra. Ana Rosa" en un procedimiento.</div>
+            <div class="sep"></div>
+            <h3>Deuda activa</h3>
+            <div class="list" id="anaRosaDebtActiveList"></div>
+            <div class="sep"></div>
+            <h3>Historial pagado</h3>
+            <div class="list" id="anaRosaDebtPaidList"></div>
+          </div>
+        </section>
       </main>
     </section>
 
