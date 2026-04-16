@@ -763,7 +763,6 @@ const FIXED_GENDER_ANIMAL_OPTIONS = [
   "Peces",
   "Otro",
 ];
-
 function normalizeQuestionnaire(questionnaire = {}) {
   const legacyProgramName = questionnaire.programaNombre || "";
   const legacyProgramHasFolio = questionnaire.programaFolioTiene || "";
@@ -1428,6 +1427,49 @@ function renderSimpleList(listId, arr, titleFn) {
     list.appendChild(div);
   });
 }
+function selectedGenderActivity() {
+  const selected = $("#a_actividadGenero")?.value || "";
+  if (selected === "Otro") return ($("#a_actividadGeneroOtro")?.value || "").trim();
+  return selected.trim();
+}
+function toggleGenderActivityOther() {
+  const isOther = ($("#a_actividadGenero")?.value || "") === "Otro";
+  if ($("#a_actividadGeneroOtro")) {
+    $("#a_actividadGeneroOtro").style.display = isOther ? "block" : "none";
+    if (!isOther) $("#a_actividadGeneroOtro").value = "";
+  }
+}
+function resetGenderActivityForm() {
+  if ($("#a_actividadGenero")) $("#a_actividadGenero").value = "";
+  if ($("#a_actividadGeneroOtro")) $("#a_actividadGeneroOtro").value = "";
+  if ($("#a_actividadGeneroSexo")) $("#a_actividadGeneroSexo").value = "";
+  if ($("#a_actividadGeneroRazon")) $("#a_actividadGeneroRazon").value = "";
+  toggleGenderActivityOther();
+}
+function renderGenderActivitiesList(items = []) {
+  const list = $("#a_generoActividadList");
+  if (!list) return;
+  list.innerHTML = "";
+  items.forEach((item) => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div class="line"><b>${esc(item.activity || "Sin actividad")}</b> · ${esc(item.sex || "Sin registro")}</div>
+      <div class="line"><b>¿Por qué lo creen?:</b> ${esc(item.reason || "Sin registro")}</div>
+      <div class="actions"><button class="btn small bad" type="button">Eliminar</button></div>
+    `;
+    const deleteBtn = div.querySelector("button");
+    deleteBtn.onclick = () => {
+      const prod = getProducer();
+      if (!prod) return;
+      prod.questionnaire = getProducerQuestionnaireSkeleton(prod);
+      prod.questionnaire.genderActivities = (prod.questionnaire.genderActivities || []).filter((entry) => entry.id !== item.id);
+      saveState();
+      renderAll();
+    };
+    list.appendChild(div);
+  });
+}
 function resetDiseaseForm() {
   state.editing.diseaseId = null;
   ["a_lastSick", "a_enfAnimal", "a_commonDis", "a_signs", "a_whenSickDo"].forEach((id) => {
@@ -1720,11 +1762,8 @@ function fillAnimalQuestionnaire() {
   renderTraditionalList(q.traditional || []);
   if (!state.editing.traditionalId) resetTraditionalForm();
   renderGenderAnimalsList(q.genderAnimals || []);
-  renderSimpleList(
-    "#a_generoActividadList",
-    q.genderActivities || [],
-    (x) => `${x.activity || ""} · ${x.sex || ""}`,
-  );
+  renderGenderActivitiesList(q.genderActivities || []);
+  toggleGenderActivityOther();
 }
 function bindAnimals() {
   bindAnimalPhotos();
@@ -1828,14 +1867,21 @@ function bindAnimals() {
     }
     resetGenderAnimalForm();
   });
-  $("#a_addGeneroActividad")?.addEventListener("click", () =>
+  $("#a_actividadGenero")?.addEventListener("change", toggleGenderActivityOther);
+  $("#a_addGeneroActividad")?.addEventListener("click", () => {
+    const activity = selectedGenderActivity();
+    if (!activity) {
+      show("a_msg", "Selecciona o captura una actividad.", "warning");
+      return;
+    }
     addQuestionnaireItem("genderActivities", {
       id: uid("act"),
-      activity: $("#a_actividadGenero").value,
+      activity,
       sex: $("#a_actividadGeneroSexo").value,
-      reason: $("#a_actividadGeneroRazon").value,
-    }),
-  );
+      reason: $("#a_actividadGeneroRazon").value.trim(),
+    });
+    resetGenderActivityForm();
+  });
   $("#a_programaRegistro")?.addEventListener("change", updateProgramsVisibility);
   $("#a_programaFolioTiene")?.addEventListener("change", () => {
     const hasFolio = ($("#a_programaFolioTiene")?.value || "") === "Sí";
@@ -3706,6 +3752,10 @@ function genderAnimalsTable(items = []) {
   if (!items.length) return '<p>Sin registros de animales por roles de género.</p>';
   return `<table><tr><th>Animal</th><th>Quién lo cuida</th><th>¿Por qué?</th></tr>${items.map((item) => `<tr><td>${esc(item.animal || "")}</td><td>${esc(item.who || "")}</td><td>${esc(item.why || "")}</td></tr>`).join("")}</table>`;
 }
+function genderActivitiesTable(items = []) {
+  if (!items.length) return '<p>Sin actividades registradas por roles de género.</p>';
+  return `<table><tr><th>Actividad</th><th>¿Quién la hace?</th><th>¿Por qué lo creen?</th></tr>${items.map((item) => `<tr><td>${esc(item.activity || "")}</td><td>${esc(item.sex || "")}</td><td>${esc(item.reason || "")}</td></tr>`).join("")}</table>`;
+}
 function diseaseRecordsTable(items = []) {
   if (!items.length) return "<p>Sin enfermedades registradas.</p>";
   return `<table><tr><th>Fecha</th><th>Animal/especie</th><th>Enfermedad/problema</th><th>Signos clínicos</th><th>Tratamiento/acciones</th></tr>${items.map((item) => `<tr><td>${esc(item.date || "")}</td><td>${esc(item.animal || "")}</td><td>${esc(item.problem || "")}</td><td>${esc(item.signs || "")}</td><td>${esc(item.treatment || "")}</td></tr>`).join("")}</table>`;
@@ -3739,6 +3789,14 @@ function genderAnimalsExportRows(prod) {
     item.why || "",
   ]);
 }
+function genderActivitiesExportRows(prod) {
+  return getProducerQuestionnaireSkeleton(prod).genderActivities.map((item) => [
+    prod.basic?.name || "",
+    item.activity || "",
+    item.sex || "",
+    item.reason || "",
+  ]);
+}
 function diseaseExportRows(prod) {
   return getProducerQuestionnaireSkeleton(prod).diseases.map((item) => [
     prod.basic?.name || "",
@@ -3759,7 +3817,7 @@ function programsExportRows(prod) {
 }
 function fullProducerSection(prod) {
   const q = getProducerQuestionnaireSkeleton(prod);
-  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable({ ...a, owner: displayAnimalPeople(a.owner || []).join(", "), decideSale: displayAnimalPeople(a.decideSale || []).join(", "), feedClean: displayAnimalPeople(a.feedClean || []).join(", "), function: (a.function || []).join(", ") })}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2><h3>17. ¿Qué importancia tienen los animales para la vida de su familia?</h3><p>${esc(q.A6 || "")}</p><h3>18. ¿Algún o algunos de sus animales tiene un valor emocional para usted o alguien de su familia?</h3><p>${esc(q.A7 || "")}</p>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>Enfermedades registradas</h3>${diseaseRecordsTable(q.diseases || [])}<h3>Programas registrados</h3>${programsTable(q.programs || [])}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
+  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable({ ...a, owner: displayAnimalPeople(a.owner || []).join(", "), decideSale: displayAnimalPeople(a.decideSale || []).join(", "), feedClean: displayAnimalPeople(a.feedClean || []).join(", "), function: (a.function || []).join(", ") })}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2><h3>17. ¿Qué importancia tienen los animales para la vida de su familia?</h3><p>${esc(q.A6 || "")}</p><h3>18. ¿Algún o algunos de sus animales tiene un valor emocional para usted o alguien de su familia?</h3><p>${esc(q.A7 || "")}</p>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>Enfermedades registradas</h3>${diseaseRecordsTable(q.diseases || [])}<h3>Programas registrados</h3>${programsTable(q.programs || [])}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h3>Actividades que hacen normalmente hombres y mujeres</h3>${genderActivitiesTable(q.genderActivities || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
 }
 function producerWordHtml(prod) {
   return fullProducerSection(prod);
@@ -5652,6 +5710,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "ProgramasCuestionario", rows: [["Productor(a)","Programa","¿Recibió folio?","Folio"], ...producers.flatMap((prod) => programsExportRows(prod))] },
     { name: "MedicinaTradicional", rows: [["Productor(a)","Nombre","Tipo","Uso","Parte","Animales donde se usa"], ...producers.flatMap((prod) => getProducerQuestionnaireSkeleton(prod).traditional.map((item) => [prod.basic?.name || "", item.name || "", item.type || "", item.use || "", item.part || "", item.targetAnimals || ""]))] },
     { name: "RolesGeneroAnimales", rows: [["Productor(a)","Animal","Quién lo cuida","¿Por qué?"], ...producers.flatMap((prod) => genderAnimalsExportRows(prod))] },
+    { name: "RolesGeneroActividades", rows: [["Productor(a)","Actividad","¿Quién la hace?","¿Por qué lo creen?"], ...producers.flatMap((prod) => genderActivitiesExportRows(prod))] },
   ];
 }
 function renderLabProducerSelect() {
