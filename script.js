@@ -657,6 +657,7 @@ function activateTab(name) {
     Supplies: "pageSupplies",
     Lab: "pageLab",
     Procedures: "pageProcedures",
+    Debt: "pageDebt",
   };
   Object.entries(map).forEach(([tab, page]) => {
     document
@@ -667,7 +668,7 @@ function activateTab(name) {
 }
 
 function bindTabs() {
-  ["Producer", "Animals", "Meds", "Vaccines", "Supplies", "Lab", "Procedures"].forEach((tab) =>
+  ["Producer", "Animals", "Meds", "Vaccines", "Supplies", "Lab", "Procedures", "Debt"].forEach((tab) =>
     $(`#tab${tab}`)?.addEventListener("click", () => activateTab(tab)),
   );
 }
@@ -1629,12 +1630,57 @@ function renderGenderAnimalsList(items) {
   });
 }
 
-function saveAnimalQuestionnaireFull() {
-  const prod = getProducer();
-  if (!prod) {
-    show("a_msg", "Selecciona un productor(a).", "warning");
-    return;
-  }
+const QUESTIONNAIRE_SECTION_CONFIG = {
+  III: {
+    rootId: "questionnaireSectionIII",
+    buttonId: "btnSaveQuestionnaireIII",
+    statusId: "saveStatusIII",
+    storageKey: "cuestionario_seccion_III",
+    fields: ["tieneMilpa", "queSiembra", "escasezForraje", "lastSick", "recommendWho"],
+  },
+  IV: {
+    rootId: "questionnaireSectionIV",
+    buttonId: "btnSaveQuestionnaireIV",
+    statusId: "saveStatusIV",
+    storageKey: "cuestionario_seccion_IV",
+    fields: ["curadorExiste", "curadorQuien", "curadorEdad", "curadorEspecies", "curadorTiempo", "curadorServicios", "practicasAsesoria"],
+  },
+  FAUNA: {
+    rootId: "questionnaireSectionFauna",
+    buttonId: "btnSaveQuestionnaireFauna",
+    statusId: "saveStatusFauna",
+    storageKey: "cuestionario_fauna",
+    fields: [
+      "programaRegistro", "futureCalls", "huntingCommon", "huntingTime", "huntedAnimals",
+      "huntingPlaces", "huntingSeason", "huntingReasons", "wildProblems", "wildProblemsDetail",
+      "riverUse", "riverUseFor", "riverMeaning", "riverProblems", "localKnowledgeExists",
+      "localKnowledgeWho", "localKnowledgeUseful",
+    ],
+  },
+  RUMIANTS: {
+    rootId: "questionnaireSectionRumiants",
+    buttonId: "btnSaveQuestionnaireRumiants",
+    statusId: "saveStatusRumiants",
+    storageKey: "cuestionario_rumiantes",
+    fields: ["rumiantInterest", "rumiantInterestWhy", "hadRumiantsBefore", "noRumiantsReason", "rumiantAdvice", "rumiantNeedOptions", "rumiantNeedOther", "rumiantNeedExplain", "rumiantNeed", "rumiantTrainingTopics"],
+  },
+};
+const questionnaireAutosaveTimers = {};
+
+function questionnaireSectionStorageKey(sectionKey, producerId) {
+  const section = QUESTIONNAIRE_SECTION_CONFIG[sectionKey];
+  return `${section.storageKey}_${producerId}`;
+}
+function updateQuestionnaireSaveStatus(sectionKey, manual = false) {
+  const statusEl = $("#" + QUESTIONNAIRE_SECTION_CONFIG[sectionKey].statusId);
+  if (!statusEl) return;
+  statusEl.textContent = manual ? "Guardado ✔️" : "Autoguardado ✔️";
+  window.clearTimeout(statusEl._hideTimer);
+  statusEl._hideTimer = window.setTimeout(() => {
+    statusEl.textContent = "";
+  }, 1800);
+}
+function collectAnimalQuestionnaireFormData(prod) {
   const rumiantNeedOptions = checkedValues("a_rumiantsNeedOptions");
   const rumiantNeedOther = $("#a_rumiantsNeedOther").value.trim();
   const rumiantNeedExplain = $("#a_rumiantsNeedExplain").value.trim();
@@ -1644,7 +1690,7 @@ function saveAnimalQuestionnaireFull() {
     ...(rumiantNeedOptions.includes("Otro") ? [`Otro: ${rumiantNeedOther || "Sin especificar"}`] : []),
     ...(rumiantNeedExplain ? [`Explique brevemente: ${rumiantNeedExplain}`] : []),
   ].join(" | ");
-  prod.questionnaire = {
+  return {
     ...getProducerQuestionnaireSkeleton(prod),
     A6: $("#A6").value.trim(),
     A7: $("#A7").value.trim(),
@@ -1699,13 +1745,70 @@ function saveAnimalQuestionnaireFull() {
     genderAnimals: getProducerQuestionnaireSkeleton(prod).genderAnimals,
     genderActivities: getProducerQuestionnaireSkeleton(prod).genderActivities,
   };
+}
+function persistQuestionnaireSectionDraft(sectionKey, producerId, questionnaireData) {
+  const section = QUESTIONNAIRE_SECTION_CONFIG[sectionKey];
+  const payload = section.fields.reduce((acc, key) => {
+    acc[key] = questionnaireData[key];
+    return acc;
+  }, {});
+  localStorage.setItem(
+    questionnaireSectionStorageKey(sectionKey, producerId),
+    JSON.stringify({ updatedAt: Date.now(), producerId, payload }),
+  );
+}
+function restoreQuestionnaireSectionDrafts(prod) {
+  let updated = false;
+  Object.keys(QUESTIONNAIRE_SECTION_CONFIG).forEach((sectionKey) => {
+    const raw = localStorage.getItem(questionnaireSectionStorageKey(sectionKey, prod.id));
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed?.payload || typeof parsed.payload !== "object") return;
+      Object.entries(parsed.payload).forEach(([field, value]) => {
+        if (JSON.stringify(prod.questionnaire?.[field]) !== JSON.stringify(value)) {
+          prod.questionnaire[field] = value;
+          updated = true;
+        }
+      });
+    } catch (error) {
+      // ignora JSON inválido sin romper el flujo
+    }
+  });
+  if (updated) saveState();
+}
+function saveAnimalQuestionnaireSection(sectionKey, { manual = false, showToast = false } = {}) {
+  const prod = getProducer();
+  if (!prod) {
+    show("a_msg", "Selecciona un productor(a).", "warning");
+    return;
+  }
+  const formData = collectAnimalQuestionnaireFormData(prod);
+  prod.questionnaire = formData;
+  persistQuestionnaireSectionDraft(sectionKey, prod.id, formData);
+  saveState();
+  updateQuestionnaireSaveStatus(sectionKey, manual);
+  if (showToast) show("a_msg", "Guardado ✔️", "success");
+}
+function saveAnimalQuestionnaireFull() {
+  const prod = getProducer();
+  if (!prod) {
+    show("a_msg", "Selecciona un productor(a).", "warning");
+    return;
+  }
+  const formData = collectAnimalQuestionnaireFormData(prod);
+  prod.questionnaire = formData;
+  Object.keys(QUESTIONNAIRE_SECTION_CONFIG).forEach((sectionKey) =>
+    persistQuestionnaireSectionDraft(sectionKey, prod.id, formData));
   saveState();
   renderAll();
   show("a_msg", "Cuestionario de animales guardado.", "success");
 }
 function fillAnimalQuestionnaire() {
-  const q = getProducer()?.questionnaire;
-  if (!q) return;
+  const producer = getProducer();
+  const q = producer?.questionnaire;
+  if (!q || !producer) return;
+  restoreQuestionnaireSectionDrafts(producer);
   const map = {
     A6: q.A6,
     A7: q.A7,
@@ -1787,6 +1890,23 @@ function bindAnimals() {
     "click",
     saveAnimalQuestionnaireFull,
   );
+  Object.entries(QUESTIONNAIRE_SECTION_CONFIG).forEach(([sectionKey, section]) => {
+    $("#" + section.buttonId)?.addEventListener("click", () =>
+      saveAnimalQuestionnaireSection(sectionKey, { manual: true, showToast: true }));
+    const root = $("#" + section.rootId);
+    if (!root) return;
+    const autosave = () => {
+      window.clearTimeout(questionnaireAutosaveTimers[sectionKey]);
+      questionnaireAutosaveTimers[sectionKey] = window.setTimeout(() => {
+        saveAnimalQuestionnaireSection(sectionKey, { manual: false, showToast: false });
+      }, 350);
+    };
+    root.querySelectorAll("input, textarea, select").forEach((control) => {
+      if (control.type === "file") return;
+      control.addEventListener("input", autosave);
+      control.addEventListener("change", autosave);
+    });
+  });
   $("#a_addDisease")?.addEventListener("click", () => {
     const prod = getProducer();
     if (!prod) return;
@@ -2501,11 +2621,9 @@ function renderMedList() {
   if (!list) return;
   list.innerHTML = "";
   const usage = inventoryUsage();
-  ensureAnaRosaDebtState();
-  const anaRosaDue = (state.anaRosaDebt.records || []).reduce((acc, row) => acc + Number(row.amount || 0), 0);
   const head = document.createElement("div");
   head.className = "item";
-  head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${state.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div><div class="stat"><b>Deuda activa Dra. Ana Rosa</b><div>${money(anaRosaDue)}</div></div></div>`;
+  head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${state.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div></div>`;
   list.appendChild(head);
   state.meds.forEach((m) => {
     const item = document.createElement("div");
