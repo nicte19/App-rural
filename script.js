@@ -492,11 +492,66 @@ function multiValues(sel) {
     .map((o) => o.value)
     .filter(Boolean);
 }
+function checklistValues(selectorOrElement) {
+  const el = typeof selectorOrElement === "string" ? $(selectorOrElement) : selectorOrElement;
+  if (!el) return [];
+  return Array.from(el.querySelectorAll("input[type='checkbox']:checked"))
+    .map((input) => input.value)
+    .filter(Boolean);
+}
+function setChecklistValues(selectorOrElement, values = []) {
+  const el = typeof selectorOrElement === "string" ? $(selectorOrElement) : selectorOrElement;
+  if (!el) return;
+  const selected = new Set(Array.isArray(values) ? values : []);
+  el.querySelectorAll("input[type='checkbox']").forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+}
+function toArrayValue(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  return [];
+}
 function setMulti(sel, values = []) {
   if (!sel) return;
   Array.from(sel.options).forEach(
     (o) => (o.selected = values.includes(o.value)),
   );
+}
+const ANIMAL_FUNCTION_OPTIONS = [
+  { v: "Autoconsumo", t: "Autoconsumo" },
+  { v: "Venta", t: "Venta" },
+  { v: "Ahorro", t: "Ahorro" },
+  { v: "Tradición familiar", t: "Tradición familiar" },
+  { v: "Compañía", t: "Compañía" },
+  { v: "Distracción", t: "Distracción" },
+  { v: "Ornato", t: "Ornato" },
+  { v: "Trabajo", t: "Trabajo" },
+  { v: "Otro", t: "Otro" },
+];
+const SALE_DECISION_NO_SALE = "NO_SE_VENDEN";
+const animalPeopleLabel = (value = "") => {
+  if (value === "PRODUCTOR") return "Productor(a)";
+  if (value === "VETERINARIO") return "Veterinario(a)";
+  if (value === "OTRO") return "Otro";
+  if (value === SALE_DECISION_NO_SALE) return "No se venden";
+  return value;
+};
+function renderChecklist(containerSelector, options = [], values = [], onChange = null) {
+  const el = $(containerSelector);
+  if (!el) return;
+  const selected = new Set(toArrayValue(values));
+  el.innerHTML = options
+    .map((option, idx) => `<label class="multi-checklist-item"><input type="checkbox" value="${esc(option.v)}" data-index="${idx}" ${selected.has(option.v) ? "checked" : ""}/><span>${esc(option.t)}</span></label>`)
+    .join("");
+  if (typeof onChange === "function") {
+    el.querySelectorAll("input[type='checkbox']").forEach((input) =>
+      input.addEventListener("change", () => onChange(input, el)),
+    );
+  }
+}
+function displayAnimalPeople(values = []) {
+  return toArrayValue(values).map((value) => animalPeopleLabel(value));
 }
 function getProducer() {
   return byId(state.producers, state.selectedProducerId);
@@ -508,6 +563,10 @@ function normalizeProducerAnimals(producer = {}) {
     ...animal,
     producerId: producerId || animal?.producerId || null,
     producerName: producerDisplayName || animal?.producerName || "",
+    owner: toArrayValue(animal?.owner),
+    decideSale: toArrayValue(animal?.decideSale),
+    feedClean: toArrayValue(animal?.feedClean),
+    function: toArrayValue(animal?.function),
   }));
 }
 function producerName(id) {
@@ -1060,6 +1119,10 @@ function renderAnimalsProducerSelect() {
 }
 function serializeAnimal() {
   const producer = getProducer();
+  const decideSale = checklistValues("#a_decideVenta");
+  const normalizedDecideSale = decideSale.includes(SALE_DECISION_NO_SALE)
+    ? [SALE_DECISION_NO_SALE]
+    : decideSale;
   return {
     id: state.editing.animalId || uid("animal"),
     producerId: producer?.id || null,
@@ -1067,10 +1130,10 @@ function serializeAnimal() {
     species: $("#a_especie").value.trim(),
     breed: $("#a_raza").value.trim(),
     quantity: $("#a_cantidad").value,
-    owner: multiValues($("#a_dueno")),
-    decideSale: multiValues($("#a_decideVenta")),
-    feedClean: multiValues($("#a_limpiaAlimenta")),
-    function: multiValues($("#a_funcion")),
+    owner: checklistValues("#a_dueno"),
+    decideSale: normalizedDecideSale,
+    feedClean: checklistValues("#a_limpiaAlimenta"),
+    function: checklistValues("#a_funcion"),
     functionOther: $("#a_funcionOtro").value.trim(),
     housing: $("#a_viven").value.trim(),
     feedType: $("#a_feedType").value.trim(),
@@ -1088,7 +1151,7 @@ function resetAnimalEntry() {
     "a_funcionOtro",
   ].forEach((id) => ($("#" + id).value = ""));
   ["#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta", "#a_funcion"].forEach(
-    (sel) => setMulti($(sel), []),
+    (sel) => setChecklistValues(sel, []),
   );
   state.draft.animalPhotos = [];
   renderAnimalPhotos();
@@ -1127,10 +1190,10 @@ function fillAnimalEntry(an) {
     a_feedType: an.feedType,
     a_funcionOtro: an.functionOther,
   }).forEach(([k, v]) => ($("#" + k).value = safe(v)));
-  setMulti($("#a_dueno"), an.owner || []);
-  setMulti($("#a_decideVenta"), an.decideSale || []);
-  setMulti($("#a_limpiaAlimenta"), an.feedClean || []);
-  setMulti($("#a_funcion"), an.function || []);
+  setChecklistValues("#a_dueno", an.owner || []);
+  setChecklistValues("#a_decideVenta", an.decideSale || []);
+  setChecklistValues("#a_limpiaAlimenta", an.feedClean || []);
+  setChecklistValues("#a_funcion", an.function || []);
   state.draft.animalPhotos = [...(an.photos || [])];
   renderAnimalPhotos();
 }
@@ -1160,7 +1223,7 @@ function saveAnimalGroup() {
 }
 function renderAnimalPeopleSelects() {
   const prod = getProducer();
-  const options = [
+  const personOptions = [
     { v: "PRODUCTOR", t: "Productor(a)" },
     ...(prod?.family || []).map((f) => ({
       v: f.name,
@@ -1169,21 +1232,41 @@ function renderAnimalPeopleSelects() {
     { v: "VETERINARIO", t: "Veterinario(a)" },
     { v: "OTRO", t: "Otro" },
   ];
-  ["#a_dueno", "#a_decideVenta", "#a_limpiaAlimenta"].forEach((sel) => {
-    const el = $(sel);
-    const prev = multiValues(el);
-    el.innerHTML = options
-      .map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`)
-      .join("");
-    setMulti(el, prev);
-  });
+  const ownerPrev = checklistValues("#a_dueno");
+  const decisionPrev = checklistValues("#a_decideVenta");
+  const carePrev = checklistValues("#a_limpiaAlimenta");
+  renderChecklist("#a_dueno", personOptions, ownerPrev);
+  renderChecklist("#a_limpiaAlimenta", personOptions, carePrev);
+  renderChecklist(
+    "#a_decideVenta",
+    [...personOptions, { v: SALE_DECISION_NO_SALE, t: "No se venden" }],
+    decisionPrev,
+    (input, container) => {
+      if (input.value === SALE_DECISION_NO_SALE && input.checked) {
+        container
+          .querySelectorAll("input[type='checkbox']")
+          .forEach((node) => {
+            if (node.value !== SALE_DECISION_NO_SALE) node.checked = false;
+          });
+        return;
+      }
+      if (input.value !== SALE_DECISION_NO_SALE && input.checked) {
+        const noSale = container.querySelector(
+          `input[type='checkbox'][value='${SALE_DECISION_NO_SALE}']`,
+        );
+        if (noSale) noSale.checked = false;
+      }
+    },
+  );
+  const functionPrev = checklistValues("#a_funcion");
+  renderChecklist("#a_funcion", ANIMAL_FUNCTION_OPTIONS, functionPrev);
   ["#a_vaxWho", "#a_dewormWho"].forEach((sel) => {
     const el = $(sel);
     if (!el) return;
     const prev = el.value;
     el.innerHTML =
       '<option value="">— Selecciona —</option>' +
-      options
+      personOptions
         .map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`)
         .join("");
     el.value = prev;
@@ -1282,7 +1365,7 @@ function renderAnimalGroups() {
   currentAnimals().forEach((an) => {
     const div = document.createElement("div");
     div.className = "item";
-    div.innerHTML = `<h4>${esc(animalLabel(an))}</h4><div class="line"><b>Función:</b> ${esc((an.function || []).concat(an.functionOther ? [an.functionOther] : []).join(", "))}</div><div class="line"><b>Instalaciones:</b> ${esc(an.housing)}</div><div class="line"><b>Relación productor(a):</b> ${esc(an.producerName || producerName(an.producerId || state.selectedProducerId))}</div><div class="preview-grid">${(
+    div.innerHTML = `<h4>${esc(animalLabel(an))}</h4><div class="line"><b>¿De quién son?:</b> ${esc(displayAnimalPeople(an.owner || []).join(", ") || "Sin captura")}</div><div class="line"><b>¿Quién decide si se venden?:</b> ${esc(displayAnimalPeople(an.decideSale || []).join(", ") || "Sin captura")}</div><div class="line"><b>¿Quién les limpia y alimenta?:</b> ${esc(displayAnimalPeople(an.feedClean || []).join(", ") || "Sin captura")}</div><div class="line"><b>Función:</b> ${esc((an.function || []).concat(an.functionOther ? [an.functionOther] : []).join(", ") || "Sin captura")}</div><div class="line"><b>Instalaciones:</b> ${esc(an.housing)}</div><div class="line"><b>Relación productor(a):</b> ${esc(an.producerName || producerName(an.producerId || state.selectedProducerId))}</div><div class="preview-grid">${(
       an.photos || []
     )
       .slice(0, 4)
@@ -3679,7 +3762,7 @@ function programsExportRows(prod) {
 }
 function fullProducerSection(prod) {
   const q = getProducerQuestionnaireSkeleton(prod);
-  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable(a)}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>Enfermedades registradas</h3>${diseaseRecordsTable(q.diseases || [])}<h3>Programas registrados</h3>${programsTable(q.programs || [])}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
+  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable({ ...a, owner: displayAnimalPeople(a.owner || []).join(", "), decideSale: displayAnimalPeople(a.decideSale || []).join(", "), feedClean: displayAnimalPeople(a.feedClean || []).join(", "), function: (a.function || []).join(", ") })}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>Enfermedades registradas</h3>${diseaseRecordsTable(q.diseases || [])}<h3>Programas registrados</h3>${programsTable(q.programs || [])}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
 }
 function producerWordHtml(prod) {
   return fullProducerSection(prod);
@@ -3747,12 +3830,15 @@ function producerExcelSheets(
     {
       name: "Animales",
       rows: [
-        ["Productor(a)", "Especie", "Raza", "Cantidad", "Función", "Extra"],
+        ["Productor(a)", "Especie", "Raza", "Cantidad", "¿De quién son?", "¿Quién decide si se venden?", "¿Quién limpia/alimenta?", "Función", "Extra"],
         ...animalRows.map((a) => [
           a.producer || producerName(state.selectedProducerId),
           a.species,
           a.breed,
           a.quantity,
+          displayAnimalPeople(a.owner || []).join(", "),
+          displayAnimalPeople(a.decideSale || []).join(", "),
+          displayAnimalPeople(a.feedClean || []).join(", "),
           (a.function || []).join(", "),
           a.functionOther || "",
         ]),
@@ -5555,7 +5641,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
   ]);
   return [
     { name: "Productores", rows: [["Nombre","Celular","Localidad","Municipio","Estado","Clasificación","Razones no trabajar","Nota extra","Maps","Notas"], ...producers.map((p) => [p.basic.name,p.basic.celular,p.basic.localidad,p.basic.municipio,p.basic.estado,p.classification?.value || "",p.classification?.alerta || "",p.classification?.notaExtraPersona || "",p.location?.mapsUrl || "",p.notes || ""])] },
-    { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, (a.function || []).join(", "), a.functionOther || ""])] },
+    { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","¿De quién son?","¿Quién decide si se venden?","¿Quién limpia/alimenta?","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, displayAnimalPeople(a.owner || []).join(", "), displayAnimalPeople(a.decideSale || []).join(", "), displayAnimalPeople(a.feedClean || []).join(", "), (a.function || []).join(", "), a.functionOther || ""])] },
     { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Contenido por presentación","No. presentaciones/envases","Existencia total","Unidad","Concentración/equivalencia","Disponible","Costo por presentación","Costo unitario","Vía administración","Contenido original","Costo original","Cantidad remanente"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.contentPerPresentation || "",m.packageCount || 1,m.totalQty,m.unit,medicationConcentrationSummary(m) || "",medRemaining(m),m.cost,m.unitCost,m.route || "Sin vía de administración registrada",m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || ""])] },
     { name: "Vacunas", rows: [["Marca","Propiedad","Caducidad","Cobertura","Disponible","Costo total","Costo unitario","Enfermedades","Notas"], ...vaccines.map((v) => [v.brand,medOwnerLabel(v.owner),v.expiry,v.coverageAnimals,vaccineRemaining(v),v.price,v.unitCost,v.diseases,v.notes || ""])] },
     { name: "Insumos", rows: [["Nombre","Tipo","Cantidad","Disponible","Costo mostrado","Notas"], ...supplies.map((s) => [s.name,s.type,s.qty,supplyRemaining(s),supplyDisplayCost(s),s.notes || ""])] },
