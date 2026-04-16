@@ -834,6 +834,9 @@ function normalizeQuestionnaire(questionnaire = {}) {
     rumiantNeedOther: questionnaire.rumiantNeedOther || "",
     rumiantNeedExplain: questionnaire.rumiantNeedExplain || "",
     rumiantNeed: questionnaire.rumiantNeed || "",
+    rumiantTrainingTopics: Array.isArray(questionnaire.rumiantTrainingTopics)
+      ? questionnaire.rumiantTrainingTopics.filter(Boolean)
+      : [],
     birdsInterest: questionnaire.birdsInterest || questionnaire.birdsInterestYes || questionnaire.birdsInterestNo || "",
     traditional: (Array.isArray(questionnaire.traditional) ? questionnaire.traditional : []).map((item) => ({
       ...item,
@@ -1635,6 +1638,7 @@ function saveAnimalQuestionnaireFull() {
   const rumiantNeedOptions = checkedValues("a_rumiantsNeedOptions");
   const rumiantNeedOther = $("#a_rumiantsNeedOther").value.trim();
   const rumiantNeedExplain = $("#a_rumiantsNeedExplain").value.trim();
+  const rumiantTrainingTopics = checkedValues("a_rumiantsTrainingTopics");
   const rumiantNeedSummary = [
     ...rumiantNeedOptions.filter((option) => option !== "Otro"),
     ...(rumiantNeedOptions.includes("Otro") ? [`Otro: ${rumiantNeedOther || "Sin especificar"}`] : []),
@@ -1685,6 +1689,7 @@ function saveAnimalQuestionnaireFull() {
     rumiantNeedOther,
     rumiantNeedExplain,
     rumiantNeed: rumiantNeedSummary,
+    rumiantTrainingTopics,
     birdsInterest: $("#a_interestBirds").value,
     diseases: getProducerQuestionnaireSkeleton(prod).diseases,
     vaccines: getProducerQuestionnaireSkeleton(prod).vaccines,
@@ -1746,6 +1751,7 @@ function fillAnimalQuestionnaire() {
     if ($("#" + k)) $("#" + k).value = safe(v);
   });
   setCheckedValues("a_rumiantsNeedOptions", q.rumiantNeedOptions || []);
+  setCheckedValues("a_rumiantsTrainingTopics", q.rumiantTrainingTopics || []);
   renderSimpleList(
     "#a_vaxList",
     q.vaccines || [],
@@ -3779,6 +3785,7 @@ function questionnaireExportRows(prod) {
     q.genderAnimals.map((item) => item.animal || "").filter(Boolean).join(" | "),
     q.genderAnimals.map((item) => item.who || "").filter(Boolean).join(" | "),
     q.genderAnimals.map((item) => item.why || "").filter(Boolean).join(" | "),
+    (q.rumiantTrainingTopics || []).join(" | "),
   ]];
 }
 function genderAnimalsExportRows(prod) {
@@ -5705,7 +5712,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "CobrosProc", rows: [["Fecha","Tipo","Productor(a)","Cobro procedimiento","Costo medicamentos","Cobro vacunas","Cobro insumos","Subtotal","Total","Cobro final","Observaciones"], ...procedures.map((p) => [p.date,p.type,producerName(p.producerId),p.charge?.base,p.charge?.meds,p.charge?.vaccines,p.charge?.supplies,p.charge?.subtotal,p.charge?.total,p.charge?.manual,p.charge?.reason || p.charge?.notes || ""])] },
     { name: "CobroDetalleProc", rows: [["Fecha","Procedimiento","Productor(a)","Categoría","Concepto","Cantidad","Costo unitario","Subtotal","Notas"], ...chargeDetailRows] },
     { name: "PruebasLab", rows: [["Productor(a)","Animales","Tipo","Fecha toma muestra","Fecha resultados","Costo unitario","Núm. animales","Subtotal","Insumos","Total","Detalle insumos","Resultados","Interpretación","Imágenes","Procedimiento"], ...labRows] },
-    { name: "CuestionarioAnimales", rows: [["Productor(a)","A6","A7","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan","Núm. registros roles género","Animales roles género","Quién cuida","¿Por qué?"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
+    { name: "CuestionarioAnimales", rows: [["Productor(a)","A6","A7","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan","Núm. registros roles género","Animales roles género","Quién cuida","¿Por qué?","Temas de interés en pequeños rumiantes"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
     { name: "EnfermedadesCuestionario", rows: [["Productor(a)","Fecha","Animal o especie","Enfermedad o problema","Signos clínicos","Tratamiento/acciones"], ...producers.flatMap((prod) => diseaseExportRows(prod))] },
     { name: "ProgramasCuestionario", rows: [["Productor(a)","Programa","¿Recibió folio?","Folio"], ...producers.flatMap((prod) => programsExportRows(prod))] },
     { name: "MedicinaTradicional", rows: [["Productor(a)","Nombre","Tipo","Uso","Parte","Animales donde se usa"], ...producers.flatMap((prod) => getProducerQuestionnaireSkeleton(prod).traditional.map((item) => [prod.basic?.name || "", item.name || "", item.type || "", item.use || "", item.part || "", item.targetAnimals || ""]))] },
