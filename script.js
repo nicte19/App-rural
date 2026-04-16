@@ -784,8 +784,8 @@ function normalizeQuestionnaire(questionnaire = {}) {
     deworming: Array.isArray(questionnaire.deworming) ? questionnaire.deworming : [],
     genderAnimals: Array.isArray(questionnaire.genderAnimals) ? questionnaire.genderAnimals : [],
     genderActivities: Array.isArray(questionnaire.genderActivities) ? questionnaire.genderActivities : [],
-    importantAnimals: questionnaire.importantAnimals || [],
-    importanceDetail: questionnaire.importanceDetail || "",
+    A6: questionnaire.A6 || "",
+    A7: questionnaire.A7 || "",
     tieneMilpa: questionnaire.tieneMilpa || "",
     queSiembra: questionnaire.queSiembra || "",
     escasezForraje: questionnaire.escasezForraje || "",
@@ -1275,12 +1275,7 @@ function renderAnimalPeopleSelects() {
 function renderAnimalBasedSelects() {
   const prod = getProducer();
   const animals = prod?.animals || [];
-  [
-    "#a_animalesImportantes",
-    "#a_enfAnimal",
-    "#a_vaxAnimal",
-    "#a_dewormAnimal",
-  ].forEach((sel) => {
+  ["#a_enfAnimal", "#a_vaxAnimal", "#a_dewormAnimal"].forEach((sel) => {
     const el = $(sel);
     if (!el) return;
     const prev = el.multiple ? multiValues(el) : el.value;
@@ -1605,8 +1600,8 @@ function saveAnimalQuestionnaireFull() {
   ].join(" | ");
   prod.questionnaire = {
     ...getProducerQuestionnaireSkeleton(prod),
-    importantAnimals: multiValues($("#a_animalesImportantes")),
-    importanceDetail: $("#a_importanciaDetalle").value.trim(),
+    A6: $("#A6").value.trim(),
+    A7: $("#A7").value.trim(),
     tieneMilpa: $("#a_tieneMilpa").value,
     queSiembra: $("#a_queSiembra").value.trim(),
     escasezForraje: $("#a_escasezForraje").value.trim(),
@@ -1665,7 +1660,8 @@ function fillAnimalQuestionnaire() {
   const q = getProducer()?.questionnaire;
   if (!q) return;
   const map = {
-    a_importanciaDetalle: q.importanceDetail,
+    A6: q.A6,
+    A7: q.A7,
     a_tieneMilpa: q.tieneMilpa,
     a_queSiembra: q.queSiembra,
     a_escasezForraje: q.escasezForraje,
@@ -1708,7 +1704,6 @@ function fillAnimalQuestionnaire() {
     if ($("#" + k)) $("#" + k).value = safe(v);
   });
   setCheckedValues("a_rumiantsNeedOptions", q.rumiantNeedOptions || []);
-  setMulti($("#a_animalesImportantes"), q.importantAnimals || []);
   renderSimpleList(
     "#a_vaxList",
     q.vaccines || [],
@@ -3723,6 +3718,8 @@ function questionnaireExportRows(prod) {
   const q = getProducerQuestionnaireSkeleton(prod);
   return [[
     prod.basic?.name || "",
+    q.A6 || "",
+    q.A7 || "",
     producerHasRegisteredBirds(prod) ? "Sí" : "No",
     q.birdsInterest || "",
     q.traditional.length,
@@ -3762,7 +3759,7 @@ function programsExportRows(prod) {
 }
 function fullProducerSection(prod) {
   const q = getProducerQuestionnaireSkeleton(prod);
-  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable({ ...a, owner: displayAnimalPeople(a.owner || []).join(", "), decideSale: displayAnimalPeople(a.decideSale || []).join(", "), feedClean: displayAnimalPeople(a.feedClean || []).join(", "), function: (a.function || []).join(", ") })}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>Enfermedades registradas</h3>${diseaseRecordsTable(q.diseases || [])}<h3>Programas registrados</h3>${programsTable(q.programs || [])}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
+  return `<section><h1>Productor(a): ${esc(prod.basic.name)}</h1><p><b>Contacto:</b> ${esc(prod.basic.celular)}</p><p><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</p><p><b>Horario:</b> ${esc(prod.basic.horario)}</p><p><b>Horario semanal:</b> ${esc(formatWeeklySchedule(prod.basic.weeklySchedule || {}))}</p><p><b>Clasificación:</b> ${esc(prod.classification?.value)} · <b>Alerta:</b> ${esc(prod.classification?.alerta)} · <b>Nota extra:</b> ${esc(prod.classification?.notaExtraPersona)}</p>${imageHtml(prod.photo, "Foto productor(a)")}<h2>Datos básicos completos</h2>${objectEntriesTable(prod.basic || {})}<h2>Ubicación</h2>${objectEntriesTable(prod.location || {})}<h2>Familia</h2><table><tr><th>Nombre</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th></tr>${(prod.family || []).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.relation)}</td><td>${esc(f.age)}</td><td>${esc(f.occupation)}</td></tr>`).join("")}</table><h2>Animales</h2>${(prod.animals || []).map((a) => `<div><h3>${esc(animalLabel(a))}</h3>${objectEntriesTable({ ...a, owner: displayAnimalPeople(a.owner || []).join(", "), decideSale: displayAnimalPeople(a.decideSale || []).join(", "), feedClean: displayAnimalPeople(a.feedClean || []).join(", "), function: (a.function || []).join(", ") })}${(a.photos || []).map((src, i) => imageHtml(src, `Animal ${i + 1}`)).join("")}</div>`).join("")}<h2>Cuestionario de animales</h2><h3>17. ¿Qué importancia tienen los animales para la vida de su familia?</h3><p>${esc(q.A6 || "")}</p><h3>18. ¿Algún o algunos de sus animales tiene un valor emocional para usted o alguien de su familia?</h3><p>${esc(q.A7 || "")}</p>${objectEntriesTable({ ...q, traditional: `${q.traditional.length} registro(s)` })}<h3>Enfermedades registradas</h3>${diseaseRecordsTable(q.diseases || [])}<h3>Programas registrados</h3>${programsTable(q.programs || [])}<h3>VIII. Interés en aves</h3><p><b>Pregunta mostrada:</b> ${esc(birdInterestPrompt(producerHasRegisteredBirds(prod)))}</p><p><b>Escala visible:</b> 1 = Nada · 2 = Poco · 3 = Regular · 4 = Mucho</p><p><b>Respuesta capturada:</b> ${esc(q.birdsInterest || "")}</p><h3>Medicina tradicional</h3>${traditionalRemediesTable(q.traditional || [])}<h3>Animales que cuidan hombres y mujeres</h3>${genderAnimalsTable(q.genderAnimals || [])}<h2>Notas</h2><p>${esc(prod.notes)}</p></section>`;
 }
 function producerWordHtml(prod) {
   return fullProducerSection(prod);
@@ -5650,7 +5647,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "CobrosProc", rows: [["Fecha","Tipo","Productor(a)","Cobro procedimiento","Costo medicamentos","Cobro vacunas","Cobro insumos","Subtotal","Total","Cobro final","Observaciones"], ...procedures.map((p) => [p.date,p.type,producerName(p.producerId),p.charge?.base,p.charge?.meds,p.charge?.vaccines,p.charge?.supplies,p.charge?.subtotal,p.charge?.total,p.charge?.manual,p.charge?.reason || p.charge?.notes || ""])] },
     { name: "CobroDetalleProc", rows: [["Fecha","Procedimiento","Productor(a)","Categoría","Concepto","Cantidad","Costo unitario","Subtotal","Notas"], ...chargeDetailRows] },
     { name: "PruebasLab", rows: [["Productor(a)","Animales","Tipo","Fecha toma muestra","Fecha resultados","Costo unitario","Núm. animales","Subtotal","Insumos","Total","Detalle insumos","Resultados","Interpretación","Imágenes","Procedimiento"], ...labRows] },
-    { name: "CuestionarioAnimales", rows: [["Productor(a)","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan","Núm. registros roles género","Animales roles género","Quién cuida","¿Por qué?"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
+    { name: "CuestionarioAnimales", rows: [["Productor(a)","A6","A7","Tiene aves registradas","Interés en aves (1-4)","Núm. remedios/plantas","Remedios/plantas","Animales donde se usan","Núm. registros roles género","Animales roles género","Quién cuida","¿Por qué?"], ...producers.flatMap((prod) => questionnaireExportRows(prod))] },
     { name: "EnfermedadesCuestionario", rows: [["Productor(a)","Fecha","Animal o especie","Enfermedad o problema","Signos clínicos","Tratamiento/acciones"], ...producers.flatMap((prod) => diseaseExportRows(prod))] },
     { name: "ProgramasCuestionario", rows: [["Productor(a)","Programa","¿Recibió folio?","Folio"], ...producers.flatMap((prod) => programsExportRows(prod))] },
     { name: "MedicinaTradicional", rows: [["Productor(a)","Nombre","Tipo","Uso","Parte","Animales donde se usa"], ...producers.flatMap((prod) => getProducerQuestionnaireSkeleton(prod).traditional.map((item) => [prod.basic?.name || "", item.name || "", item.type || "", item.use || "", item.part || "", item.targetAnimals || ""]))] },
