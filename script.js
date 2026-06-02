@@ -2616,6 +2616,17 @@ function fillMed(m) {
   setThumb("m_rx_preview", state.draft.medRxPhoto, "Sin<br/>receta");
   setThumb("m_tk_preview", state.draft.medTicketPhoto, "Sin<br/>ticket");
 }
+function duplicateMed(m) {
+  const copy = JSON.parse(JSON.stringify(m || {}));
+  copy.id = uid("med");
+  copy.brand = `${copy.brand || "Medicamento"} (copia)`;
+  state.meds.unshift(copy);
+  state.editing.medId = null;
+  saveState();
+  renderAll();
+  fillMed(copy);
+  show("m_ok", "Medicamento duplicado. Puedes editar la copia y guardarla como registro independiente.", "success");
+}
 function renderMedList() {
   const list = $("#m_list");
   if (!list) return;
@@ -2628,9 +2639,10 @@ function renderMedList() {
   state.meds.forEach((m) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div><div class="line"><b>Concentración / equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
-    const [edit, w, e, del] = item.querySelectorAll("button");
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div><div class="line"><b>Concentración / equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Duplicar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, duplicate, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillMed(m);
+    duplicate.onclick = () => duplicateMed(m);
     w.onclick = () =>
       exportWord(
         `med_${slug(m.brand)}.doc`,
