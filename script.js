@@ -572,6 +572,132 @@ function normalizeProducerAnimals(producer = {}) {
 function producerName(id) {
   return byId(state.producers, id)?.basic?.name || "Sin productor/a";
 }
+function deepJsonClone(value) {
+  return JSON.parse(JSON.stringify(value || null));
+}
+function buildProducerTransferPayload(producers = []) {
+  const selectedProducers = (producers || []).filter(Boolean);
+  const producerIds = new Set(selectedProducers.map((producer) => producer.id));
+  const procedures = (state.procedures || []).filter((procedure) =>
+    producerIds.has(procedure.producerId),
+  );
+  const procedureIds = new Set(procedures.map((procedure) => procedure.id));
+  const labTests = (state.labTests || []).filter((lab) =>
+    producerIds.has(lab.producerId) || procedureIds.has(lab.linkedProcedureId),
+  );
+  return {
+    format: "app-rural-producer-transfer",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    notes:
+      "Exportación JSON de productor(es) con datos básicos, animales, cuestionarios, roles, medicina tradicional, procedimientos y laboratorio relacionado.",
+    producers: deepJsonClone(selectedProducers),
+    procedures: deepJsonClone(procedures),
+    labTests: deepJsonClone(labTests),
+  };
+}
+function exportProducersJson(producers = state.producers, filename = "productores_app_rural") {
+  const selectedProducers = (producers || []).filter(Boolean);
+  if (!selectedProducers.length) {
+    alert("No hay productores para exportar.");
+    return;
+  }
+  const payload = buildProducerTransferPayload(selectedProducers);
+  download(
+    `${filename}_${new Date().toISOString().slice(0, 10)}.json`,
+    JSON.stringify(payload, null, 2),
+    "application/json",
+  );
+  showFloatingNotice(
+    `Exportación JSON generada: ${selectedProducers.length} productor(es).`,
+  );
+}
+function extractProducerTransferPayload(parsed) {
+  if (!parsed || typeof parsed !== "object") return null;
+  if (parsed.format === "app-rural-producer-transfer") return parsed;
+  if (parsed.producer) {
+    return {
+      format: "app-rural-producer-transfer",
+      version: 1,
+      producers: [parsed.producer],
+      procedures: parsed.procedures || [],
+      labTests: parsed.labTests || [],
+    };
+  }
+  if (Array.isArray(parsed.producers)) {
+    return {
+      format: "app-rural-producer-transfer",
+      version: parsed.version || 1,
+      producers: parsed.producers,
+      procedures: parsed.procedures || [],
+      labTests: parsed.labTests || [],
+    };
+  }
+  return null;
+}
+function remapIdsDeep(value, idMap) {
+  if (Array.isArray(value)) return value.map((item) => remapIdsDeep(item, idMap));
+  if (!value || typeof value !== "object") {
+    return typeof value === "string" && idMap[value] ? idMap[value] : value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [key, remapIdsDeep(child, idMap)]),
+  );
+}
+function importSingleProducerPayload(parsed) {
+  const payload = extractProducerTransferPayload(parsed);
+  if (!payload || !Array.isArray(payload.producers)) {
+    throw new Error("El JSON no tiene formato de productor exportado desde App Rural.");
+  }
+  if (payload.producers.length !== 1) {
+    throw new Error("Para importar se requiere un JSON con exactamente 1 productor(a).");
+  }
+
+  const sourceProducer = deepJsonClone(payload.producers[0]);
+  const sourceProcedures = deepJsonClone(payload.procedures || []);
+  const sourceLabTests = deepJsonClone(payload.labTests || []);
+  const oldProducerId = sourceProducer.id;
+  const idMap = { [oldProducerId]: uid("prod") };
+
+  (sourceProducer.animals || []).forEach((animal) => {
+    if (animal?.id) idMap[animal.id] = uid("animal");
+  });
+  sourceProcedures.forEach((procedure) => {
+    if (procedure?.id) idMap[procedure.id] = uid("proc");
+  });
+  sourceLabTests.forEach((lab) => {
+    if (lab?.id) idMap[lab.id] = uid("lab");
+  });
+
+  const importedProducer = remapIdsDeep(sourceProducer, idMap);
+  importedProducer.id = idMap[oldProducerId];
+  importedProducer.animals = normalizeProducerAnimals(importedProducer);
+
+  const importedProcedures = sourceProcedures
+    .filter((procedure) => procedure?.producerId === oldProducerId)
+    .map((procedure) => remapIdsDeep(procedure, idMap));
+  const importedProcedureIds = new Set(importedProcedures.map((procedure) => procedure.id));
+  const importedLabTests = sourceLabTests
+    .filter(
+      (lab) =>
+        lab?.producerId === oldProducerId ||
+        (lab?.linkedProcedureId && idMap[lab.linkedProcedureId]),
+    )
+    .map((lab) => remapIdsDeep(lab, idMap))
+    .filter((lab) => !lab.linkedProcedureId || importedProcedureIds.has(lab.linkedProcedureId));
+
+  state.producers.unshift(importedProducer);
+  state.procedures.unshift(...importedProcedures);
+  state.labTests.unshift(...importedLabTests);
+  state.selectedProducerId = importedProducer.id;
+  saveState();
+  renderAll();
+  return {
+    producer: importedProducer,
+    procedures: importedProcedures.length,
+    labTests: importedLabTests.length,
+  };
+}
 function currentAnimals() {
   const producer = getProducer();
   if (!producer) return [];
@@ -994,8 +1120,8 @@ function renderProducerList() {
     const animals = (prod.animals || []).length;
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h3>${esc(prod.basic.name)}</h3><div class="line"><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</div><div class="line"><b>Animales registrados:</b> ${animals}</div><div class="line"><b>Clasificación:</b> ${esc(prod.classification?.value || "Sin definir")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Seleccionar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
-    const [edit, select, w, e, del] = item.querySelectorAll("button");
+    item.innerHTML = `<h3>${esc(prod.basic.name)}</h3><div class="line"><b>Ubicación:</b> ${esc([prod.basic.localidad, prod.basic.municipio, prod.basic.estado].filter(Boolean).join(", "))}</div><div class="line"><b>Animales registrados:</b> ${animals}</div><div class="line"><b>Clasificación:</b> ${esc(prod.classification?.value || "Sin definir")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Seleccionar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small ghost">JSON</button><button class="btn small bad">Eliminar</button></div>`;
+    const [edit, select, w, e, json, del] = item.querySelectorAll("button");
     edit.onclick = () => fillProducerForm(prod);
     select.onclick = () => {
       if (state.selectedProducerId !== prod.id) clearProducerScopedDraftState();
@@ -1014,6 +1140,8 @@ function renderProducerList() {
         `productor_${slug(prod.basic.name)}.xls`,
         producerExcelSheets([prod], [], [], [], []),
       );
+    json.onclick = () =>
+      exportProducersJson([prod], `productor_${slug(prod.basic.name || prod.id)}`);
     del.onclick = () => {
       if (confirm("¿Eliminar productor(a) y sus animales relacionados?")) {
         queueDeletedRecord("producers", prod);
@@ -1101,6 +1229,30 @@ function bindProducer() {
   });
   $("#btnClearLocation")?.addEventListener("click", () => {
     ["lat", "lng", "mapsUrl"].forEach((id) => ($("#" + id).value = ""));
+  });
+  $("#btnExport")?.addEventListener("click", () =>
+    exportProducersJson(state.producers, "productores_app_rural"),
+  );
+  $("#btnImport")?.addEventListener("click", () => $("#importFile")?.click());
+  $("#importFile")?.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = importSingleProducerPayload(JSON.parse(reader.result));
+        showFloatingNotice(
+          `Productor(a) importado: ${result.producer.basic?.name || "sin nombre"}.`,
+        );
+        alert(
+          `Se agregó 1 productor(a) sin modificar los demás datos. También se agregaron ${result.procedures} procedimiento(s) y ${result.labTests} prueba(s) de laboratorio relacionados.`,
+        );
+      } catch (error) {
+        alert(error.message || "JSON inválido para importar productor(a).");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
   });
 }
 
