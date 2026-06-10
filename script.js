@@ -38,6 +38,7 @@ const state = {
     procedureAnimalEntries: [],
     procedureFollowupMedicationEntries: [],
     procedureFollowupMedicationEditId: null,
+    procedureSpeciesDoses: [],
     labImages: [],
     labSupplyUses: [],
   },
@@ -1326,6 +1327,8 @@ function clearProducerScopedDraftState() {
   state.draft.procedureAnimalEntries = [];
   state.draft.procedureFollowupMedicationEntries = [];
   state.draft.procedureFollowupMedicationEditId = null;
+  state.draft.procedureSpeciesDoses = [];
+  if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = "";
   if ($("#a_especie")) resetAnimalEntry();
   if ($("#a_diseaseList")) resetDiseaseForm();
   if ($("#a_programasList")) resetProgramForm();
@@ -2344,6 +2347,10 @@ function canonicalUnit(unit = "") {
     miligramo: "mg",
     miligramos: "mg",
     mg: "mg",
+    ui: "U.I.",
+    iu: "U.I.",
+    unidadinternacional: "U.I.",
+    unidadesinternacionales: "U.I.",
     gramo: "g",
     gramos: "g",
     g: "g",
@@ -2486,37 +2493,113 @@ function calculateConvertedMedicationDose({
     conversionApplied: false,
   };
 }
+
+function doseUnitOptions(selected = "") {
+  const units = ["mL", "mg", "U.I.", "gotas", "tabletas", "cápsulas", "g", "L", "dosis", "otro"];
+  const value = canonicalUnit(selected || "");
+  const options = units.map((unit) => `<option value="${esc(unit)}" ${canonicalUnit(unit) === value ? "selected" : ""}>${esc(unit === "U.I." ? "U.I. / Unidades Internacionales" : unit)}</option>`).join("");
+  const custom = value && !units.some((unit) => canonicalUnit(unit) === value) ? `<option value="${esc(value)}" selected>${esc(value)}</option>` : "";
+  return `<option value="">— Unidad —</option>${options}${custom}`;
+}
+function normalizeDoseRow(raw = {}, speciesFallback = "") {
+  const calculationMode = raw.calculationMode || raw.modo_calculo || raw.regla || (raw.unidad_base === "animal" ? "PER_ANIMAL" : raw.unidad_base === "L" || raw.unidad_base === "litro" ? "PER_LITER" : raw.unidad_base === "kg alimento" ? "PER_KG_FEED" : "PER_KG");
+  const porCada = Number(raw.porCada ?? raw.por_cada ?? raw.perEvery ?? raw.base ?? (calculationMode === "PER_ANIMAL" ? 1 : 1)) || 1;
+  const unitBase = raw.unitBase || raw.unidad_base || (calculationMode === "PER_ANIMAL" ? "animal" : calculationMode === "PER_LITER" ? "L" : calculationMode === "PER_KG_FEED" ? "kg alimento" : "kg");
+  return {
+    species: safe(raw.species ?? raw.especie ?? speciesFallback).trim(),
+    dose: Number(raw.dose ?? raw.cantidad ?? raw.amount ?? 0) || 0,
+    doseUnit: canonicalUnit(raw.doseUnit ?? raw.unidad ?? raw.unit ?? ""),
+    porCada,
+    unitBase,
+    calculationMode,
+    route: safe(raw.route ?? raw.via ?? raw.vía ?? "").trim(),
+    frequency: safe(raw.frequency ?? raw.frecuencia ?? "").trim(),
+    duration: safe(raw.duration ?? raw.duracion ?? raw.duración ?? "").trim(),
+    notes: safe(raw.notes ?? raw.observaciones ?? "").trim(),
+  };
+}
+function flattenSpeciesDoseJson(payload = {}) {
+  const source = Array.isArray(payload) ? payload : (payload.dosis_por_especie || payload.speciesDoses || payload.dosesBySpecies || []);
+  if (!Array.isArray(source)) throw new Error("El JSON debe incluir un arreglo dosis_por_especie.");
+  return source.flatMap((group) => {
+    const species = group.especie || group.species || "";
+    const doses = Array.isArray(group.dosis || group.doses) ? (group.dosis || group.doses) : [group];
+    return doses.map((dose) => normalizeDoseRow(dose, species));
+  }).filter((row) => row.species || row.dose || row.doseUnit);
+}
+function groupSpeciesDoseRows(rows = []) {
+  const map = new Map();
+  rows.forEach((row) => {
+    const normalized = normalizeDoseRow(row);
+    if (!normalized.species) return;
+    if (!map.has(normalized.species)) map.set(normalized.species, []);
+    map.get(normalized.species).push(normalized);
+  });
+  return Array.from(map.entries()).map(([species, dosis]) => ({ especie: species, dosis: dosis.map((row) => ({ cantidad: row.dose, unidad: row.doseUnit, por_cada: row.porCada || 1, unidad_base: row.unitBase || doseRuleDenominator(row.calculationMode) || "kg", via: row.route || "", frecuencia: row.frequency || "", duracion: row.duration || "", observaciones: row.notes || "" })) }));
+}
+function validateSpeciesDoseRows(rows = []) {
+  const errors = [];
+  rows.forEach((row, index) => {
+    const n = index + 1;
+    if (!row.species) errors.push(`Dosis ${n}: captura especie.`);
+    if (!(Number(row.dose || 0) > 0)) errors.push(`Dosis ${n}: cantidad debe ser mayor a 0.`);
+    if (!row.doseUnit) errors.push(`Dosis ${n}: selecciona unidad.`);
+    if (!(Number(row.porCada || 0) > 0)) errors.push(`Dosis ${n}: por cada cuántos kg/base debe ser mayor a 0.`);
+    if (!row.unitBase) errors.push(`Dosis ${n}: captura unidad base.`);
+  });
+  return errors;
+}
+function speciesDoseSummary(row = {}) {
+  const n = normalizeDoseRow(row);
+  return `${n.species}: ${n.dose} ${n.doseUnit}/${n.porCada || 1} ${n.unitBase || doseRuleDenominator(n.calculationMode)}${n.route ? ` · vía ${n.route}` : ""}${n.frequency ? ` · ${n.frequency}` : ""}${n.duration ? ` · ${n.duration}` : ""}${n.notes ? ` · ${n.notes}` : ""}`;
+}
+function speciesDoseJsonExample() {
+  return JSON.stringify({ dosis_por_especie: [{ especie: "Bovinos", dosis: [{ cantidad: 10000, unidad: "U.I.", por_cada: 50, unidad_base: "kg", via: "IM", frecuencia: "cada 24 h", duracion: "3 días", observaciones: "Ajustar según criterio clínico" }, { cantidad: 1, unidad: "mL", por_cada: 25, unidad_base: "kg", via: "SC", frecuencia: "dosis única", duracion: "1 aplicación", observaciones: "" }] }, { especie: "Perros", dosis: [{ cantidad: 0.5, unidad: "mL", por_cada: 10, unidad_base: "kg", via: "VO", frecuencia: "cada 12 h", duracion: "5 días", observaciones: "" }] }] }, null, 2);
+}
+
 function getMedicationSpeciesDoseRows() {
   return $$("#m_speciesDoseList [data-dose-row]")
-    .map((row) => ({
+    .map((row) => normalizeDoseRow({
       species: row.querySelector('[data-field="species"]')?.value.trim() || "",
-      dose: Number(row.querySelector('[data-field="dose"]')?.value || 0),
+      dose: row.querySelector('[data-field="dose"]')?.value || 0,
       doseUnit: row.querySelector('[data-field="doseUnit"]')?.value.trim() || "",
-      calculationMode:
-        row.querySelector('[data-field="calculationMode"]')?.value || "PER_KG",
+      porCada: row.querySelector('[data-field="porCada"]')?.value || 1,
+      unitBase: row.querySelector('[data-field="unitBase"]')?.value.trim() || "kg",
+      calculationMode: row.querySelector('[data-field="calculationMode"]')?.value || "PER_KG",
+      route: row.querySelector('[data-field="route"]')?.value.trim() || "",
+      frequency: row.querySelector('[data-field="frequency"]')?.value.trim() || "",
+      duration: row.querySelector('[data-field="duration"]')?.value.trim() || "",
       notes: row.querySelector('[data-field="notes"]')?.value.trim() || "",
     }))
-    .filter((row) => row.species && row.dose > 0);
+    .filter((row) => row.species || row.dose || row.doseUnit || row.notes);
 }
 function renderMedicationSpeciesDoseRows(rows = []) {
   const box = $("#m_speciesDoseList");
   if (!box) return;
-  if (!rows.length) {
+  const normalizedRows = (rows || []).map((row) => normalizeDoseRow(row)).filter((row) => row.species || row.dose || row.doseUnit || row.notes);
+  if (!normalizedRows.length) {
     box.innerHTML =
-      '<div class="help">Todavía no hay dosis por especie. Agrégalas para que procedimientos use medicamentos existentes con cálculo automático por animal.</div>';
+      '<div class="help">Todavía no hay dosis por especie. Agrégalas o pega JSON para que procedimientos usen medicamentos existentes con cálculo automático por animal.</div>';
     return;
   }
-  box.innerHTML = rows
+  box.innerHTML = normalizedRows
     .map(
       (row, index) => `<div class="item stacked-dose-row" data-dose-row="${index}">
       <div class="grid cols-5">
-        <div><label>Especie</label><input data-field="species" type="text" value="${esc(row.species || "")}" placeholder="Ej. bovino, equino, caprino" /></div>
-        <div><label>Dosis base</label><input data-field="dose" type="number" min="0" step="0.0001" value="${esc(row.dose || "")}" /></div>
-        <div><label>Unidad</label><input data-field="doseUnit" type="text" value="${esc(row.doseUnit || "")}" placeholder="mL, mg, dosis..." /></div>
-        <div><label>Regla</label><select data-field="calculationMode"><option value="PER_KG" ${row.calculationMode === "PER_KG" ? "selected" : ""}>Por kg</option><option value="PER_ANIMAL" ${row.calculationMode === "PER_ANIMAL" ? "selected" : ""}>Por animal</option><option value="PER_LITER" ${row.calculationMode === "PER_LITER" ? "selected" : ""}>Por litro</option></select></div>
+        <div><label>Especie</label><input data-field="species" type="text" value="${esc(row.species || "")}" placeholder="Ej. Bovinos, Perros, *" /></div>
+        <div><label>Cantidad</label><input data-field="dose" type="number" min="0" step="0.0001" value="${esc(row.dose || "")}" /></div>
+        <div><label>Unidad</label><select data-field="doseUnit">${doseUnitOptions(row.doseUnit)}</select></div>
+        <div><label>Por cada</label><input data-field="porCada" type="number" min="0.0001" step="0.0001" value="${esc(row.porCada || 1)}" /></div>
+        <div><label>Unidad base</label><select data-field="unitBase"><option value="kg" ${row.unitBase === "kg" ? "selected" : ""}>kg</option><option value="animal" ${row.unitBase === "animal" ? "selected" : ""}>animal</option><option value="L" ${row.unitBase === "L" ? "selected" : ""}>L</option><option value="kg alimento" ${row.unitBase === "kg alimento" ? "selected" : ""}>kg alimento</option></select></div>
+      </div>
+      <div class="grid cols-5">
+        <div><label>Regla compatible</label><select data-field="calculationMode"><option value="PER_KG" ${row.calculationMode === "PER_KG" ? "selected" : ""}>Por peso/base kg</option><option value="PER_ANIMAL" ${row.calculationMode === "PER_ANIMAL" ? "selected" : ""}>Por animal</option><option value="PER_LITER" ${row.calculationMode === "PER_LITER" ? "selected" : ""}>Por litro</option><option value="PER_KG_FEED" ${row.calculationMode === "PER_KG_FEED" ? "selected" : ""}>Por kg alimento</option></select></div>
+        <div><label>Vía</label><input data-field="route" type="text" value="${esc(row.route || "")}" placeholder="IM, SC, VO..." /></div>
+        <div><label>Frecuencia</label><input data-field="frequency" type="text" value="${esc(row.frequency || "")}" placeholder="cada 24 h" /></div>
+        <div><label>Duración</label><input data-field="duration" type="text" value="${esc(row.duration || "")}" placeholder="3 días" /></div>
         <div style="display:flex;align-items:flex-end;"><button class="btn small bad" type="button" data-action="remove">Quitar</button></div>
       </div>
-      <div><label>Notas</label><input data-field="notes" type="text" value="${esc(row.notes || "")}" placeholder="Opcional" /></div>
+      <div><label>Observaciones</label><input data-field="notes" type="text" value="${esc(row.notes || "")}" placeholder="Opcional" /></div>
     </div>`,
     )
     .join("");
@@ -2629,6 +2712,7 @@ function collectMed(id = uid("med")) {
       : null,
     concentration,
     speciesDoses: getMedicationSpeciesDoseRows(),
+    dosis_por_especie: groupSpeciesDoseRows(getMedicationSpeciesDoseRows()),
     photos: { rx: state.draft.medRxPhoto, ticket: state.draft.medTicketPhoto },
     clinical: {
       use: $("#m_use").value.trim(),
@@ -2687,6 +2771,11 @@ function saveMed() {
       show("m_err", "La cantidad restante no puede ser mayor al contenido original.", "error");
       return;
     }
+  }
+  const doseErrors = validateSpeciesDoseRows(med.speciesDoses || []);
+  if (doseErrors.length) {
+    show("m_err", doseErrors[0], "error");
+    return;
   }
   const conc = med.concentration || {};
   const concFilled = [conc.activeUnit, conc.perUnit].some((v) => String(v || "").trim() !== "")
@@ -2766,7 +2855,7 @@ function fillMed(m) {
   });
   renderMedStockType();
   renderMedicationConcentrationMode();
-  renderMedicationSpeciesDoseRows(m.speciesDoses || []);
+  renderMedicationSpeciesDoseRows((m.speciesDoses || []).length ? m.speciesDoses : flattenSpeciesDoseJson(m.dosis_por_especie ? { dosis_por_especie: m.dosis_por_especie } : {}));
   state.draft.medRxPhoto = m.photos?.rx || null;
   state.draft.medTicketPhoto = m.photos?.ticket || null;
   setThumb("m_rx_preview", state.draft.medRxPhoto, "Sin<br/>receta");
@@ -2795,7 +2884,7 @@ function renderMedList() {
   state.meds.forEach((m) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div><div class="line"><b>Concentración / equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map((row) => `${row.species}: ${row.dose} ${row.doseUnit}/${doseRuleDenominator(row.calculationMode)}`).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Duplicar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div><div class="line"><b>Concentración / equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map(speciesDoseSummary).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Duplicar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, duplicate, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillMed(m);
     duplicate.onclick = () => duplicateMed(m);
@@ -2864,7 +2953,7 @@ function bindMeds() {
   $("#m_useTherapeuticDoseOnly")?.addEventListener("change", renderMedicationConcentrationMode);
   $("#ai_makePrompt")?.addEventListener("click", () => {
     const source = $("#ai_english").value.trim();
-    const prompt = `Analiza este texto de medicamento veterinario y devuelve exclusivamente JSON válido con las llaves use, mech, adverse, preg, pk, overdose, interactions, dosing. Resume en español, conserva dosis prácticas y advertencias. Texto fuente: ${source}`;
+    const prompt = `Analiza este texto de medicamento veterinario y devuelve exclusivamente JSON válido con las llaves use, mech, adverse, preg, pk, overdose, interactions, dosing y opcionalmente dosis_por_especie. Resume en español, conserva dosis prácticas y advertencias. Texto fuente: ${source}`;
     $("#ai_prompt").value = prompt;
   });
   $("#ai_copyPrompt")?.addEventListener("click", () =>
@@ -2880,10 +2969,33 @@ function bindMeds() {
       species: "",
       dose: 0,
       doseUnit: "",
+      porCada: 1,
+      unitBase: "kg",
       calculationMode: "PER_KG",
+      route: "",
+      frequency: "",
+      duration: "",
       notes: "",
     });
     renderMedicationSpeciesDoseRows(rows);
+  });
+
+  $("#m_applySpeciesDoseJson")?.addEventListener("click", () => {
+    try {
+      const rows = flattenSpeciesDoseJson(JSON.parse($("#m_speciesDoseJson")?.value || "{}"));
+      const errors = validateSpeciesDoseRows(rows);
+      if (errors.length) throw new Error(errors[0]);
+      renderMedicationSpeciesDoseRows(rows);
+      show("ai_status", `JSON de dosis aplicado: ${rows.length} dosis.`, "success");
+    } catch (error) {
+      show("ai_status", error.message || "JSON de dosis inválido.", "error");
+    }
+  });
+  $("#m_copySpeciesDoseJsonExample")?.addEventListener("click", async () => {
+    const example = speciesDoseJsonExample();
+    if ($("#m_speciesDoseJson")) $("#m_speciesDoseJson").value = example;
+    await navigator.clipboard?.writeText?.(example);
+    show("ai_status", "Ejemplo de dosis JSON copiado y pegado.", "success");
   });
   $("#ai_fillFromJson")?.addEventListener("click", () => {
     try {
@@ -2898,13 +3010,19 @@ function bindMeds() {
         m_interactions: j.interactions,
         m_dosing: j.dosing,
       }).forEach(([k, v]) => ($("#" + k).value = safe(v)));
+      if (j.dosis_por_especie || j.speciesDoses || j.dosesBySpecies) {
+        const rows = flattenSpeciesDoseJson(j);
+        const errors = validateSpeciesDoseRows(rows);
+        if (errors.length) throw new Error(errors[0]);
+        renderMedicationSpeciesDoseRows(rows);
+      }
       show("ai_status", "JSON aplicado correctamente.", "success");
     } catch (err) {
       show("ai_status", "JSON inválido.", "error");
     }
   });
   $("#ai_copyExample")?.addEventListener("click", async () => {
-    const example = JSON.stringify({ use: "Para control antiparasitario", mech: "Actúa sobre canales iónicos", adverse: "Puede causar depresión o vómito", preg: "Usar con criterio veterinario", pk: "Absorción lenta y vida media prolongada", overdose: "Neurológico", interactions: "Precaución con otros lactonas macrocíclicas", dosing: "Según peso vivo y especie" }, null, 2);
+    const example = JSON.stringify({ use: "Para control antiparasitario", mech: "Actúa sobre canales iónicos", adverse: "Puede causar depresión o vómito", preg: "Usar con criterio veterinario", pk: "Absorción lenta y vida media prolongada", overdose: "Neurológico", interactions: "Precaución con otros lactonas macrocíclicas", dosing: "Según peso vivo y especie", dosis_por_especie: JSON.parse(speciesDoseJsonExample()).dosis_por_especie }, null, 2);
     $("#ai_result").value = example;
     await navigator.clipboard.writeText(example);
     show("ai_status", "Ejemplo JSON copiado y pegado en el resultado.", "success");
@@ -4172,7 +4290,7 @@ function producerWordHtml(prod) {
 }
 function medSummaryHtml() {
   return `<h1>Medicamentos</h1>${state.meds
-    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p><p><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "")} ${esc(m.unit)} · <b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</p><p><b>Concentración/equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</p><p><b>Existencia total calculada:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</p><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
+    .map((m) => `<section><h2>${esc(m.brand)} · ${esc(m.active)}</h2><p><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</p><p><b>Tipo de inventario:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</p><p><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</p>${m.stockType === "USADO" ? `<p><b>Registro usado:</b> Traía ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)}, costó ${money(m.stockMeta?.originalCost)} y actualmente queda ${esc(m.stockMeta?.remainingQty)} ${esc(m.unit)}.</p>` : ""}<p><b>Presentación:</b> ${esc(m.presentation)}</p><p><b>Caducidad:</b> ${esc(m.expiry)}</p><p><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "")} ${esc(m.unit)} · <b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</p><p><b>Concentración/equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</p><p><b>Existencia total calculada:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Disponible:</b> ${esc(medRemaining(m))} ${esc(m.unit)}</p><p><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)} · <b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</p><h3>Dosis estructurada por especie</h3><table><tr><th>Especie</th><th>Cantidad</th><th>Unidad</th><th>Por cada</th><th>Vía</th><th>Frecuencia</th><th>Duración</th><th>Observaciones</th></tr>${(m.speciesDoses || []).map((row) => { const d = normalizeDoseRow(row); return `<tr><td>${esc(d.species)}</td><td>${esc(d.dose)}</td><td>${esc(d.doseUnit)}</td><td>${esc(d.porCada)} ${esc(d.unitBase)}</td><td>${esc(d.route)}</td><td>${esc(d.frequency)}</td><td>${esc(d.duration)}</td><td>${esc(d.notes)}</td></tr>`; }).join("")}</table><h3>Ficha clínica</h3>${objectEntriesTable(m.clinical || {})}${imageHtml(m.photos?.rx, "Receta")}${imageHtml(m.photos?.ticket, "Ticket")}</section>`).join('<div style="page-break-after:always"></div>')}`;
 }
 function supplySummaryHtml() {
   return `<h1>Insumos</h1>${state.supplies.map((s) => `<section><h2>${esc(s.name)}</h2><p><b>Tipo:</b> ${esc(s.type)}</p><p><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</p><p><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</p>${objectEntriesTable(s)}${imageHtml(s.ticket, "Ticket insumo")}</section>`).join('<div style="page-break-after:always"></div>')}`;
@@ -4566,6 +4684,7 @@ function getProcedureAnimalMedicationSummary(entry) {
   const weight = Number(entry.weightRecordedKg || 0);
   const volumeLiters = Number(entry.doseVolumeLiters || 0);
   const baseDose = Number(profile?.dose || 0);
+  const porCada = Number(profile?.porCada || 1) || 1;
   const individualMode = !isGroupMedicationMode();
   const incompatibleIndividualMode = individualMode && mode === "PER_LITER";
   const basisValue = mode === "PER_ANIMAL" ? 1 : mode === "PER_LITER" || mode === "PER_KG_FEED" ? volumeLiters : weight;
@@ -4578,10 +4697,10 @@ function getProcedureAnimalMedicationSummary(entry) {
         : `Peso del animal: ${Number(weight || 0).toFixed(2)} kg`;
   const theoreticalDoseTotal = profile
     ? mode === "PER_ANIMAL"
-      ? baseDose
+      ? baseDose * (basisValue / porCada)
       : incompatibleIndividualMode
         ? 0
-        : baseDose * basisValue
+        : baseDose * (basisValue / porCada)
     : 0;
   const missingWeight = profile && mode === "PER_KG" && weight <= 0;
   const missingVolume = profile && ["PER_LITER", "PER_KG_FEED"].includes(mode) && basisValue <= 0;
@@ -4624,7 +4743,7 @@ function getProcedureAnimalMedicationSummary(entry) {
     warning,
     summary: med
       ? profile
-        ? `${profile.species} · dosis base ${baseDose} ${profile.doseUnit || med.unit || ""}/${doseRuleDenominator(mode)}`
+        ? speciesDoseSummary(profile)
         : `Falta dosis por especie para ${entry.species || "este animal"}`
       : "",
   };
@@ -4644,6 +4763,9 @@ function createProcedureAnimalEntry(baseAnimal = {}, extra = {}) {
     sourceLabel: extra.sourceLabel || animalLabel(baseAnimal) || identification,
     identification,
     species,
+    age: extra.age || baseAnimal.age || "",
+    sex: extra.sex || baseAnimal.sex || "",
+    procedureReason: extra.procedureReason || extra.reason || "",
     weightMethod,
     weight,
     chestGirth,
@@ -4705,7 +4827,9 @@ function normalizeEntryMedicationApplied(entry = {}) {
       calculatedSuggestionUnit: entry.suggestedDoseUnit || "",
       finalAppliedAmount: Number(entry.convertedDoseQty || 0) || 0,
       finalUnit: entry.convertedDoseUnit || entry.suggestedDoseUnit || "",
-      route: med?.route || "",
+      route: entry.doseRoute || med?.route || "",
+      frequency: entry.doseFrequency || "",
+      duration: entry.doseDuration || "",
       concentrationSummary: usesStructuredConcentration(med) ? (medicationConcentrationSummary(med) || "") : "Modo sin concentración estructurada",
       expiryDate: med?.expiry || "",
       expiryStatus: medicationExpiryInfo(med?.expiry || "").text,
@@ -4736,7 +4860,9 @@ function addMedicationAppliedToEntry(entry) {
     calculatedSuggestionUnit: entry.suggestedDoseUnit || "",
     finalAppliedAmount: Number(entry.convertedDoseQty || 0) || 0,
     finalUnit: entry.convertedDoseUnit || entry.suggestedDoseUnit || "",
-    route: med?.route || "",
+    route: entry.doseRoute || med?.route || "",
+    frequency: entry.doseFrequency || "",
+    duration: entry.doseDuration || "",
     concentrationSummary: usesStructuredConcentration(med) ? (medicationConcentrationSummary(med) || "") : "Modo sin concentración estructurada",
     expiryDate: med?.expiry || "",
     expiryStatus: medicationExpiryInfo(med?.expiry || "").text,
@@ -4754,6 +4880,11 @@ function addMedicationAppliedToEntry(entry) {
   entry.doseSummary = "";
   entry.doseBase = 0;
   entry.doseCalculationMode = "";
+  entry.dosePorCada = 1;
+  entry.doseUnitBase = "";
+  entry.doseRoute = "";
+  entry.doseFrequency = "";
+  entry.doseDuration = "";
   entry.theoreticalDoseTotal = 0;
   entry.suggestedDoseQty = 0;
   entry.suggestedDoseUnit = "";
@@ -4798,6 +4929,11 @@ function syncProcedureAnimalSummary(entry) {
   entry.doseSummary = medSummary.summary;
   entry.doseBase = medSummary.baseDose;
   entry.doseCalculationMode = medSummary.mode;
+  entry.dosePorCada = medSummary.profile?.porCada || 1;
+  entry.doseUnitBase = medSummary.profile?.unitBase || doseRuleDenominator(medSummary.mode);
+  entry.doseRoute = medSummary.profile?.route || "";
+  entry.doseFrequency = medSummary.profile?.frequency || "";
+  entry.doseDuration = medSummary.profile?.duration || "";
   entry.medicationName = medSummary.med?.brand || "";
   entry.medicationWarning = medSummary.warning || "";
   entry.suggestedDoseQty = Number(medSummary.convertedDoseQty || medSummary.theoreticalDoseTotal || 0);
@@ -4912,6 +5048,7 @@ function calculateGroupMedicationDraft() {
     $("#p_groupDoseRule").disabled = Boolean(profile);
   }
   const autoDoseBase = Number(profile?.dose || 0);
+  const dosePorCada = Number(profile?.porCada || 1) || 1;
   const doseBaseInput = $("#p_groupDoseBase");
   if (doseBaseInput && autoDoseBase > 0) doseBaseInput.value = autoDoseBase;
   const doseBase = autoDoseBase > 0 ? autoDoseBase : Number(doseBaseInput?.value || 0);
@@ -4931,7 +5068,7 @@ function calculateGroupMedicationDraft() {
       : rule === "PER_ANIMAL"
         ? `${animalsCount} animales`
         : `${totalWeight.toFixed(2)} kg vivos`;
-  const totalQty = doseBase * basis;
+  const totalQty = doseBase * (basis / dosePorCada);
   const convertedGroup = med
     ? calculateConvertedMedicationDose({
       med,
@@ -4943,7 +5080,7 @@ function calculateGroupMedicationDraft() {
     })
     : null;
   const summary = doseBase > 0 && basis > 0
-    ? `${doseBase} ${unit || med?.unit || "u"}/${doseRuleDenominator(rule)} × ${basisLabel} = ${Number(totalQty).toFixed(2)} ${unit || med?.unit || "u"}`
+    ? `${doseBase} ${unit || med?.unit || "u"}/${dosePorCada} ${profile?.unitBase || doseRuleDenominator(rule)} × ${basisLabel} = ${Number(totalQty).toFixed(2)} ${unit || med?.unit || "u"}`
     : "Selecciona medicamento y captura la base del cálculo grupal.";
   const warning = profile && ["PER_ANIMAL", "PER_KG"].includes(profile.calculationMode)
     ? "Advertencia: la regla principal del medicamento es por animal/peso; para agua/alimento se recomienda regla por litro o por kg de alimento."
@@ -5012,7 +5149,7 @@ function renderProcedureType() {
   const details = $$("#procedureForm details");
   details.forEach((d) => {
     const sum = d.querySelector("summary")?.textContent || "";
-    if (sum.includes("Caso clínico")) d.style.display = type === "CASO_CLINICO" ? "block" : "none";
+    if (sum.includes("Caso clínico") || sum.includes("Tratamiento/procedimiento")) d.style.display = type === "CASO_CLINICO" ? "block" : "none";
     if (sum.includes("Necropsia")) d.style.display = type === "NECROPSIA" ? "block" : "none";
     if (sum.includes("Atención clínica")) d.style.display = type === "ZOOTECNIA" ? "block" : "none";
     if (sum.includes("Cirugía")) d.style.display = "none";
@@ -5367,18 +5504,21 @@ function renderProcedureAnimalCards() {
         <div><label>Animal base</label><div class="help">${esc(entry.sourceLabel || "Sin referencia")}</div></div>
         <div><label>Identificación</label><input data-field="identification" type="text" value="${esc(entry.identification)}"></div>
         <div><label>Especie / tipo</label><input data-field="species" type="text" value="${esc(entry.species)}"></div>
+        <div><label>Edad</label><input data-field="age" type="text" value="${esc(entry.age || "")}" placeholder="Ej. 2 años"></div>
+        <div><label>Sexo</label><input data-field="sex" type="text" value="${esc(entry.sex || "")}" placeholder="Hembra, macho..."></div>
         <div><label>Método de peso</label><select data-field="weightMethod">${methodOptions}</select></div>
       </div>
       <div class="grid cols-4">
         <div><label>${tapeFormula ? "Peso estimado (kg)" : manualTapeWeight ? "Peso estimado manual (kg)" : "Peso (kg)"}</label><input data-field="weight" type="number" min="0" step="0.01" value="${esc(tapeFormula ? entry.estimatedWeight : entry.weight)}" ${tapeFormula ? "disabled" : ""}></div>
         <div><label>Peso utilizable para dosis (kg)</label><input type="number" value="${esc((entry.weightRecordedKg || 0).toFixed(2))}" disabled></div>
-        <div><label>Observaciones</label><input data-field="notes" type="text" value="${esc(entry.notes)}"></div>
-        <div><label>Estado general</label><select data-field="generalState"><option value="">— Selecciona —</option><option value="Sano">Sano</option><option value="Enfermo">Enfermo</option><option value="Regular">Regular</option><option value="Otro">Otro</option></select></div>
+        <div><label>Condición general</label><select data-field="generalState"><option value="">— Selecciona —</option><option value="Sano">Sano</option><option value="Enfermo">Enfermo</option><option value="Regular">Regular</option><option value="Otro">Otro</option></select></div>
+        <div><label>Motivo del procedimiento/consulta</label><input data-field="procedureReason" type="text" value="${esc(entry.procedureReason || "")}"></div>
+        <div><label>Observaciones del desglose</label><input data-field="notes" type="text" value="${esc(entry.notes)}"></div>
         <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
           <label><input data-field="examIncluded" type="checkbox" ${entry.examIncluded ? "checked" : ""}> Examen físico general</label>
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
             ${isClinicalCase ? '<button class="btn small" type="button" data-action="add-medication">➕ Agregar medicamento</button>' : ""}
-            <button class="btn small bad" type="button" data-action="remove">${isClinicalCase ? "Quitar medicamento" : "Quitar"}</button>
+            <button class="btn small bad" type="button" data-action="remove">${isClinicalCase ? "Quitar animal" : "Quitar"}</button>
           </div>
         </div>
       </div>
@@ -5489,9 +5629,18 @@ function addProcedureMedUse() {
   if (!updates) return show("p_msg", "No se encontró el animal objetivo para vincular el medicamento.", "warning");
   show("p_msg", `Medicamento ${med.brand} agregado y vinculado en ${updates} animal(es).`, "success");
 }
+function renderProcedureSpeciesDoseList() {
+  const list = $("#p_speciesDoseList");
+  if (!list) return;
+  const rows = state.draft.procedureSpeciesDoses || [];
+  list.innerHTML = rows.length
+    ? rows.map((row) => `<div class="item"><div class="line">${esc(speciesDoseSummary(row))}</div></div>`).join("")
+    : '<div class="help">Sin dosis JSON validadas para este procedimiento.</div>';
+}
 function renderProcedureDraftLists() {
   renderProcedureFollowupMedicationDraft();
   renderProcedureAnimalCards();
+  renderProcedureSpeciesDoseList();
   const aggregated = aggregateProcedureInventoryFromAnimals();
   const caseMedicationList = (state.draft.procedureAnimalEntries || [])
     .flatMap((entry) => {
@@ -5555,8 +5704,9 @@ function buildProcedureFollowupMedicationDraft(medicationId = "", qtyOverride = 
   const doseBase = Number(profile?.dose || 0);
   const doseUnit = profile?.doseUnit || med.unit || "";
   const mode = profile?.calculationMode || "PER_KG";
+  const porCada = Number(profile?.porCada || 1) || 1;
   const basis = mode === "PER_KG" ? Number(context.weightKg || 0) : 1;
-  const theoreticalQty = mode === "PER_KG" ? doseBase * basis : doseBase;
+  const theoreticalQty = doseBase * (basis / porCada);
   const converted = calculateConvertedMedicationDose({
     med,
     theoreticalQty,
@@ -5860,7 +6010,9 @@ function collectProcedure() {
       vaccines: aggregated.vaccines,
       supplies: [...state.draft.procedureSupplyUses],
     },
-    caseClinical: { reason: $("#p_cc_reason").value.trim(), anamnesis: $("#p_cc_anamnesis").value.trim(), bodyCondition: $("#p_cc_bodyCondition").value.trim(), mucosa: $("#p_cc_mucosa").value.trim(), tllc: $("#p_cc_tllc").value.trim(), hydration: $("#p_cc_hydration").value.trim(), fc: $("#p_cc_fc").value.trim(), fr: $("#p_cc_fr").value.trim(), temp: $("#p_cc_temp").value.trim(), weight: $("#p_cc_weight2").value.trim(), age: $("#p_cc_age").value.trim(), exam: $("#p_cc_exam").value.trim(), presumptiveDx: $("#p_cc_presumptiveDx").value.trim(), treatment: $("#p_cc_treatment").value.trim(), recommendations: $("#p_cc_recommendations").value.trim(), followup: $("#p_cc_followup").value.trim(), outcome: $("#p_cc_outcome")?.value || "", deathCause: $("#p_cc_deathCause")?.value.trim() || "", followupMedications: [...(state.draft.procedureFollowupMedicationEntries || [])], photos: [...state.draft.procedureCasePhotos] },
+    procedureSpeciesDoses: [...(state.draft.procedureSpeciesDoses || [])],
+    dosis_por_especie: groupSpeciesDoseRows(state.draft.procedureSpeciesDoses || []),
+    caseClinical: { reason: primary.procedureReason || $("#p_cc_reason")?.value?.trim?.() || "", anamnesis: $("#p_cc_anamnesis")?.value.trim() || "", bodyCondition: $("#p_cc_bodyCondition")?.value.trim() || "", mucosa: $("#p_cc_mucosa")?.value.trim() || "", tllc: $("#p_cc_tllc")?.value.trim() || "", hydration: $("#p_cc_hydration")?.value.trim() || "", fc: $("#p_cc_fc")?.value.trim() || "", fr: $("#p_cc_fr")?.value.trim() || "", temp: $("#p_cc_temp")?.value.trim() || "", weight: primary.weightRecordedKg || "", age: primary.age || $("#p_cc_age")?.value?.trim?.() || "", sex: primary.sex || "", exam: $("#p_cc_exam")?.value.trim() || "", presumptiveDx: $("#p_cc_presumptiveDx")?.value.trim() || "", treatment: $("#p_cc_treatment")?.value.trim() || "", recommendations: $("#p_cc_recommendations")?.value.trim() || "", followup: $("#p_cc_followup")?.value.trim() || "", outcome: $("#p_cc_outcome")?.value || "", deathCause: $("#p_cc_deathCause")?.value.trim() || "", followupMedications: [...(state.draft.procedureFollowupMedicationEntries || [])], structuredDoses: [...(state.draft.procedureSpeciesDoses || [])], photos: [...state.draft.procedureCasePhotos] },
     necropsy: { idAnimal: $("#p_nec_idAnimal").value.trim(), species: $("#p_nec_species").value.trim(), breed: $("#p_nec_breed").value.trim(), sex: $("#p_nec_sex").value.trim(), age: $("#p_nec_age").value.trim(), sterilized: $("#p_nec_sterilized").value.trim(), color: $("#p_nec_color").value.trim(), weight: $("#p_nec_weight").value.trim(), birthDate: $("#p_nec_birthDate").value, deathDate: $("#p_nec_deathDate").value, timeDeathNec: $("#p_nec_timeDeathNec").value.trim(), sender: $("#p_nec_sender").value.trim(), caseNumber: $("#p_nec_caseNumber").value.trim(), clinicalDx: $("#p_nec_clinicalDx").value.trim(), additionalData: $("#p_nec_additionalData").value.trim(), externalInspection: $("#p_nec_externalInspection").value.trim(), primaryIncision: $("#p_nec_primaryIncision").value.trim(), secondaryIncision: $("#p_nec_secondaryIncision").value.trim(), organExtraction: $("#p_nec_organExtraction").value.trim(), respiratory: $("#p_nec_respiratory").value.trim(), heart: $("#p_nec_heart").value.trim(), spleen: $("#p_nec_spleen").value.trim(), kidneys: $("#p_nec_kidneys").value.trim(), stomach: $("#p_nec_stomach").value.trim(), preliminaryReport: $("#p_nec_preliminaryReport").value.trim(), morphDx: $("#p_nec_morphDx").value.trim(), finalDx: $("#p_nec_finalDx").value.trim(), comments: $("#p_nec_comments").value.trim(), biblioSummary: $("#p_nec_biblioSummary").value.trim(), bibliography: $("#p_nec_bibliography").value.trim(), photos: [...state.draft.procedureNecropsyPhotos] },
     zootecnia: { activity: $("#p_zoo_activity").value.trim(), evaluation: $("#p_zoo_evaluation").value.trim(), intervention: $("#p_zoo_intervention").value.trim(), plan: $("#p_zoo_plan").value.trim(), followup: $("#p_zoo_followup").value.trim() },
     surgery: {},
@@ -5932,6 +6084,8 @@ function resetProcedure() {
   state.draft.procedureAnimalEntries = [];
   state.draft.procedureFollowupMedicationEntries = [];
   state.draft.procedureFollowupMedicationEditId = null;
+  state.draft.procedureSpeciesDoses = [];
+  if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = "";
   resetProcedureFollowupMedicationForm();
   renderProcedureType(); renderProcedureDraftLists(); renderProcedureAnimalSelect();
 }
@@ -5940,7 +6094,7 @@ function fillProcedure(p) {
   state.editing.procedureId = p.id;
   Object.entries({ p_date: p.date, p_type: p.type, p_caseOwnerMode: p.ownerMode || (p.producerId ? "REGISTERED" : "UNREGISTERED"), p_unregisteredClientName: p.unregisteredClientName || p.producerName || "", p_unregisteredAnimalName: p.unregisteredAnimalName || p.identification || "", p_scope: p.scope, p_place: p.place, p_costTotal: p.charge?.base || "", p_producer: p.producerId, p_animalGroup: p.animalId, p_animalsQtyUsed: p.animalsQtyUsed, p_preventiveSubtype: p.preventiveSubtype || "", p_zoo_activity: p.zootecniaActivity || p.zootecnia?.activity || "", p_chargeStatus: p.chargeStatus, p_chargeNotes: p.chargeNotes, p_notes: p.notes, p_medicationApplicationMode: p.medicationApplicationMode || "INDIVIDUAL_ANIMAL", p_groupMedSelect: p.groupMedication?.medicationId || "", p_groupAdministrationType: p.groupMedication?.administrationType || "AGUA", p_groupDoseRule: p.groupMedication?.rule || "PER_LITER", p_groupDoseBase: p.groupMedication?.doseBase || "", p_groupDoseUnit: p.groupMedication?.doseUnit || "", p_groupTotalVolumeKg: p.groupMedication?.totalVolumeKg || "", p_groupAnimalBase: p.groupMedication?.groupAnimalId || "", p_groupDetectedSpecies: p.groupMedication?.species || "", p_cc_reason: p.caseClinical?.reason, p_cc_anamnesis: p.caseClinical?.anamnesis, p_cc_bodyCondition: p.caseClinical?.bodyCondition, p_cc_mucosa: p.caseClinical?.mucosa, p_cc_tllc: p.caseClinical?.tllc, p_cc_hydration: p.caseClinical?.hydration, p_cc_fc: p.caseClinical?.fc, p_cc_fr: p.caseClinical?.fr, p_cc_temp: p.caseClinical?.temp, p_cc_weight2: p.caseClinical?.weight, p_cc_age: p.caseClinical?.age, p_cc_exam: p.caseClinical?.exam, p_cc_presumptiveDx: p.caseClinical?.presumptiveDx, p_cc_treatment: p.caseClinical?.treatment, p_cc_recommendations: p.caseClinical?.recommendations, p_cc_followup: p.caseClinical?.followup, p_cc_outcome: p.caseClinical?.outcome || "", p_cc_deathCause: p.caseClinical?.deathCause || "", p_nec_idAnimal: p.necropsy?.idAnimal, p_nec_species: p.necropsy?.species, p_nec_breed: p.necropsy?.breed, p_nec_sex: p.necropsy?.sex, p_nec_age: p.necropsy?.age, p_nec_sterilized: p.necropsy?.sterilized, p_nec_color: p.necropsy?.color, p_nec_weight: p.necropsy?.weight, p_nec_birthDate: p.necropsy?.birthDate, p_nec_deathDate: p.necropsy?.deathDate, p_nec_timeDeathNec: p.necropsy?.timeDeathNec, p_nec_sender: p.necropsy?.sender, p_nec_caseNumber: p.necropsy?.caseNumber, p_nec_clinicalDx: p.necropsy?.clinicalDx, p_nec_additionalData: p.necropsy?.additionalData, p_nec_externalInspection: p.necropsy?.externalInspection, p_nec_primaryIncision: p.necropsy?.primaryIncision, p_nec_secondaryIncision: p.necropsy?.secondaryIncision, p_nec_organExtraction: p.necropsy?.organExtraction, p_nec_respiratory: p.necropsy?.respiratory, p_nec_heart: p.necropsy?.heart, p_nec_spleen: p.necropsy?.spleen, p_nec_kidneys: p.necropsy?.kidneys, p_nec_stomach: p.necropsy?.stomach, p_nec_preliminaryReport: p.necropsy?.preliminaryReport, p_nec_morphDx: p.necropsy?.morphDx, p_nec_finalDx: p.necropsy?.finalDx, p_nec_comments: p.necropsy?.comments, p_nec_biblioSummary: p.necropsy?.biblioSummary, p_nec_bibliography: p.necropsy?.bibliography, p_zoo_evaluation: p.zootecnia?.evaluation, p_zoo_intervention: p.zootecnia?.intervention, p_zoo_plan: p.zootecnia?.plan, p_zoo_followup: p.zootecnia?.followup, p_chargeManual: p.charge?.manual, p_chargeReason: p.charge?.reason }).forEach(([k, v]) => { if ($("#" + k)) $("#" + k).value = safe(v); });
   renderProcedureAnimalSelect();
-  state.draft.procedureAnimalEntries = ((p.animals || []).length ? p.animals : [createProcedureAnimalEntry(byId(currentAnimals(), p.animalId) || {}, { animalId: p.animalId, identification: p.identification, species: p.species, weight: p.weight, examIncluded: false })]).map((entry) => createProcedureAnimalEntry(byId(currentAnimals(), entry.animalId) || {}, entry));
+  state.draft.procedureAnimalEntries = ((p.animals || []).length ? p.animals : [createProcedureAnimalEntry(byId(currentAnimals(), p.animalId) || {}, { animalId: p.animalId, identification: p.identification, species: p.species, weight: p.weight, examIncluded: false })]).map((entry) => createProcedureAnimalEntry(byId(currentAnimals(), entry.animalId) || {}, { ...entry, age: entry.age || p.caseClinical?.age || "", sex: entry.sex || p.caseClinical?.sex || "", procedureReason: entry.procedureReason || p.caseClinical?.reason || "" }));
   state.draft.procedureMedUses = [...(p.inventory?.meds || [])];
   state.draft.procedureVaccineUses = [...(p.inventory?.vaccines || [])];
   state.draft.procedureSupplyUses = [...(p.inventory?.supplies || [])];
@@ -5948,6 +6102,8 @@ function fillProcedure(p) {
   state.draft.procedureCasePhotos = [...(p.caseClinical?.photos || [])];
   state.draft.procedureFollowupMedicationEntries = [...(p.caseClinical?.followupMedications || [])];
   state.draft.procedureFollowupMedicationEditId = null;
+  state.draft.procedureSpeciesDoses = (p.procedureSpeciesDoses || p.caseClinical?.structuredDoses || (p.dosis_por_especie ? flattenSpeciesDoseJson({ dosis_por_especie: p.dosis_por_especie }) : []));
+  if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = state.draft.procedureSpeciesDoses.length ? JSON.stringify({ dosis_por_especie: groupSpeciesDoseRows(state.draft.procedureSpeciesDoses) }, null, 2) : "";
   resetProcedureFollowupMedicationForm();
   state.draft.procedureNecropsyPhotos = [...(p.necropsy?.photos || [])];
   state.draft.procedureChargePhoto = p.charge?.photo || null;
@@ -6006,10 +6162,10 @@ function chargeBreakdownTable(charge = {}) {
   return `<table><tr><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th></tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
 }
 function procedureAnimalsTable(animals = []) {
-  return `<table><tr><th>Identificación</th><th>Especie</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>Volumen (L)</th><th>PT</th><th>LC</th><th>Medicamentos aplicados</th><th>Vacuna</th><th>Estado general</th><th>Examen físico</th><th>Observaciones</th></tr>${animals.map((a) => {
+  return `<table><tr><th>Identificación</th><th>Especie</th><th>Edad</th><th>Sexo</th><th>Método de peso</th><th>Peso utilizable (kg)</th><th>Motivo</th><th>Medicamentos aplicados</th><th>Vacuna</th><th>Condición general</th><th>Examen físico</th><th>Observaciones</th></tr>${animals.map((a) => {
     normalizeEntryMedicationApplied(a);
     const medsText = (a.medicationsApplied || []).map((med, idx) => `${idx + 1}. ${med.medicationName || ""} (${Number(med.finalAppliedAmount || 0).toFixed(2)} ${med.finalUnit || ""}, ${med.route || "Sin vía"})`).join(" | ");
-    return `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${Number(a.doseVolumeLiters || 0).toFixed(2)}</td><td>${a.chestGirth || ""}</td><td>${a.bodyLength || ""}</td><td>${esc(medsText || "Sin medicamentos agregados")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${esc(a.generalState || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc([a.notes || "", medsText ? `Total medicamentos: ${(a.medicationsApplied || []).length}` : ""].filter(Boolean).join(" · "))}</td></tr>`;
+    return `<tr><td>${esc(a.identification || a.sourceLabel)}</td><td>${esc(a.species)}</td><td>${esc(a.age || "")}</td><td>${esc(a.sex || "")}</td><td>${esc(a.weightMethod)}</td><td>${Number(a.weightRecordedKg || 0).toFixed(2)}</td><td>${esc(a.procedureReason || "")}</td><td>${esc(medsText || "Sin medicamentos agregados")}</td><td>${esc(byId(state.vaccines, a.vaccineId)?.brand || "")}</td><td>${esc(a.generalState || "")}</td><td>${a.examIncluded ? esc([a.exam?.temperature ? `Temp ${a.exam.temperature}` : "", a.exam?.findings].filter(Boolean).join(" · ")) : "No"}</td><td>${esc([a.notes || "", medsText ? `Total medicamentos: ${(a.medicationsApplied || []).length}` : ""].filter(Boolean).join(" · "))}</td></tr>`;
   }).join("")}</table>`;
 }
 function procedureWordHtml(p) {
@@ -6018,7 +6174,7 @@ function procedureWordHtml(p) {
   const groupText = medicationMode === "GROUP_WATER_FEED"
     ? `Se administró medicamento en ${safe((p.groupMedication?.administrationType || "AGUA")).toLowerCase()}: ${Number(p.groupMedication?.totalQty || 0).toFixed(2)} ${p.groupMedication?.doseUnit || ""} en ${Number(p.groupMedication?.totalVolumeKg || 0).toFixed(2)} ${p.groupMedication?.rule === "PER_KG_FEED" ? "kg" : "L"}.`
     : `Se aplicó a ${(p.animals || []).length} animales con dosis individual por peso/registro.`;
-  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(procedureProducerName(p))}</p><p><b>Modalidad:</b> ${esc(p.scope)}</p><p><b>Tipo de aplicación de medicamento:</b> ${esc(medicationMode === "GROUP_WATER_FEED" ? "Grupal (agua / alimento)" : "Individual por animal")}</p><p><b>Animales incluidos:</b> ${(p.animals || []).length}</p><p><b>Resumen de medicación:</b> ${esc(groupText)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, subtipo_preventiva: p.preventiveSubtype || "", actividad_zootecnia: p.zootecniaActivity || p.zootecnia?.activity || "", alcance: p.scope, lugar: p.place, productor: procedureProducerName(p), cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes, tipo_aplicacion_medicamento: medicationMode, grupo_animal_base: p.groupMedication?.groupAnimalLabel || "", especie_detectada_grupal: p.groupMedication?.species || "", regla_grupal: doseRuleLabel(p.groupMedication?.rule || ""), dosis_base_grupal: p.groupMedication?.doseBase ? `${Number(p.groupMedication?.doseBase || 0).toFixed(4)} ${p.groupMedication?.doseUnit || ""}` : "", medicacion_grupal: medicationMode === "GROUP_WATER_FEED" ? `${p.groupMedication?.medicationName || ""} · ${p.groupMedication?.summary || ""}` : "" })}<h2>Animales tratados</h2>${procedureAnimalsTable(p.animals || [])}<h2>Inventario usado</h2>${medicationBreakdownTable(p.inventory?.meds || [])}<table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${caseMedicationAppliedTable(p.animals || [])}${followupMedicationAppliedTable(p.caseClinical?.followupMedications || [])}${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${chargeBreakdownTable(p.charge || {})}${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
+  return `<h1>Procedimiento ${esc(p.type)}</h1><p><b>Fecha:</b> ${esc(p.date)}</p><p><b>Productor(a):</b> ${esc(procedureProducerName(p))}</p><p><b>Modalidad:</b> ${esc(p.scope)}</p><p><b>Tipo de aplicación de medicamento:</b> ${esc(medicationMode === "GROUP_WATER_FEED" ? "Grupal (agua / alimento)" : "Individual por animal")}</p><p><b>Animales incluidos:</b> ${(p.animals || []).length}</p><p><b>Resumen de medicación:</b> ${esc(groupText)}</p><p><b>Notas:</b> ${esc(p.notes)}</p><h2>Datos generales</h2>${objectEntriesTable({ fecha: p.date, tipo: p.type, subtipo_preventiva: p.preventiveSubtype || "", actividad_zootecnia: p.zootecniaActivity || p.zootecnia?.activity || "", alcance: p.scope, lugar: p.place, productor: procedureProducerName(p), cantidad_animales: p.animalsQtyUsed, especie: p.species, identificacion: p.identification, peso: p.weight, temperatura: p.temperature, estado_cobro: p.chargeStatus, notas_cobro: p.chargeNotes, notas_generales: p.notes, tipo_aplicacion_medicamento: medicationMode, grupo_animal_base: p.groupMedication?.groupAnimalLabel || "", especie_detectada_grupal: p.groupMedication?.species || "", regla_grupal: doseRuleLabel(p.groupMedication?.rule || ""), dosis_base_grupal: p.groupMedication?.doseBase ? `${Number(p.groupMedication?.doseBase || 0).toFixed(4)} ${p.groupMedication?.doseUnit || ""}` : "", medicacion_grupal: medicationMode === "GROUP_WATER_FEED" ? `${p.groupMedication?.medicationName || ""} · ${p.groupMedication?.summary || ""}` : "" })}<h2>Animales tratados</h2>${procedureAnimalsTable(p.animals || [])}<h2>Inventario usado</h2>${medicationBreakdownTable(p.inventory?.meds || [])}<table><tr><th>Tipo</th><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(p.inventory?.vaccines || []).map((i) => `<tr><td>Vacuna</td><td>${esc(i.name)}</td><td>${esc(i.animalsApplied)} animales</td><td>${money(Number(i.animalsApplied || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}${(p.inventory?.supplies || []).map((i) => `<tr><td>Insumo</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(Number(i.qty || 0) * Number(i.unitCost || 0))}</td><td>${esc(i.notes || "")}</td></tr>`).join("")}</table><h2>Dosis estructuradas del procedimiento</h2><table><tr><th>Especie</th><th>Dosis</th></tr>${(p.procedureSpeciesDoses || p.caseClinical?.structuredDoses || []).map((row) => `<tr><td>${esc(normalizeDoseRow(row).species)}</td><td>${esc(speciesDoseSummary(row))}</td></tr>`).join("")}</table><h2>Caso clínico</h2>${caseMedicationAppliedTable(p.animals || [])}${followupMedicationAppliedTable(p.caseClinical?.followupMedications || [])}${objectEntriesTable(p.caseClinical || {})}<h2>Necropsia</h2>${objectEntriesTable(p.necropsy || {})}<h2>Atención clínica / zootécnica</h2>${objectEntriesTable(p.zootecnia || {})}<h2>Pruebas vinculadas</h2><table><tr><th>Tipo</th><th>Fecha</th><th>Animal</th><th>Resultado</th><th>Interpretación</th><th>Observaciones</th></tr>${labs.map((l) => `<tr><td>${esc(l.type)}</td><td>${esc(l.date)}</td><td>${esc(l.animal)}</td><td>${esc(l.result)}</td><td>${esc(l.interpretation)}</td><td>${esc(l.notes)}</td></tr>`).join("")}</table>${labs.map((l, idx) => imageHtml(l.file, `Archivo prueba ${idx + 1}`)).join("")}<h2>Cobro y evidencia</h2>${chargeBreakdownTable(p.charge || {})}${objectEntriesTable({ procedimiento: money(p.charge?.base), medicamentos: money(p.charge?.meds), vacunas: money(p.charge?.vaccines), insumos: money(p.charge?.supplies), subtotal: money(p.charge?.subtotal), total: money(p.charge?.total), monto_final: money(p.charge?.manual), estatus: p.charge?.status, observaciones: p.charge?.reason || p.charge?.notes })}${(p.caseClinical?.photos || []).map((src, i) => imageHtml(src, `Caso clínico ${i + 1}`)).join("")}${(p.necropsy?.photos || []).map((src, i) => imageHtml(src, `Necropsia ${i + 1}`)).join("")}${imageHtml(p.charge?.photo, "Evidencia de cobro")}`;
 }
 function procedureSummaryHtml() { return `<h1>Procedimientos consolidados</h1>${state.procedures.map(procedureWordHtml).join('<div style="page-break-after:always"></div>')}`; }
 function producerExcelSheets(producers = state.producers, animals = [], meds = state.meds, vaccines = state.vaccines, supplies = state.supplies, procedures = state.procedures, labs = state.labTests) {
@@ -6059,7 +6215,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
   return [
     { name: "Productores", rows: [["Nombre","Celular","Localidad","Municipio","Estado","Clasificación","Razones no trabajar","Nota extra","Maps","Notas"], ...producers.map((p) => [p.basic.name,p.basic.celular,p.basic.localidad,p.basic.municipio,p.basic.estado,p.classification?.value || "",p.classification?.alerta || "",p.classification?.notaExtraPersona || "",p.location?.mapsUrl || "",p.notes || ""])] },
     { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","¿De quién son?","¿Quién decide si se venden?","¿Quién limpia/alimenta?","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, displayAnimalPeople(a.owner || []).join(", "), displayAnimalPeople(a.decideSale || []).join(", "), displayAnimalPeople(a.feedClean || []).join(", "), (a.function || []).join(", "), a.functionOther || ""])] },
-    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Contenido por presentación","No. presentaciones/envases","Existencia total","Unidad","Concentración/equivalencia","Disponible","Costo por presentación","Costo unitario","Vía administración","Contenido original","Costo original","Cantidad remanente"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.contentPerPresentation || "",m.packageCount || 1,m.totalQty,m.unit,medicationConcentrationSummary(m) || "",medRemaining(m),m.cost,m.unitCost,m.route || "Sin vía de administración registrada",m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || ""])] },
+    { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Contenido por presentación","No. presentaciones/envases","Existencia total","Unidad","Concentración/equivalencia","Disponible","Costo por presentación","Costo unitario","Vía administración","Contenido original","Costo original","Cantidad remanente","Dosis por especie"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.contentPerPresentation || "",m.packageCount || 1,m.totalQty,m.unit,medicationConcentrationSummary(m) || "",medRemaining(m),m.cost,m.unitCost,m.route || "Sin vía de administración registrada",m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || "",(m.speciesDoses || []).map(speciesDoseSummary).join(" | ")])] },
     { name: "Vacunas", rows: [["Marca","Propiedad","Caducidad","Cobertura","Disponible","Costo total","Costo unitario","Enfermedades","Notas"], ...vaccines.map((v) => [v.brand,medOwnerLabel(v.owner),v.expiry,v.coverageAnimals,vaccineRemaining(v),v.price,v.unitCost,v.diseases,v.notes || ""])] },
     { name: "Insumos", rows: [["Nombre","Tipo","Cantidad","Disponible","Costo mostrado","Notas"], ...supplies.map((s) => [s.name,s.type,s.qty,supplyRemaining(s),supplyDisplayCost(s),s.notes || ""])] },
     { name: "Procedimientos", rows: [["Fecha","Tipo","Modalidad","Productor(a)","Identificación animal","Especie","Método peso","Peso utilizable (kg)","Edad caso clínico","Volumen (L)","PT","LC","Medicamento","Dosis base especie","Dosis teórica","Sugerida automática","Cantidad final","Ajuste manual","Descuento inventario","Vacuna","Estado general","Examen físico","Hallazgos","Cálculo explicado","Observaciones"], ...procedureRows] },
@@ -6340,6 +6496,25 @@ function bindProcedures() {
   });
   $("#p_cc_followMedAdd")?.addEventListener("click", addOrUpdateProcedureFollowupMedication);
   $("#p_cc_followMedCancelEdit")?.addEventListener("click", () => { resetProcedureFollowupMedicationForm(); renderProcedureDraftLists(); });
+
+  $("#p_applySpeciesDoseJson")?.addEventListener("click", () => {
+    try {
+      const rows = flattenSpeciesDoseJson(JSON.parse($("#p_speciesDoseJson")?.value || "{}"));
+      const errors = validateSpeciesDoseRows(rows);
+      if (errors.length) throw new Error(errors[0]);
+      state.draft.procedureSpeciesDoses = rows;
+      renderProcedureDraftLists();
+      show("p_msg", `JSON de dosis validado y guardado en el procedimiento: ${rows.length} dosis.`, "success");
+    } catch (error) {
+      show("p_err", error.message || "JSON de dosis inválido.", "error");
+    }
+  });
+  $("#p_copySpeciesDoseJsonExample")?.addEventListener("click", async () => {
+    const example = speciesDoseJsonExample();
+    if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = example;
+    await navigator.clipboard?.writeText?.(example);
+    show("p_msg", "Ejemplo de dosis JSON copiado y pegado.", "success");
+  });
     $("#p_addMedUse")?.addEventListener("click", addProcedureMedUse);
   $("#p_addVaccineUse")?.addEventListener("click", addProcedureVaccineUse);
   $("#p_addSupplyUse")?.addEventListener("click", addProcedureSupplyUse);
