@@ -1590,7 +1590,7 @@
             <form id="supplyForm" autocomplete="off">
               <div class="grid">
 
-                <div class="grid cols-2">
+                <div class="grid cols-3">
                   <div>
                     <label for="s_name">Nombre del insumo *</label>
                     <input id="s_name" required placeholder="Ej. Jeringa 5 mL / Tubos / Termómetro" />
@@ -1598,6 +1598,10 @@
                   <div>
                     <label for="s_acquired">Fecha de adquisición *</label>
                     <input id="s_acquired" type="date" required />
+                  </div>
+                  <div>
+                    <label for="s_owner">Pertenece a</label>
+                    <select id="s_owner"><option value="SERVICIOS">Servicios</option><option value="DRA_ANA_ROSA">Dra. Ana Rosa</option><option value="OTRO">Otro</option></select>
                   </div>
                 </div>
 
@@ -2301,14 +2305,22 @@
                         <div><label for="p_cc_dayNotes">Observaciones del día</label><input id="p_cc_dayNotes" type="text" /></div>
                       </div>
                       <h4>Medicamento del día</h4>
+                      <div class="help">Selecciona un medicamento del inventario. Solo usa “uso externo/no inventariado” cuando el consumo no deba afectar existencias ni deuda.</div>
                       <div class="grid cols-4">
-                        <div><label for="p_cc_dayMedName">Medicamento administrado</label><input id="p_cc_dayMedName" type="text" /></div>
-                        <div><label for="p_cc_dayDoseQty">Dosis / cantidad</label><input id="p_cc_dayDoseQty" type="number" min="0" step="0.0001" /></div>
+                        <div><label for="p_cc_dayMedSelect">Medicamento administrado</label><select id="p_cc_dayMedSelect"></select></div>
+                        <div><label for="p_cc_dayMedName">Uso externo/no inventariado</label><input id="p_cc_dayMedName" type="text" placeholder="Solo si eliges uso externo" disabled /></div>
+                        <div><label for="p_cc_dayDoseSelect">Dosis registrada por especie</label><select id="p_cc_dayDoseSelect"></select></div>
+                        <div><label for="p_cc_dayMedRoute">Vía del medicamento</label><input id="p_cc_dayMedRoute" type="text" disabled /></div>
+                      </div>
+                      <div class="help" id="p_cc_dayMedInfo">Selecciona un medicamento para ver nombre comercial, sustancia activa, existencia, unidad, costo, pertenencia y dosis.</div>
+                      <div class="grid cols-4">
+                        <div><label for="p_cc_dayIndication">Indicación</label><input id="p_cc_dayIndication" type="text" /></div>
+                        <div><label for="p_cc_dayDoseQty">Cantidad usada / dosis</label><input id="p_cc_dayDoseQty" type="number" min="0" step="0.0001" /></div>
                         <div><label for="p_cc_dayDoseUnit">Unidad</label><select id="p_cc_dayDoseUnit"><option value="">— Selecciona —</option><option>mg</option><option>g</option><option>µg</option><option>mL</option><option>L</option><option>gotas</option><option>tabletas</option><option>cápsulas</option><option>U.I.</option><option>Unidades Internacionales</option><option>Otra</option></select></div>
-                        <div><label for="p_cc_dayPerKg">Por cada cuántos kg aplica</label><input id="p_cc_dayPerKg" type="number" min="0" step="0.01" /></div>
+                        <div><label for="p_cc_dayPerKg">Por cada</label><input id="p_cc_dayPerKg" type="number" min="0" step="0.01" /></div>
                       </div>
                       <div class="grid cols-4">
-                        <div><label for="p_cc_dayRoute">Vía</label><input id="p_cc_dayRoute" type="text" /></div>
+                        <div><label for="p_cc_dayUnitBase">Unidad base</label><input id="p_cc_dayUnitBase" type="text" placeholder="kg, animal, L..." /></div>
                         <div><label for="p_cc_dayFrequency">Frecuencia</label><input id="p_cc_dayFrequency" type="text" /></div>
                         <div><label for="p_cc_dayDuration">Duración</label><input id="p_cc_dayDuration" type="text" /></div>
                         <div><label for="p_cc_dayMedObs">Observaciones del medicamento</label><input id="p_cc_dayMedObs" type="text" /></div>
@@ -2316,16 +2328,20 @@
                       <div class="row"><button class="btn small" type="button" id="p_cc_addDayMedication">➕ Agregar medicamento</button></div>
                       <div class="list" id="p_cc_dayMedicationDraftList"></div>
                       <h4>Insumo del día</h4>
-                      <div class="grid cols-3">
-                        <div><label for="p_cc_daySupplyName">Insumos utilizados</label><input id="p_cc_daySupplyName" type="text" /></div>
+                      <div class="help">Selecciona un insumo del inventario o marca explícitamente uso externo/no inventariado.</div>
+                      <div class="grid cols-4">
+                        <div><label for="p_cc_daySupplySelect">Insumos utilizados</label><select id="p_cc_daySupplySelect"></select></div>
+                        <div><label for="p_cc_daySupplyName">Uso externo/no inventariado</label><input id="p_cc_daySupplyName" type="text" placeholder="Solo si eliges uso externo" disabled /></div>
                         <div><label for="p_cc_daySupplyQty">Cantidad de insumos</label><input id="p_cc_daySupplyQty" type="number" min="0" step="0.01" /></div>
                         <div><label for="p_cc_daySupplyObs">Observaciones del insumo</label><input id="p_cc_daySupplyObs" type="text" /></div>
                       </div>
+                      <div class="help" id="p_cc_daySupplyInfo">Selecciona un insumo para ver categoría, existencia, unidad, costo y pertenencia.</div>
                       <div class="row"><button class="btn small" type="button" id="p_cc_addDaySupply">➕ Agregar insumo</button></div>
                       <div class="list" id="p_cc_daySupplyDraftList"></div>
                       <div class="row"><button class="btn small" type="button" id="p_cc_addClinicalDay">➕ Agregar día de seguimiento</button></div>
                     </div>
                     <div class="list" id="p_cc_clinicalDayList"></div>
+                    <div class="card" id="p_cc_consumptionDebtSummary"></div>
                   </section>
 
                   <section class="procedure-section">
@@ -2681,10 +2697,10 @@
     <section id="pageDebt" class="page">
       <main style="grid-template-columns:1fr;">
         <section class="card debt-sidebar" id="anaRosaDebtSidebar">
-          <h2>💸 Deuda con Dra. Ana Rosa</h2>
+          <h2>💸 Deuda con propietarias/os de inventario</h2>
           <div class="content">
             <div class="line"><b>Total activo:</b> <span id="anaRosaDebtTotal">$0.00</span></div>
-            <div class="help">Se genera automáticamente cuando se usa un medicamento con origen "Dra. Ana Rosa" en un procedimiento.</div>
+            <div class="help">Se genera automáticamente cuando se usa un medicamento o insumo perteneciente a Dra. Ana Rosa u otra persona en un procedimiento.</div>
             <div class="sep"></div>
             <h3>Deuda activa</h3>
             <div class="list" id="anaRosaDebtActiveList"></div>
