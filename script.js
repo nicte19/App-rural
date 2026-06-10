@@ -2347,6 +2347,7 @@ function canonicalUnit(unit = "") {
     microgramo: "mcg",
     microgramos: "mcg",
     ug: "mcg",
+    µg: "mcg",
     mcg: "mcg",
     miligramo: "mg",
     miligramos: "mg",
@@ -2376,7 +2377,15 @@ function canonicalUnit(unit = "") {
     sobre: "sobre",
     sobres: "sobre",
     dosis: "dosis",
+    gota: "gota",
+    gotas: "gota",
+    comprimido: "tableta",
+    comprimidos: "tableta",
+    bolo: "bolo",
+    bolos: "bolo",
     animal: "animal",
+    "%": "%",
+    porcentaje: "%",
   };
   return aliases[token] || safe(unit).trim();
 }
@@ -2414,7 +2423,33 @@ function resolveMedicationAppliedAmount({ med = null, qty = 0, unit = "" }) {
 function medicationConcentrationSummary(med = {}) {
   const c = med?.concentration || {};
   if (!Number(c.activeAmount || 0) || !c.activeUnit || !Number(c.perAmount || 0) || !c.perUnit) return "";
-  return `${Number(c.activeAmount).toFixed(4).replace(/\.?0+$/, "")} ${c.activeUnit} por ${Number(c.perAmount).toFixed(4).replace(/\.?0+$/, "")} ${c.perUnit}`;
+  const percentNote = canonicalUnit(c.activeUnit) === "%" ? " (1% = 10 mg/mL o 10 mg/g según presentación)" : "";
+  return `${Number(c.activeAmount).toFixed(4).replace(/\.?0+$/, "")} ${c.activeUnit} por ${Number(c.perAmount).toFixed(4).replace(/\.?0+$/, "")} ${c.perUnit}${percentNote}`;
+}
+function normalizeMedicationPresentationKind(med = {}) {
+  const text = normalizeUnitToken([med.unit, med.presentation, med.concentration?.perUnit].filter(Boolean).join(" "));
+  if (/gota/.test(text)) return "gota";
+  if (/tab|comp/.test(text)) return "tableta";
+  if (/caps/.test(text)) return "cápsula";
+  if (/bolo/.test(text)) return "bolo";
+  if (/ml|frasco|inyect|solucion|suspension|oral|jarabe/.test(text)) return "mL";
+  if (/polvo|sobre/.test(text)) return "sobre/polvo";
+  return med.unit || med.presentation || "presentación";
+}
+function normalizeConcentrationForDose(med = {}) {
+  const concentration = med?.concentration || {};
+  const activeAmount = Number(concentration.activeAmount || 0);
+  const perAmount = Number(concentration.perAmount || 0);
+  const activeUnit = canonicalUnit(concentration.activeUnit || "");
+  const perUnit = canonicalUnit(concentration.perUnit || "");
+  if (!activeAmount || !perAmount || !activeUnit || !perUnit) return null;
+  if (activeUnit === "%") {
+    const perToken = normalizeUnitToken(perUnit);
+    const physicalUnit = perToken === "l" ? "L" : perToken === "kg" ? "kg" : perUnit;
+    const activeMg = activeAmount * 10 * (perToken === "l" || perToken === "kg" ? 1000 : 1);
+    return { activeAmount: activeMg, activeUnit: "mg", perAmount: 1, perUnit: physicalUnit, percentConverted: true };
+  }
+  return { activeAmount, activeUnit, perAmount, perUnit, percentConverted: false };
 }
 function calculateConvertedMedicationDose({
   med = null,
@@ -2426,80 +2461,44 @@ function calculateConvertedMedicationDose({
 }) {
   const theoretical = Number(theoreticalQty || 0);
   const unit = canonicalUnit(theoreticalUnit);
-  const concentration = med?.concentration || {};
-  const activeAmount = Number(concentration.activeAmount || 0);
-  const perAmount = Number(concentration.perAmount || 0);
-  const activeUnit = canonicalUnit(concentration.activeUnit || "");
-  const perUnit = canonicalUnit(concentration.perUnit || "");
-  const line1 = `Dosis base por especie: ${Number(theoretical > 0 && basisValue > 0 ? theoretical / basisValue : theoretical).toFixed(4).replace(/\.?0+$/, "")} ${unit || med?.unit || "u"}/${doseRuleDenominator(rule)}`;
-  const lines = [line1];
+  const concentration = normalizeConcentrationForDose(med);
+  const activeAmount = Number(concentration?.activeAmount || 0);
+  const perAmount = Number(concentration?.perAmount || 0);
+  const activeUnit = canonicalUnit(concentration?.activeUnit || "");
+  const perUnit = canonicalUnit(concentration?.perUnit || "");
+  const inventoryUnit = canonicalUnit(med?.unit || "");
+  const denominator = doseRuleDenominator(rule) || (rule === "MANUAL" ? "total" : "base");
+  const baseDose = theoretical > 0 && basisValue > 0 ? theoretical / basisValue : theoretical;
+  const lines = [`Dosis indicada: ${Number(baseDose).toFixed(4).replace(/\.?0+$/, "")} ${unit || med?.unit || "u"}/${denominator}`];
   if (basisLabel) lines.push(basisLabel);
-  lines.push(`Dosis total teórica: ${Number(theoretical).toFixed(4).replace(/\.?0+$/, "")} ${unit || med?.unit || "u"}`);
+  lines.push(`Total de principio activo requerido: ${Number(theoretical).toFixed(4).replace(/\.?0+$/, "")} ${unit || med?.unit || "u"}`);
+  if (!med?.presentation && !med?.unit) {
+    return { convertedQty: 0, convertedUnit: "", requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: "Falta la presentación/unidad del medicamento en inventario; no se puede convertir a dosis administrable.", explanation: `${lines.join(" · ")} · Falta presentación/unidad del medicamento en inventario.`, conversionApplied: false };
+  }
   if (med?.useTherapeuticDoseOnly) {
-    return {
-      convertedQty: theoretical,
-      convertedUnit: unit || med?.unit || "",
-      requiredActiveQty: null,
-      requiredActiveUnit: "",
-      warning: "",
-      explanation: `${lines.join(" · ")} · Modo sin concentración estructurada: se usa solo dosis terapéutica por especie.`,
-      conversionApplied: false,
-    };
+    const fallbackUnit = unit || inventoryUnit || med?.unit || "";
+    return { convertedQty: theoretical, convertedUnit: fallbackUnit, requiredActiveQty: null, requiredActiveUnit: "", warning: "", explanation: `${lines.join(" · ")} · Modo sin concentración estructurada: cantidad editable por criterio clínico.`, conversionApplied: false };
   }
+  const directInventoryQty = convertCompatibleUnits(theoretical, unit, inventoryUnit || unit);
   if (!activeAmount || !perAmount || !activeUnit || !perUnit) {
-    return {
-      convertedQty: theoretical,
-      convertedUnit: unit || med?.unit || "",
-      requiredActiveQty: null,
-      requiredActiveUnit: "",
-      warning: "",
-      explanation: `${lines.join(" · ")} · Sin concentración definida: se usa dosis teórica como cantidad final.`,
-      conversionApplied: false,
-    };
+    if (directInventoryQty != null && inventoryUnit && canonicalUnit(unit) === inventoryUnit) {
+      return { convertedQty: Number(directInventoryQty.toFixed(4)), convertedUnit: inventoryUnit, requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: "", explanation: `${lines.join(" · ")} · La unidad de dosis coincide con inventario; no se requiere conversión por concentración.`, conversionApplied: false };
+    }
+    return { convertedQty: 0, convertedUnit: inventoryUnit || unit || "", requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: "Falta concentración/equivalencia del medicamento; no se calculó una dosis administrable para evitar un cálculo incorrecto.", explanation: `${lines.join(" · ")} · Falta concentración/equivalencia registrada en medicamentos.`, conversionApplied: false };
   }
-  lines.push(`Concentración del medicamento: ${medicationConcentrationSummary(med)}`);
+  lines.push(`Concentración registrada: ${medicationConcentrationSummary(med)}`);
+  if (concentration.percentConverted) lines.push(`Porcentaje convertido automáticamente a ${activeAmount} ${activeUnit}/${perAmount} ${perUnit}`);
   const requiredInActiveUnit = convertCompatibleUnits(theoretical, unit, activeUnit);
   if (requiredInActiveUnit != null) {
-    const convertedQtyRaw = requiredInActiveUnit / (activeAmount / perAmount);
-    const convertedQty = Number(convertedQtyRaw.toFixed(4));
-    lines.push(`Cantidad final a aplicar: ${Number(convertedQty).toFixed(4).replace(/\.?0+$/, "")} ${perUnit}`);
-    return {
-      convertedQty,
-      convertedUnit: perUnit,
-      requiredActiveQty: Number(requiredInActiveUnit.toFixed(4)),
-      requiredActiveUnit: activeUnit,
-      warning: "",
-      explanation: lines.join(" · "),
-      conversionApplied: true,
-    };
+    const convertedQty = Number((requiredInActiveUnit / (activeAmount / perAmount)).toFixed(4));
+    lines.push(`Dosis real administrable (${normalizeMedicationPresentationKind(med)}): ${Number(convertedQty).toFixed(4).replace(/\.?0+$/, "")} ${perUnit}`);
+    return { convertedQty, convertedUnit: perUnit, requiredActiveQty: Number(requiredInActiveUnit.toFixed(4)), requiredActiveUnit: activeUnit, warning: "", explanation: lines.join(" · "), conversionApplied: true };
   }
-  const directQty = convertCompatibleUnits(theoretical, unit, perUnit);
-  if (directQty != null) {
-    const normalizedQty = Number(directQty.toFixed(4));
-    lines.push(`Cantidad final a aplicar: ${Number(normalizedQty).toFixed(4).replace(/\.?0+$/, "")} ${perUnit}`);
-    return {
-      convertedQty: normalizedQty,
-      convertedUnit: perUnit,
-      requiredActiveQty: null,
-      requiredActiveUnit: "",
-      warning: "",
-      explanation: lines.join(" · "),
-      conversionApplied: true,
-    };
-  }
-  return {
-    convertedQty: theoretical,
-    convertedUnit: unit || med?.unit || "",
-    requiredActiveQty: null,
-    requiredActiveUnit: "",
-    warning: `No se pudo convertir automáticamente la dosis (${unit}) con la concentración (${activeUnit}/${perUnit}). Revisa unidades.`,
-    explanation: `${lines.join(" · ")} · Conversión no compatible: se mantiene dosis teórica.`,
-    conversionApplied: false,
-  };
+  return { convertedQty: 0, convertedUnit: inventoryUnit || perUnit || unit || "", requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: `La unidad de dosis (${unit || "sin unidad"}) no es compatible con la concentración registrada (${activeUnit}/${perUnit}).`, explanation: `${lines.join(" · ")} · Unidad de dosis incompatible con la concentración.`, conversionApplied: false };
 }
 
 function doseUnitOptions(selected = "") {
-  const units = ["mL", "mg", "U.I.", "gotas", "tabletas", "cápsulas", "g", "L", "dosis", "otro"];
+  const units = ["mL", "mg", "U.I.", "gotas", "tabletas", "cápsulas", "bolos", "g", "L", "dosis", "otro"];
   const value = canonicalUnit(selected || "");
   const options = units.map((unit) => `<option value="${esc(unit)}" ${canonicalUnit(unit) === value ? "selected" : ""}>${esc(unit === "U.I." ? "U.I. / Unidades Internacionales" : unit)}</option>`).join("");
   const custom = value && !units.some((unit) => canonicalUnit(unit) === value) ? `<option value="${esc(value)}" selected>${esc(value)}</option>` : "";
@@ -4991,6 +4990,7 @@ function normalizeEntryMedicationApplied(entry = {}) {
 function addMedicationAppliedToEntry(entry) {
   if (!entry?.medicationId) return false;
   syncProcedureAnimalSummary(entry);
+  if (entry.medicationWarning) return false;
   const med = byId(state.meds, entry.medicationId);
   const suggestedCost = Number(entry.inventoryDeductionQty || 0) * Number(med?.unitCost || 0);
   entry.medicationsApplied.push({
@@ -5865,7 +5865,7 @@ function renderProcedureAnimalCards() {
     });
     card.querySelector('[data-action="add-medication"]')?.addEventListener("click", () => {
       if (!entry.medicationId && !entry.vaccineId) return show("p_msg", "Primero selecciona un medicamento/vacuna antes de agregar otro registro.", "warning");
-      if (entry.medicationId) addMedicationAppliedToEntry(entry);
+      if (entry.medicationId && !addMedicationAppliedToEntry(entry)) return show("p_msg", entry.medicationWarning || "No se pudo agregar el medicamento; revisa peso, concentración y presentación.", "warning");
       if (entry.vaccineId) addVaccineAppliedToEntry(entry);
       renderProcedureDraftLists();
       show("p_msg", "Medicamento/vacuna agregado al animal. Ya puedes capturar otro sin sobrescribir el anterior.", "success");
@@ -6046,6 +6046,43 @@ function syncClinicalDaySupplySelection() {
   }
   if ($("#p_cc_daySupplyInfo")) $("#p_cc_daySupplyInfo").textContent = supply ? clinicalSupplyOptionLabel(supply) : external ? "Uso externo/no inventariado: no descuenta existencias ni genera deuda." : "Selecciona un insumo para ver categoría, existencia, unidad, costo y pertenencia.";
 }
+function buildClinicalDayMedicationDoseDraft(med, { doseQty = 0, doseUnit = "", perCada = 0, unitBase = "" } = {}) {
+  const context = getProcedureFollowupAnimalContext();
+  const baseUnit = normalizeUnitToken(unitBase || "");
+  const mode = baseUnit === "kg" || /kilo/.test(baseUnit)
+    ? "PER_KG"
+    : baseUnit === "animal" || /animal|paciente/.test(baseUnit)
+      ? "PER_ANIMAL"
+      : "MANUAL";
+  const denominator = Number(perCada || 0) > 0 ? Number(perCada || 0) : 1;
+  if (mode === "PER_KG" && !(Number(context.weightKg || 0) > 0)) return { warning: "Falta el peso del paciente; captura peso antes de calcular dosis mg/kg." };
+  const basisValue = mode === "PER_KG" ? Number(context.weightKg || 0) : mode === "PER_ANIMAL" ? 1 : 0;
+  const theoreticalQty = mode === "PER_KG" || mode === "PER_ANIMAL" ? Number(doseQty || 0) * (basisValue / denominator) : Number(doseQty || 0);
+  const converted = calculateConvertedMedicationDose({
+    med,
+    theoreticalQty,
+    theoreticalUnit: doseUnit || med?.unit || "",
+    rule: mode,
+    basisValue,
+    basisLabel: mode === "PER_KG" ? `Peso del paciente usado: ${Number(context.weightKg || 0).toFixed(2)} kg` : mode === "PER_ANIMAL" ? "Base aplicada: 1 animal" : "Dosis indicada como total",
+  });
+  if (converted?.warning) return { ...converted, warning: converted.warning };
+  return {
+    mode,
+    perCada: denominator,
+    weightKg: Number(context.weightKg || 0),
+    theoreticalQty: Number(theoreticalQty.toFixed(4)),
+    theoreticalUnit: canonicalUnit(doseUnit || med?.unit || ""),
+    administeredQty: Number(converted?.convertedQty || 0),
+    administeredUnit: converted?.convertedUnit || med?.unit || "",
+    requiredActiveQty: Number(converted?.requiredActiveQty || theoreticalQty || 0),
+    requiredActiveUnit: converted?.requiredActiveUnit || canonicalUnit(doseUnit || med?.unit || ""),
+    calculationSummary: converted?.explanation || "",
+    conversionApplied: Boolean(converted?.conversionApplied),
+    warning: "",
+  };
+}
+
 function ownerCreatesDebt(owner) {
   return owner && owner !== "SERVICIOS";
 }
@@ -6057,9 +6094,9 @@ function clinicalInventoryFromDays(days = []) {
       if (!item.itemId || item.external) return;
       const med = byId(state.meds, item.itemId);
       if (!med) return;
-      const applied = resolveMedicationAppliedAmount({ med, qty: item.doseQty || 0, unit: item.doseUnit || med.unit || "" });
+      const applied = resolveMedicationAppliedAmount({ med, qty: item.administeredQty ?? item.doseQty ?? 0, unit: item.administeredUnit || item.doseUnit || med.unit || "" });
       meds.push({
-        id: item.id || uid("ccmed"), itemId: med.id, name: med.brand, unit: applied.unit || med.unit || "", unitCost: Number(med.unitCost || 0), owner: med.owner || "SERVICIOS", route: med.route || "", theoreticalQty: Number(item.doseQty || 0), theoreticalUnit: item.doseUnit || med.unit || "", qty: Number(applied.qty || 0), totalUsedQty: Number(applied.qty || 0), inventoryDeductionQty: Number(applied.qty || 0), inventoryDeductionUnit: applied.unit || med.unit || "", chargeableQty: Number(applied.qty || 0), source: "CLINICAL_DAY", applicationDate: day.date, notes: item.observations || "", calculationSummary: item.indication || "Día de medicación / seguimiento",
+        id: item.id || uid("ccmed"), itemId: med.id, name: med.brand, unit: applied.unit || med.unit || "", unitCost: Number(med.unitCost || 0), owner: med.owner || "SERVICIOS", route: med.route || "", theoreticalQty: Number(item.theoreticalQty ?? item.indicatedDoseQty ?? item.doseQty ?? 0), theoreticalUnit: item.theoreticalUnit || item.indicatedDoseUnit || item.doseUnit || med.unit || "", qty: Number(applied.qty || 0), totalUsedQty: Number(applied.qty || 0), inventoryDeductionQty: Number(applied.qty || 0), inventoryDeductionUnit: applied.unit || med.unit || "", chargeableQty: Number(applied.qty || 0), source: "CLINICAL_DAY", applicationDate: day.date, notes: item.observations || "", calculationSummary: item.calculationSummary || item.indication || "Día de medicación / seguimiento",
       });
     });
     (day.supplies || []).forEach((item) => {
@@ -6103,8 +6140,8 @@ function fillClinicalDayMedicationForm(item = {}) {
   if ($("#p_cc_dayDoseSelect")) $("#p_cc_dayDoseSelect").value = "";
   if ($("#p_cc_dayMedRoute")) $("#p_cc_dayMedRoute").value = byId(state.meds, item.itemId)?.route || item.route || "";
   if ($("#p_cc_dayIndication")) $("#p_cc_dayIndication").value = item.indication || "";
-  if ($("#p_cc_dayDoseQty")) $("#p_cc_dayDoseQty").value = item.doseQty || "";
-  if ($("#p_cc_dayDoseUnit")) $("#p_cc_dayDoseUnit").value = item.doseUnit || "";
+  if ($("#p_cc_dayDoseQty")) $("#p_cc_dayDoseQty").value = item.indicatedDoseQty ?? item.doseQty ?? "";
+  if ($("#p_cc_dayDoseUnit")) $("#p_cc_dayDoseUnit").value = item.indicatedDoseUnit || item.theoreticalUnit || item.doseUnit || "";
   if ($("#p_cc_dayPerKg")) $("#p_cc_dayPerKg").value = item.perKg || "";
   if ($("#p_cc_dayUnitBase")) $("#p_cc_dayUnitBase").value = item.unitBase || "";
   if ($("#p_cc_dayFrequency")) $("#p_cc_dayFrequency").value = item.frequency || "";
@@ -6161,8 +6198,15 @@ function addClinicalDayMedication() {
   const external = selected === "__EXTERNAL__";
   const name = external ? ($("#p_cc_dayMedName")?.value.trim() || "") : (med?.brand || "");
   if (!name) return show("p_msg", "Selecciona un medicamento o captura uso externo.", "warning");
-  const doseQty = Number($("#p_cc_dayDoseQty")?.value || 0);
-  if (doseQty <= 0) return show("p_msg", "Captura cantidad usada/dosis del medicamento.", "warning");
+  const indicatedDoseQty = Number($("#p_cc_dayDoseQty")?.value || 0);
+  if (indicatedDoseQty <= 0) return show("p_msg", "Captura cantidad usada/dosis del medicamento.", "warning");
+  const indicatedDoseUnit = $("#p_cc_dayDoseUnit")?.value || med?.unit || "";
+  const perCada = $("#p_cc_dayPerKg")?.value || "";
+  const unitBase = $("#p_cc_dayUnitBase")?.value.trim() || "";
+  const doseDraft = !external && med
+    ? buildClinicalDayMedicationDoseDraft(med, { doseQty: indicatedDoseQty, doseUnit: indicatedDoseUnit, perCada, unitBase })
+    : { administeredQty: indicatedDoseQty, administeredUnit: indicatedDoseUnit, theoreticalQty: indicatedDoseQty, theoreticalUnit: indicatedDoseUnit, calculationSummary: "Uso externo/no inventariado o dosis manual." };
+  if (doseDraft.warning) return show("p_msg", doseDraft.warning, "warning");
   state.draft.procedureClinicalDayMedications.push({
     id: uid("ccmed"),
     itemId: med?.id || "",
@@ -6170,10 +6214,21 @@ function addClinicalDayMedication() {
     name,
     active: med?.active || "",
     indication: $("#p_cc_dayIndication")?.value.trim() || "",
-    doseQty,
-    doseUnit: $("#p_cc_dayDoseUnit")?.value || med?.unit || "",
-    perKg: $("#p_cc_dayPerKg")?.value || "",
-    unitBase: $("#p_cc_dayUnitBase")?.value.trim() || "",
+    indicatedDoseQty,
+    indicatedDoseUnit,
+    doseQty: Number(doseDraft.administeredQty ?? indicatedDoseQty),
+    doseUnit: doseDraft.administeredUnit || indicatedDoseUnit,
+    theoreticalQty: doseDraft.theoreticalQty ?? indicatedDoseQty,
+    theoreticalUnit: doseDraft.theoreticalUnit || indicatedDoseUnit,
+    administeredQty: Number(doseDraft.administeredQty ?? indicatedDoseQty),
+    administeredUnit: doseDraft.administeredUnit || indicatedDoseUnit,
+    requiredActiveQty: doseDraft.requiredActiveQty ?? indicatedDoseQty,
+    requiredActiveUnit: doseDraft.requiredActiveUnit || indicatedDoseUnit,
+    calculationSummary: doseDraft.calculationSummary || "",
+    conversionApplied: Boolean(doseDraft.conversionApplied),
+    weightKg: doseDraft.weightKg || 0,
+    perKg: perCada,
+    unitBase,
     route: med?.route || $("#p_cc_dayMedRoute")?.value.trim() || "",
     frequency: $("#p_cc_dayFrequency")?.value.trim() || "",
     duration: $("#p_cc_dayDuration")?.value.trim() || "",
@@ -6183,6 +6238,7 @@ function addClinicalDayMedication() {
   syncClinicalDayMedicationSelection();
   renderProcedureDraftLists();
 }
+
 function addClinicalDaySupply() {
   const selected = $("#p_cc_daySupplySelect")?.value || "";
   const supply = byId(state.supplies, selected);
@@ -6244,12 +6300,12 @@ function renderClinicalDayItemDraftList(listId, arr, titleFn, editAttr, removeAt
   }));
 }
 function renderClinicalDayDraftLists() {
-  renderClinicalDayItemDraftList("#p_cc_dayMedicationDraftList", state.draft.procedureClinicalDayMedications || [], (x) => `${x.name} · ${x.doseQty || ""} ${x.doseUnit || ""}${x.perKg ? ` / cada ${x.perKg} ${x.unitBase || "kg"}` : ""} · ${x.route || "Sin vía"} · ${x.frequency || "Sin frecuencia"}${x.external ? " · externo/no inventariado" : ""}`, "data-edit-clinical-day-med", "data-remove-clinical-day-med");
+  renderClinicalDayItemDraftList("#p_cc_dayMedicationDraftList", state.draft.procedureClinicalDayMedications || [], (x) => `${x.name} · indicada ${(x.indicatedDoseQty ?? x.doseQty) || ""} ${x.indicatedDoseUnit || x.doseUnit || ""}${x.perKg ? ` / cada ${x.perKg} ${x.unitBase || "kg"}` : ""} · total activo ${Number(x.requiredActiveQty ?? x.theoreticalQty ?? x.doseQty ?? 0).toFixed(2)} ${x.requiredActiveUnit || x.theoreticalUnit || x.doseUnit || ""} · administrable ${Number(x.administeredQty ?? x.doseQty ?? 0).toFixed(2)} ${x.administeredUnit || x.doseUnit || ""} · ${x.route || "Sin vía"} · ${x.frequency || "Sin frecuencia"} · ${x.duration || "Sin duración"}${x.external ? " · externo/no inventariado" : ""}`, "data-edit-clinical-day-med", "data-remove-clinical-day-med");
   renderClinicalDayItemDraftList("#p_cc_daySupplyDraftList", state.draft.procedureClinicalDaySupplies || [], (x) => `${x.name} · ${x.qty || 0}`, "data-edit-clinical-day-supply", "data-remove-clinical-day-supply");
   const list = $("#p_cc_clinicalDayList");
   if (!list) return;
   const days = state.draft.procedureClinicalDays || [];
-  list.innerHTML = days.length ? days.map((day) => `<div class="item"><h4>${esc(day.date || "Sin fecha")}${day.hour ? ` · ${esc(day.hour)}` : ""}${state.draft.procedureClinicalDayEditId === day.id ? " · Editando" : ""}</h4><div class="line"><b>Medicamentos:</b> ${esc((day.medications || []).map((m) => `${m.name} ${m.doseQty || ""} ${m.doseUnit || ""}`.trim()).join(" · ") || "Sin medicamentos")}</div><div class="line"><b>Insumos:</b> ${esc((day.supplies || []).map((sup) => `${sup.name} (${sup.qty || 0})`).join(" · ") || "Sin insumos")}</div><div class="line"><b>Observaciones:</b> ${esc(day.observations || "")}</div><div class="actions"><button class="btn small" type="button" data-edit-clinical-day="${esc(day.id)}">Editar</button><button class="btn small" type="button" data-duplicate-clinical-day="${esc(day.id)}">Duplicar tratamiento</button><button class="btn small bad" type="button" data-remove-clinical-day="${esc(day.id)}">Eliminar</button></div></div>`).join("") : '<div class="help">Aún no hay días de medicación o seguimiento agregados.</div>';
+  list.innerHTML = days.length ? days.map((day) => `<div class="item"><h4>${esc(day.date || "Sin fecha")}${day.hour ? ` · ${esc(day.hour)}` : ""}${state.draft.procedureClinicalDayEditId === day.id ? " · Editando" : ""}</h4><div class="line"><b>Medicamentos:</b> ${esc((day.medications || []).map((m) => `${m.name} ${(m.administeredQty ?? m.doseQty) || ""} ${m.administeredUnit || m.doseUnit || ""}`.trim()).join(" · ") || "Sin medicamentos")}</div><div class="line"><b>Insumos:</b> ${esc((day.supplies || []).map((sup) => `${sup.name} (${sup.qty || 0})`).join(" · ") || "Sin insumos")}</div><div class="line"><b>Observaciones:</b> ${esc(day.observations || "")}</div><div class="actions"><button class="btn small" type="button" data-edit-clinical-day="${esc(day.id)}">Editar</button><button class="btn small" type="button" data-duplicate-clinical-day="${esc(day.id)}">Duplicar tratamiento</button><button class="btn small bad" type="button" data-remove-clinical-day="${esc(day.id)}">Eliminar</button></div></div>`).join("") : '<div class="help">Aún no hay días de medicación o seguimiento agregados.</div>';
   list.querySelectorAll("[data-edit-clinical-day]").forEach((btn) => btn.addEventListener("click", () => loadClinicalDayForEdit(btn.getAttribute("data-edit-clinical-day"))));
   list.querySelectorAll("[data-duplicate-clinical-day]").forEach((btn) => btn.addEventListener("click", () => duplicateClinicalDay(btn.getAttribute("data-duplicate-clinical-day"))));
   list.querySelectorAll("[data-remove-clinical-day]").forEach((btn) => btn.addEventListener("click", () => {
