@@ -731,7 +731,7 @@ function inventoryUsage() {
     supplies = {};
   state.procedures.forEach((p) => {
     (p.inventory?.meds || []).forEach(
-      (i) => (meds[i.itemId] = (meds[i.itemId] || 0) + Number(i.chargeableQty || i.qty || 0)),
+      (i) => (meds[i.itemId] = (meds[i.itemId] || 0) + Number(i.inventoryDeductionQty || i.chargeableQty || i.qty || 0)),
     );
     (p.inventory?.vaccines || []).forEach(
       (i) =>
@@ -745,7 +745,7 @@ function inventoryUsage() {
   });
   state.labTests.forEach((lab) => {
     (lab.inventory?.meds || []).forEach(
-      (i) => (meds[i.itemId] = (meds[i.itemId] || 0) + Number(i.chargeableQty || i.qty || 0)),
+      (i) => (meds[i.itemId] = (meds[i.itemId] || 0) + Number(i.inventoryDeductionQty || i.chargeableQty || i.qty || 0)),
     );
     (lab.inventory?.vaccines || []).forEach(
       (i) =>
@@ -3640,6 +3640,7 @@ function renderProcedureType() {
     inventory: !clinical,
     "animal-breakdown": !clinical,
   };
+  if (type === "PREVENTIVA") blockVisibility.inventory = false;
   $$("#procedureForm details").forEach((d) => {
     const block = d.dataset.procedureBlock;
     if (!block || block === "base") return;
@@ -3766,7 +3767,8 @@ function calculateProcedureChargeBreakdown() {
       qtyLabel: `${Number(qty || 0).toFixed(2)} ${x.unit || ""}`.trim(),
       unitCost,
       unitCostLabel: money(unitCost),
-      subtotal: qty * unitCost,
+      costSuggested: x.costSuggested ?? qty * unitCost,
+      subtotal: x.priceCharged ?? x.costSuggested ?? qty * unitCost,
       extraLabel: x.calculationSummary || "",
     };
   });
@@ -3821,6 +3823,33 @@ function calculateProcedureCharge() {
   const supplies = breakdownItems.supplies.reduce((acc, item) => acc + item.subtotal, 0);
   const subtotal = base + meds + vaccines + supplies;
   return { base, meds, vaccines, supplies, subtotal, total: subtotal, breakdown: breakdownItems };
+}
+function preventiveFinalSummaryHtml() {
+  if (($("#p_type")?.value || "") !== "PREVENTIVA") return "";
+  const draftProcedure = collectProcedure();
+  const summary = consumptionDebtSummary(draftProcedure);
+  const animalRows = (draftProcedure.animals || []).map((animal) => {
+    const meds = (animal.medicationsApplied || []).map((item) => `${item.medicationName || "Medicamento"} (${Number(item.inventoryDiscount || item.finalAppliedAmount || 0).toFixed(2)} ${item.inventoryDiscountUnit || item.finalUnit || ""})`).join(", ") || "Sin medicamentos/vacunas";
+    const supplies = (animal.suppliesApplied || []).map((item) => `${item.name || "Insumo"} (${Number(item.qty || 0).toFixed(2)} ${item.unit || ""})`).join(", ") || "Sin insumos";
+    return `<li><b>${esc(animal.identification || animal.sourceLabel || "Animal")}</b>: ${esc(meds)} · ${esc(supplies)}</li>`;
+  }).join("") || "<li>Sin animales atendidos.</li>";
+  const medRows = [
+    ...summary.meds.map((item) => {
+      const med = byId(state.meds, item.itemId);
+      const qty = Number(item.inventoryDeductionQty || item.qty || 0);
+      return `<li>${esc(item.name || "Medicamento")} · total ${qty.toFixed(2)} ${esc(item.inventoryDeductionUnit || item.unit || "")} · restante ${esc(med ? `${medRemaining(med)} ${med.unit || ""}` : "N/A")} · sugerido ${money(qty * Number(item.unitCost || 0))}</li>`;
+    }),
+    ...(draftProcedure.inventory?.vaccines || []).map((item) => {
+      const vaccine = byId(state.vaccines, item.itemId);
+      return `<li>${esc(item.name || "Vacuna")} · total ${Number(item.animalsApplied || 0).toFixed(2)} animales · restante ${esc(vaccine ? `${vaccineRemaining(vaccine)} animales` : "N/A")} · sugerido ${money(item.costSuggested ?? Number(item.animalsApplied || 0) * Number(item.unitCost || 0))}</li>`;
+    }),
+  ].join("") || "<li>Sin medicamentos/vacunas usados.</li>";
+  const supRows = summary.supplies.map((item) => {
+    const supply = byId(state.supplies, item.itemId);
+    return `<li>${esc(item.name || "Insumo")} · total ${Number(item.qty || 0).toFixed(2)} ${esc(item.unit || (item.type === "NON_DISPOSABLE" ? "usos" : "pzas"))} · restante ${esc(supply ? supplyRemaining(supply) : "N/A")} · sugerido ${money(Number(item.qty || 0) * Number(item.unitCost || 0))}</li>`;
+  }).join("") || "<li>Sin insumos usados.</li>";
+  const debtRows = summary.debt.map((item) => `<li>${esc(item.itemName)} · ${money(item.amount || 0)} · ${esc(medOwnerLabel(item.owner))}</li>`).join("") || "<li>Sin deuda a personas propietarias.</li>";
+  return `<section class="card" style="margin-top:10px;"><h4>Resumen final de Medicina preventiva</h4><div class="grid cols-3"><div><b>Animales atendidos</b><ul>${animalRows}</ul></div><div><b>Total medicamentos/vacunas</b><ul>${medRows}</ul></div><div><b>Total insumos y deuda</b><ul>${supRows}</ul><b>Deuda</b><ul>${debtRows}</ul></div></div><div class="line"><b>Costo automático sugerido:</b> ${money((summary.medsCost || 0) + (summary.suppliesCost || 0))} · <b>Precio cobrado editable:</b> ${money(Number($("#p_chargeManual")?.value || calculateProcedureCharge().total || 0))} · <b>Total adeudado:</b> ${money(summary.debtTotal || 0)}</div></section>`;
 }
 function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) {
   const box = $("#p_chargeBreakdown");
@@ -4911,6 +4940,18 @@ function createProcedureAnimalEntry(baseAnimal = {}, extra = {}) {
     medicationsApplied: Array.isArray(extra.medicationsApplied)
       ? extra.medicationsApplied.map((item) => ({ ...item }))
       : [],
+    vaccinesApplied: Array.isArray(extra.vaccinesApplied)
+      ? extra.vaccinesApplied.map((item) => ({ ...item }))
+      : [],
+    suppliesApplied: Array.isArray(extra.suppliesApplied)
+      ? extra.suppliesApplied.map((item) => ({ ...item }))
+      : [],
+    supplyId: extra.supplyId || "",
+    supplyQty: Number(extra.supplyQty || 0) || 0,
+    supplyUnit: extra.supplyUnit || "",
+    supplyPriceCharged: extra.supplyPriceCharged ?? "",
+    supplyNotes: extra.supplyNotes || "",
+    medicationPriceCharged: extra.medicationPriceCharged ?? "",
   };
 }
 function normalizeEntryMedicationApplied(entry = {}) {
@@ -4950,8 +4991,8 @@ function normalizeEntryMedicationApplied(entry = {}) {
 function addMedicationAppliedToEntry(entry) {
   if (!entry?.medicationId) return false;
   syncProcedureAnimalSummary(entry);
-  normalizeEntryMedicationApplied(entry);
   const med = byId(state.meds, entry.medicationId);
+  const suggestedCost = Number(entry.inventoryDeductionQty || 0) * Number(med?.unitCost || 0);
   entry.medicationsApplied.push({
     id: uid("amed"),
     medicationId: entry.medicationId || "",
@@ -4975,6 +5016,8 @@ function addMedicationAppliedToEntry(entry) {
     expiryStatus: medicationExpiryInfo(med?.expiry || "").text,
     inventoryDiscount: Number(entry.inventoryDeductionQty || 0) || 0,
     inventoryDiscountUnit: entry.inventoryDeductionUnit || med?.unit || "",
+    costSuggested: Number(entry.inventoryDeductionQty || 0) * Number(med?.unitCost || 0),
+    priceCharged: entry.medicationPriceCharged === "" || entry.medicationPriceCharged == null ? Number(entry.inventoryDeductionQty || 0) * Number(med?.unitCost || 0) : Number(entry.medicationPriceCharged || 0),
     manualAdjustment: Boolean(entry.manualDoseAdjusted),
     notes: entry.notes || "",
     conversionExplanation: entry.conversionExplanation || "",
@@ -5009,6 +5052,53 @@ function addMedicationAppliedToEntry(entry) {
   entry.conversionExplanation = "";
   entry.manualDoseAdjusted = false;
   entry.manualDoseAdjustmentReason = "";
+  entry.medicationPriceCharged = "";
+  return true;
+}
+function addVaccineAppliedToEntry(entry) {
+  const vaccine = byId(state.vaccines, entry?.vaccineId || "");
+  if (!vaccine) return false;
+  if (!Array.isArray(entry.vaccinesApplied)) entry.vaccinesApplied = [];
+  const unitCost = Number(vaccine.unitCost || (vaccine.coverageAnimals ? Number(vaccine.price || 0) / Number(vaccine.coverageAnimals || 1) : 0));
+  entry.vaccinesApplied.push({
+    id: uid("avax"),
+    itemId: vaccine.id,
+    name: vaccine.brand,
+    animalsApplied: 1,
+    unitCost,
+    owner: vaccine.owner || "SERVICIOS",
+    costSuggested: unitCost,
+    priceCharged: entry.medicationPriceCharged === "" || entry.medicationPriceCharged == null ? unitCost : Number(entry.medicationPriceCharged || 0),
+    notes: entry.notes || "",
+  });
+  entry.vaccineId = "";
+  return true;
+}
+function addSupplyAppliedToEntry(entry) {
+  const supply = byId(state.supplies, entry?.supplyId || "");
+  const qty = Number(entry?.supplyQty || 0);
+  if (!supply || qty <= 0) return false;
+  const unitCost = supplyDisplayCost(supply);
+  const costSuggested = qty * unitCost;
+  if (!Array.isArray(entry.suppliesApplied)) entry.suppliesApplied = [];
+  entry.suppliesApplied.push({
+    id: uid("asup"),
+    itemId: supply.id,
+    name: supply.name,
+    qty,
+    unit: entry.supplyUnit || (supply.type === "NON_DISPOSABLE" ? "usos" : "pzas"),
+    type: supply.type,
+    owner: supply.owner || "SERVICIOS",
+    unitCost,
+    costSuggested,
+    priceCharged: entry.supplyPriceCharged === "" || entry.supplyPriceCharged == null ? costSuggested : Number(entry.supplyPriceCharged || 0),
+    notes: entry.supplyNotes || "",
+  });
+  entry.supplyId = "";
+  entry.supplyQty = 0;
+  entry.supplyUnit = "";
+  entry.supplyPriceCharged = "";
+  entry.supplyNotes = "";
   return true;
 }
 function syncProcedureAnimalManualDoseFlags(entry) {
@@ -5257,7 +5347,8 @@ function renderProcedureType() {
       (block === "clinical" && clinical) ||
       (block === "necropsy" && type === "NECROPSIA") ||
       (block === "zootecnia" && type === "ZOOTECNIA") ||
-      (["animal-breakdown", "inventory"].includes(block) && !clinical)
+      (block === "animal-breakdown" && !clinical) ||
+      (block === "inventory" && !clinical && type !== "PREVENTIVA")
     );
     detail.style.display = visible ? "block" : "none";
   });
@@ -5411,10 +5502,11 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
         });
       }
     }
-    return { meds, vaccines: [] };
+    return { meds, vaccines: [], supplies: [] };
   }
   const meds = new Map();
   const vaccines = new Map();
+  const supplies = [];
   entries.map(syncProcedureAnimalSummary).forEach((entry) => {
     normalizeEntryMedicationApplied(entry);
     const medications = entry.medicationsApplied || [];
@@ -5466,27 +5558,56 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
         });
       meds.set(med.id, current);
     });
-    if (entry.vaccineId) {
-      const vaccine = byId(state.vaccines, entry.vaccineId);
-      if (vaccine) {
-        const current = vaccines.get(vaccine.id) || {
-          id: uid("pvax"),
-          itemId: vaccine.id,
-          name: vaccine.brand,
-          unitCost: vaccine.unitCost || (vaccine.coverageAnimals ? Number(vaccine.price || 0) / Number(vaccine.coverageAnimals || 1) : 0),
-          animalsApplied: 0,
-          linkedAnimals: [],
-        };
-        current.animalsApplied += 1;
-        current.linkedAnimals.push({
-          animalId: entry.animalId,
-          identification: entry.identification,
-          species: entry.species,
-          weightKg: entry.weightRecordedKg,
-        });
-        vaccines.set(vaccine.id, current);
-      }
-    }
+    (entry.suppliesApplied || []).forEach((supplyItem) => {
+      const supply = byId(state.supplies, supplyItem.itemId);
+      if (!supply) return;
+      const qty = Number(supplyItem.qty || 0);
+      const unitCost = Number(supplyItem.unitCost || supplyDisplayCost(supply) || 0);
+      supplies.push({
+        id: supplyItem.id || uid("psup"),
+        itemId: supply.id,
+        name: supply.name,
+        qty,
+        unit: supplyItem.unit || (supply.type === "NON_DISPOSABLE" ? "usos" : "pzas"),
+        notes: supplyItem.notes || "",
+        type: supply.type,
+        unitCost,
+        owner: supply.owner || "SERVICIOS",
+        costSuggested: supplyItem.costSuggested ?? qty * unitCost,
+        priceCharged: supplyItem.priceCharged ?? (supplyItem.costSuggested ?? qty * unitCost),
+        source: "ANIMAL_CARD",
+        animalId: entry.animalId,
+        animalLabel: entry.identification || entry.sourceLabel || "Animal",
+      });
+    });
+    const vaccineItems = [...(entry.vaccinesApplied || [])];
+    if (entry.vaccineId) vaccineItems.push({ itemId: entry.vaccineId, animalsApplied: 1 });
+    vaccineItems.forEach((vaccineItem) => {
+      const vaccine = byId(state.vaccines, vaccineItem.itemId);
+      if (!vaccine) return;
+      const current = vaccines.get(vaccine.id) || {
+        id: uid("pvax"),
+        itemId: vaccine.id,
+        name: vaccine.brand,
+        unitCost: vaccineItem.unitCost ?? vaccine.unitCost ?? (vaccine.coverageAnimals ? Number(vaccine.price || 0) / Number(vaccine.coverageAnimals || 1) : 0),
+        owner: vaccine.owner || vaccineItem.owner || "SERVICIOS",
+        priceCharged: 0,
+        costSuggested: 0,
+        animalsApplied: 0,
+        linkedAnimals: [],
+      };
+      const vaccineQty = Number(vaccineItem.animalsApplied || 1);
+      current.animalsApplied += vaccineQty;
+      current.costSuggested += Number(vaccineItem.costSuggested ?? (current.unitCost * vaccineQty));
+      current.priceCharged += Number(vaccineItem.priceCharged ?? vaccineItem.costSuggested ?? (current.unitCost * vaccineQty));
+      current.linkedAnimals.push({
+        animalId: entry.animalId,
+        identification: entry.identification,
+        species: entry.species,
+        weightKg: entry.weightRecordedKg,
+      });
+      vaccines.set(vaccine.id, current);
+    });
   });
   const applicationType = $("#p_medApplicationType")?.value || "INYECTABLE";
   const marginProfile = $("#p_medMarginProfile")?.value || "ESTANDAR";
@@ -5519,6 +5640,7 @@ function aggregateProcedureInventoryFromAnimals(entries = state.draft.procedureA
   return {
     meds: normalizedMeds,
     vaccines: Array.from(vaccines.values()),
+    supplies,
   };
 }
 function validateProcedureAnimalEntries(entries = [], previousProcedure = null) {
@@ -5570,6 +5692,26 @@ function validateProcedureAnimalEntries(entries = [], previousProcedure = null) 
       problems.push(`No hay stock suficiente de ${med.brand}. Disponible: ${available.toFixed(2)} ${med.unit || ''}. Requerido: ${Number(use.inventoryDeductionQty || 0).toFixed(2)} ${use.unit || med.unit || ''}.`);
     }
   });
+  (aggregated.vaccines || []).forEach((use) => {
+    const vaccine = byId(state.vaccines, use.itemId);
+    if (!vaccine) return;
+    const previousQty = previousProcedure ? Number((previousProcedure.inventory?.vaccines || []).filter((item) => item.itemId === vaccine.id).reduce((acc, item) => acc + Number(item.animalsApplied || 0), 0)) : 0;
+    const available = vaccineRemaining(vaccine) + previousQty;
+    const required = Number(use.animalsApplied || 0);
+    if (required > available + 0.0001) {
+      problems.push(`No hay disponibilidad suficiente de ${vaccine.brand}. Disponible: ${available.toFixed(2)} animales. Requerido: ${required.toFixed(2)}.`);
+    }
+  });
+  (aggregated.supplies || []).forEach((use) => {
+    const supply = byId(state.supplies, use.itemId);
+    if (!supply || supply.type === "NON_DISPOSABLE") return;
+    const previousQty = previousProcedure ? Number((previousProcedure.inventory?.supplies || []).filter((item) => item.itemId === supply.id).reduce((acc, item) => acc + Number(item.qty || 0), 0)) : 0;
+    const available = Number(supplyRemaining(supply) || 0) + previousQty;
+    const required = Number(use.qty || 0);
+    if (required > available + 0.0001) {
+      problems.push(`No hay disponibilidad suficiente de ${supply.name}. Disponible: ${available.toFixed(2)} piezas. Requerido: ${required.toFixed(2)}.`);
+    }
+  });
   return problems;
 }
 
@@ -5593,6 +5735,9 @@ function renderProcedureAnimalCards() {
   const vaccineOptions =
     '<option value="">— Sin vacuna —</option>' +
     state.vaccines.map((vac) => `<option value="${vac.id}">${esc(vac.brand)}</option>`).join("");
+  const supplyOptions =
+    '<option value="">— Sin insumo —</option>' +
+    state.supplies.map((sup) => `<option value="${sup.id}">${esc(sup.name)} (${esc(supplyRemaining(sup))})</option>`).join("");
   box.innerHTML = entries.map((entry, index) => {
     syncProcedureAnimalSummary(entry);
     normalizeEntryMedicationApplied(entry);
@@ -5628,7 +5773,8 @@ function renderProcedureAnimalCards() {
         <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
           <label><input data-field="examIncluded" type="checkbox" ${entry.examIncluded ? "checked" : ""}> Examen físico general</label>
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-            ${isClinicalCase ? '<button class="btn small" type="button" data-action="add-medication">➕ Agregar medicamento</button>' : ""}
+            ${!groupMode ? `<button class="btn small" type="button" data-action="add-medication">➕ ${(entry.medicationsApplied || []).length ? "Agregar otro medicamento/vacuna" : "Agregar medicamento/vacuna"}</button>` : ""}
+            ${!groupMode ? `<button class="btn small" type="button" data-action="add-supply">➕ ${(entry.suppliesApplied || []).length ? "Agregar otro insumo" : "Agregar insumo"}</button>` : ""}
             <button class="btn small bad" type="button" data-action="remove">${isClinicalCase ? "Quitar animal" : "Quitar"}</button>
           </div>
         </div>
@@ -5642,6 +5788,8 @@ function renderProcedureAnimalCards() {
         <div><label>Cálculo sugerido automático</label><input type="text" value="${esc(entry.suggestedDoseQty ? `${Number(entry.suggestedDoseQty).toFixed(2)} ${entry.suggestedDoseUnit || ""}` : "Sin cálculo")} " disabled></div>
         <div><label>Cantidad final aplicada (editable)</label><input data-field="convertedDoseQty" type="number" min="0" step="0.0001" value="${esc(entry.convertedDoseQty || 0)}"></div>
         <div><label>Unidad final</label><input type="text" value="${esc(entry.convertedDoseUnit || entry.suggestedDoseUnit || "")}" disabled></div>
+        <div><label>Costo automático sugerido</label><input type="text" value="${esc(money(Number(entry.inventoryDeductionQty || 0) * Number(byId(state.meds, entry.medicationId)?.unitCost || 0)))}" disabled></div>
+        <div><label>Precio cobrado</label><input data-field="medicationPriceCharged" type="number" min="0" step="0.01" value="${esc(entry.medicationPriceCharged ?? "")}" placeholder="Editable"></div>
         <div><label>Relación especie-medicamento</label><input type="text" value="${esc(entry.doseSummary || "")}" disabled></div>
       </div>
       <div class="grid cols-4">
@@ -5659,9 +5807,22 @@ function renderProcedureAnimalCards() {
       ${entry.manualDoseAdjusted ? `<div class="help"><b>⚠️ Ajuste manual:</b> sugerida ${Number(entry.suggestedDoseQty || 0).toFixed(2)} ${esc(entry.suggestedDoseUnit || "")} · final ${Number(entry.convertedDoseQty || 0).toFixed(2)} ${esc(entry.convertedDoseUnit || "")}</div>` : `<div class="help"><b>Dosis final:</b> sin ajuste manual (coincide con la sugerencia automática).</div>`}
       ${isClinicalCase ? `<div class="help"><b>Flujo clínico:</b> selecciona medicamento → revisa cálculo automático → ajusta cantidad final si hace falta → pulsa <b>Agregar medicamento</b> para conservarlo y abrir otro registro.</div>` : ""}
       <div class="help"><b>Cálculo explicado:</b> ${esc(entry.conversionExplanation || "Sin cálculo automático disponible todavía.")}</div>`}
-      ${!groupMode ? `<div class="item" style="margin-top:8px;"><b>Medicamentos aplicados a este animal:</b>${(entry.medicationsApplied || []).length
-        ? `<ul style="margin:8px 0 0 18px;">${(entry.medicationsApplied || []).map((med) => `<li>${esc(med.medicationName || "Medicamento")} → ${Number(med.finalAppliedAmount || 0).toFixed(2)} ${esc(med.finalUnit || "")} → ${esc(med.route || "Sin vía")} <button class="btn small ghost" type="button" data-action="edit-medication" data-med-id="${esc(med.id)}">Editar</button> <button class="btn small bad" type="button" data-action="remove-medication" data-med-id="${esc(med.id)}">Eliminar</button></li>`).join("")}</ul>`
-        : '<div class="help">Aún no hay medicamentos agregados.</div>'}
+      ${!groupMode ? `<div class="item" style="margin-top:8px;"><b>Medicamentos/vacunas aplicados a este animal:</b>${(entry.medicationsApplied || []).length || (entry.vaccinesApplied || []).length
+        ? `<ul style="margin:8px 0 0 18px;">${[...(entry.medicationsApplied || []).map((med) => `<li>${esc(med.medicationName || "Medicamento")} → ${Number(med.finalAppliedAmount || 0).toFixed(2)} ${esc(med.finalUnit || "")} · descuento ${Number(med.inventoryDiscount || 0).toFixed(2)} ${esc(med.inventoryDiscountUnit || "")} · sugerido ${money(med.costSuggested || (Number(med.inventoryDiscount || 0) * Number(byId(state.meds, med.medicationId)?.unitCost || 0)))} · cobrado ${money(med.priceCharged ?? med.costSuggested ?? 0)} · ${esc(med.notes || "Sin observaciones")} <button class="btn small ghost" type="button" data-action="edit-medication" data-med-id="${esc(med.id)}">Editar</button> <button class="btn small bad" type="button" data-action="remove-medication" data-med-id="${esc(med.id)}">Eliminar</button></li>`), ...(entry.vaccinesApplied || []).map((vac) => `<li>${esc(vac.name || "Vacuna")} → 1 animal · sugerido ${money(vac.costSuggested ?? vac.unitCost ?? 0)} · cobrado ${money(vac.priceCharged ?? vac.costSuggested ?? vac.unitCost ?? 0)} <button class="btn small bad" type="button" data-action="remove-vaccine" data-vaccine-id="${esc(vac.id)}">Eliminar</button></li>`)].join("")}</ul>`
+        : '<div class="help">Aún no hay medicamentos/vacunas agregados.</div>'}
+      </div>
+      <div class="item" style="margin-top:8px;">
+        <b>Insumos usados en este animal</b>
+        <div class="grid cols-4" style="margin-top:8px;">
+          <div><label>Insumo (inventario)</label><select data-field="supplyId">${supplyOptions}</select></div>
+          <div><label>Cantidad usada</label><input data-field="supplyQty" type="number" min="0" step="0.01" value="${esc(entry.supplyQty || "")}"></div>
+          <div><label>Unidad</label><input data-field="supplyUnit" type="text" value="${esc(entry.supplyUnit || "")}" placeholder="pzas, usos..."></div>
+          <div><label>Precio cobrado</label><input data-field="supplyPriceCharged" type="number" min="0" step="0.01" value="${esc(entry.supplyPriceCharged ?? "")}" placeholder="Editable"></div>
+          <div style="grid-column:1/-1;"><label>Observaciones del insumo</label><input data-field="supplyNotes" type="text" value="${esc(entry.supplyNotes || "")}"></div>
+        </div>
+        ${(entry.suppliesApplied || []).length
+          ? `<ul style="margin:8px 0 0 18px;">${(entry.suppliesApplied || []).map((sup) => `<li>${esc(sup.name || "Insumo")} → ${Number(sup.qty || 0).toFixed(2)} ${esc(sup.unit || "")} · sugerido ${money(sup.costSuggested || (Number(sup.qty || 0) * Number(sup.unitCost || 0)))} · cobrado ${money(sup.priceCharged ?? sup.costSuggested ?? 0)} · ${esc(sup.notes || "Sin observaciones")} <button class="btn small bad" type="button" data-action="remove-supply" data-supply-id="${esc(sup.id)}">Eliminar</button></li>`).join("")}</ul>`
+          : '<div class="help">Aún no hay insumos agregados.</div>'}
       </div>` : ""}
       ${groupMode ? `<div class="help">Modo grupal: esta tarjeta solo mantiene referencia del animal y datos clínicos.</div>` : ""}
       ${!groupMode && (entry.medicationWarning || medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning) ? `<div class="error inline-error" style="display:block;">${esc([entry.medicationWarning, medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning].filter(Boolean).join(" · "))}</div>` : ""}
@@ -5676,6 +5837,8 @@ function renderProcedureAnimalCards() {
     const vaccineSelect = card.querySelector('[data-field="vaccineId"]');
     if (medicationSelect) medicationSelect.value = entry.medicationId || "";
     if (vaccineSelect) vaccineSelect.value = entry.vaccineId || "";
+    const supplySelect = card.querySelector('[data-field="supplyId"]');
+    if (supplySelect) supplySelect.value = entry.supplyId || "";
     const stateSelect = card.querySelector('[data-field="generalState"]');
     if (stateSelect) stateSelect.value = entry.generalState || "";
     card.querySelectorAll("input[data-field], select[data-field]").forEach((input) => {
@@ -5686,7 +5849,7 @@ function renderProcedureAnimalCards() {
           const [parent, child] = path.split(".");
           entry[parent] = entry[parent] || {};
           entry[parent][child] = value;
-        } else if (["weight", "chestGirth", "bodyLength", "convertedDoseQty"].includes(path)) {
+        } else if (["weight", "chestGirth", "bodyLength", "convertedDoseQty", "supplyQty", "supplyPriceCharged", "medicationPriceCharged"].includes(path)) {
           entry[path] = Number(value || 0);
         } else {
           entry[path] = value;
@@ -5701,14 +5864,31 @@ function renderProcedureAnimalCards() {
       renderProcedureDraftLists();
     });
     card.querySelector('[data-action="add-medication"]')?.addEventListener("click", () => {
-      if (!entry.medicationId) return show("p_msg", "Primero selecciona un medicamento antes de agregar otro registro.", "warning");
-      addMedicationAppliedToEntry(entry);
+      if (!entry.medicationId && !entry.vaccineId) return show("p_msg", "Primero selecciona un medicamento/vacuna antes de agregar otro registro.", "warning");
+      if (entry.medicationId) addMedicationAppliedToEntry(entry);
+      if (entry.vaccineId) addVaccineAppliedToEntry(entry);
       renderProcedureDraftLists();
-      show("p_msg", "Medicamento agregado al animal. Ya puedes capturar otro sin sobrescribir el anterior.", "success");
+      show("p_msg", "Medicamento/vacuna agregado al animal. Ya puedes capturar otro sin sobrescribir el anterior.", "success");
+    });
+    card.querySelector('[data-action="add-supply"]')?.addEventListener("click", () => {
+      if (!entry.supplyId) return show("p_msg", "Primero selecciona un insumo antes de agregar otro registro.", "warning");
+      if (!addSupplyAppliedToEntry(entry)) return show("p_msg", "Selecciona insumo y cantidad mayor a cero.", "warning");
+      renderProcedureDraftLists();
+      show("p_msg", "Insumo agregado al animal. Ya puedes capturar otro sin sobrescribir el anterior.", "success");
     });
     card.querySelectorAll('[data-action="remove-medication"]').forEach((btn) => btn.addEventListener("click", () => {
       const medId = btn.getAttribute("data-med-id");
       entry.medicationsApplied = (entry.medicationsApplied || []).filter((item) => item.id !== medId);
+      renderProcedureDraftLists();
+    }));
+    card.querySelectorAll('[data-action="remove-vaccine"]').forEach((btn) => btn.addEventListener("click", () => {
+      const vaccineId = btn.getAttribute("data-vaccine-id");
+      entry.vaccinesApplied = (entry.vaccinesApplied || []).filter((item) => item.id !== vaccineId);
+      renderProcedureDraftLists();
+    }));
+    card.querySelectorAll('[data-action="remove-supply"]').forEach((btn) => btn.addEventListener("click", () => {
+      const supplyId = btn.getAttribute("data-supply-id");
+      entry.suppliesApplied = (entry.suppliesApplied || []).filter((item) => item.id !== supplyId);
       renderProcedureDraftLists();
     }));
     card.querySelectorAll('[data-action="edit-medication"]').forEach((btn) => btn.addEventListener("click", () => {
@@ -5718,6 +5898,7 @@ function renderProcedureAnimalCards() {
       entry.medicationId = medItem.medicationId || "";
       entry.convertedDoseQty = Number(medItem.finalAppliedAmount || 0) || 0;
       entry.convertedDoseUnit = medItem.finalUnit || "";
+      entry.medicationPriceCharged = medItem.priceCharged ?? "";
       entry.medicationsApplied = (entry.medicationsApplied || []).filter((item) => item.id !== medId);
       syncProcedureAnimalSummary(entry);
       renderProcedureDraftLists();
@@ -6126,6 +6307,14 @@ function procedureDebtRecords(p) {
     if (qty <= 0) return;
     addDebtItem({ kind: "Medicamento", itemId: use.itemId, itemName: use.name || med?.brand || "Medicamento", qtyUsed: qty, unit: use.inventoryDeductionUnit || use.unit || med?.unit || "", unitCost: Number(use.unitCost || med?.unitCost || 0), owner });
   });
+  (p.inventory?.vaccines || []).forEach((use) => {
+    const vax = byId(state.vaccines, use.itemId);
+    const owner = vax?.owner || use.owner || "";
+    if (!ownerCreatesDebt(owner)) return;
+    const qty = Number(use.animalsApplied || 0);
+    if (qty <= 0) return;
+    addDebtItem({ kind: "Vacuna", itemId: use.itemId, itemName: use.name || vax?.brand || "Vacuna", qtyUsed: qty, unit: "animales", unitCost: Number(use.unitCost || vax?.unitCost || 0), owner });
+  });
   (p.inventory?.supplies || []).forEach((use) => {
     const sup = byId(state.supplies, use.itemId);
     const owner = sup?.owner || use.owner || "";
@@ -6218,7 +6407,7 @@ function renderProcedureDraftLists() {
       : `${x.name} · dosis total ${Number(x.theoreticalQty || 0).toFixed(2)} ${x.unit || ""} · margen ${Number(x.marginQty || 0).toFixed(2)} · total usado ${Number(x.totalUsedQty || x.chargeableQty || 0).toFixed(2)} · descuento inventario ${Number(x.inventoryDeductionQty || x.qty || 0).toFixed(2)}`,
   );
   renderSimpleList("#p_vaccineUseList", aggregated.vaccines, (x) => `${x.name} · ${x.animalsApplied} animales`);
-  renderSimpleList("#p_supplyUseList", state.draft.procedureSupplyUses, (x) => `${x.name} · ${x.qty} ${x.type === "NON_DISPOSABLE" ? "usos" : "pzas"}`);
+  renderSimpleList("#p_supplyUseList", [...(aggregated.supplies || []), ...(state.draft.procedureSupplyUses || [])], (x) => `${x.animalLabel ? `${x.animalLabel} · ` : ""}${x.name} · ${x.qty} ${x.unit || (x.type === "NON_DISPOSABLE" ? "usos" : "pzas")}`);
   renderSimpleList("#lab_list", state.labTests.filter((l) => state.draft.procedureLabIds.includes(l.id)), (x) => `${x.date} · ${x.type} · ${x.result}`);
   const box1 = $("#p_cc_preview"), box2 = $("#p_nec_preview");
   if (box1) box1.innerHTML = state.draft.procedureCasePhotos.length ? state.draft.procedureCasePhotos.map((p) => `<div class="preview-mini"><img src="${p}"></div>`).join("") : '<div class="preview-box"><span>Sin<br/>fotos</span></div>';
@@ -6371,13 +6560,29 @@ function calculateProcedureChargeBreakdown() {
         qtyLabel: `${qty.toFixed(2)} ${item.inventoryDiscountUnit || item.finalUnit || ""}`.trim(),
         unitCost,
         unitCostLabel: money(unitCost),
-        subtotal: qty * unitCost,
-        extraLabel: item.notes || item.conversionExplanation || item.route || "",
+        costSuggested: item.costSuggested ?? qty * unitCost,
+        subtotal: item.priceCharged ?? item.costSuggested ?? qty * unitCost,
+        extraLabel: [item.notes, item.conversionExplanation || item.route, `sugerido ${money(item.costSuggested ?? qty * unitCost)}`].filter(Boolean).join(" · "),
         removable: true,
         removeType: "procedure-medication",
         removeTarget: { entryId: entry.id, medicationApplicationId: item.id },
       };
     });
+  });
+  const clinicalDayInventory = clinicalInventoryFromDays(state.draft.procedureClinicalDays || []);
+  const medsClinicalDays = (clinicalDayInventory.meds || []).map((x) => {
+    const qty = Number(x.inventoryDeductionQty || x.qty || 0);
+    const unitCost = Number(x.unitCost || 0);
+    return {
+      category: "Medicamento por día clínico",
+      name: `${x.applicationDate || ""} · ${x.name || "Medicamento"}`.trim(),
+      qty,
+      qtyLabel: `${qty.toFixed(2)} ${x.inventoryDeductionUnit || x.unit || ""}`.trim(),
+      unitCost,
+      unitCostLabel: money(unitCost),
+      subtotal: qty * unitCost,
+      extraLabel: x.notes || x.calculationSummary || "",
+    };
   });
   const medsFollowup = (state.draft.procedureFollowupMedicationEntries || []).map((x) => {
     const qty = Number(x.qty || 0);
@@ -6399,28 +6604,29 @@ function calculateProcedureChargeBreakdown() {
   const vaccines = aggregated.vaccines.map((x) => {
     const qty = Number(x.animalsApplied || 0);
     const unitCost = Number(x.unitCost || 0);
-    return { category: "Vacuna", name: x.name, qty, qtyLabel: `${qty} animales`, unitCost, unitCostLabel: money(unitCost), subtotal: qty * unitCost, extraLabel: x.notes || "" };
+    return { category: "Vacuna", name: x.name, qty, qtyLabel: `${qty} animales`, unitCost, unitCostLabel: money(unitCost), subtotal: x.priceCharged ?? x.costSuggested ?? qty * unitCost, extraLabel: [x.notes, `sugerido ${money(x.costSuggested ?? qty * unitCost)}`].filter(Boolean).join(" · ") };
   });
-  const supplies = (state.draft.procedureSupplyUses || []).map((x) => {
+  const supplies = ([...(aggregated.supplies || []), ...(state.draft.procedureSupplyUses || []), ...(clinicalDayInventory.supplies || [])]).map((x) => {
     const qty = Number(x.qty || 0);
     const unitCost = Number(x.unitCost || 0);
     return {
       category: "Insumo",
-      name: x.name,
+      name: `${x.animalLabel ? `${x.animalLabel} · ` : ""}${x.name}`,
       qty,
-      qtyLabel: `${qty.toFixed(2)} ${x.type === "NON_DISPOSABLE" ? "usos" : "pzas"}`,
+      qtyLabel: `${qty.toFixed(2)} ${x.unit || (x.type === "NON_DISPOSABLE" ? "usos" : "pzas")}`,
       unitCost,
       unitCostLabel: money(unitCost),
-      subtotal: qty * unitCost,
-      extraLabel: x.notes || "",
+      costSuggested: x.costSuggested ?? qty * unitCost,
+      subtotal: x.priceCharged ?? x.costSuggested ?? qty * unitCost,
+      extraLabel: [x.notes, `sugerido ${money(x.costSuggested ?? qty * unitCost)}`].filter(Boolean).join(" · "),
       removable: true,
       removeType: "supply",
-      removeTarget: { supplyUseId: x.id },
+      removeTarget: { supplyUseId: x.id, entryId: x.source === "ANIMAL_CARD" ? x.animalId || x.entryId : "", source: x.source || "" },
     };
   });
   const base = Number($("#p_costTotal").value || 0);
   const service = base > 0 ? [{ category: "Servicio", name: $("#p_type")?.selectedOptions?.[0]?.textContent || "Servicio", qty: 1, qtyLabel: "1 servicio", unitCost: base, unitCostLabel: money(base), subtotal: base, extraLabel: "Costo base del procedimiento" }] : [];
-  return { medsProcedure, medsFollowup, vaccines, supplies, service };
+  return { medsProcedure: [...medsProcedure, ...medsClinicalDays], medsFollowup, vaccines, supplies, service };
 }
 function removeProcedureChargeBreakdownItem(item) {
   if (!item?.removable || !item.removeType) return;
@@ -6436,7 +6642,14 @@ function removeProcedureChargeBreakdownItem(item) {
     state.draft.procedureFollowupMedicationEntries = (state.draft.procedureFollowupMedicationEntries || []).filter((candidate) => candidate.id !== item.removeTarget?.followupId);
   }
   if (item.removeType === "supply") {
-    state.draft.procedureSupplyUses = (state.draft.procedureSupplyUses || []).filter((candidate) => candidate.id !== item.removeTarget?.supplyUseId);
+    const target = item.removeTarget || {};
+    let removedFromAnimal = false;
+    (state.draft.procedureAnimalEntries || []).forEach((entry) => {
+      const before = (entry.suppliesApplied || []).length;
+      entry.suppliesApplied = (entry.suppliesApplied || []).filter((candidate) => candidate.id !== target.supplyUseId);
+      if ((entry.suppliesApplied || []).length !== before) removedFromAnimal = true;
+    });
+    if (!removedFromAnimal) state.draft.procedureSupplyUses = (state.draft.procedureSupplyUses || []).filter((candidate) => candidate.id !== target.supplyUseId);
   }
   renderProcedureDraftLists();
   show("p_msg", "Elemento eliminado del desglose y del cobro.", "success");
@@ -6450,6 +6663,33 @@ function calculateProcedureCharge() {
   const subtotal = base + meds + vaccines + supplies;
   return { base, meds, vaccines, supplies, subtotal, total: subtotal, breakdown: detail };
 }
+function preventiveFinalSummaryHtml() {
+  if (($("#p_type")?.value || "") !== "PREVENTIVA") return "";
+  const draftProcedure = collectProcedure();
+  const summary = consumptionDebtSummary(draftProcedure);
+  const animalRows = (draftProcedure.animals || []).map((animal) => {
+    const meds = (animal.medicationsApplied || []).map((item) => `${item.medicationName || "Medicamento"} (${Number(item.inventoryDiscount || item.finalAppliedAmount || 0).toFixed(2)} ${item.inventoryDiscountUnit || item.finalUnit || ""})`).join(", ") || "Sin medicamentos/vacunas";
+    const supplies = (animal.suppliesApplied || []).map((item) => `${item.name || "Insumo"} (${Number(item.qty || 0).toFixed(2)} ${item.unit || ""})`).join(", ") || "Sin insumos";
+    return `<li><b>${esc(animal.identification || animal.sourceLabel || "Animal")}</b>: ${esc(meds)} · ${esc(supplies)}</li>`;
+  }).join("") || "<li>Sin animales atendidos.</li>";
+  const medRows = [
+    ...summary.meds.map((item) => {
+      const med = byId(state.meds, item.itemId);
+      const qty = Number(item.inventoryDeductionQty || item.qty || 0);
+      return `<li>${esc(item.name || "Medicamento")} · total ${qty.toFixed(2)} ${esc(item.inventoryDeductionUnit || item.unit || "")} · restante ${esc(med ? `${medRemaining(med)} ${med.unit || ""}` : "N/A")} · sugerido ${money(qty * Number(item.unitCost || 0))}</li>`;
+    }),
+    ...(draftProcedure.inventory?.vaccines || []).map((item) => {
+      const vaccine = byId(state.vaccines, item.itemId);
+      return `<li>${esc(item.name || "Vacuna")} · total ${Number(item.animalsApplied || 0).toFixed(2)} animales · restante ${esc(vaccine ? `${vaccineRemaining(vaccine)} animales` : "N/A")} · sugerido ${money(item.costSuggested ?? Number(item.animalsApplied || 0) * Number(item.unitCost || 0))}</li>`;
+    }),
+  ].join("") || "<li>Sin medicamentos/vacunas usados.</li>";
+  const supRows = summary.supplies.map((item) => {
+    const supply = byId(state.supplies, item.itemId);
+    return `<li>${esc(item.name || "Insumo")} · total ${Number(item.qty || 0).toFixed(2)} ${esc(item.unit || (item.type === "NON_DISPOSABLE" ? "usos" : "pzas"))} · restante ${esc(supply ? supplyRemaining(supply) : "N/A")} · sugerido ${money(Number(item.qty || 0) * Number(item.unitCost || 0))}</li>`;
+  }).join("") || "<li>Sin insumos usados.</li>";
+  const debtRows = summary.debt.map((item) => `<li>${esc(item.itemName)} · ${money(item.amount || 0)} · ${esc(medOwnerLabel(item.owner))}</li>`).join("") || "<li>Sin deuda a personas propietarias.</li>";
+  return `<section class="card" style="margin-top:10px;"><h4>Resumen final de Medicina preventiva</h4><div class="grid cols-3"><div><b>Animales atendidos</b><ul>${animalRows}</ul></div><div><b>Total medicamentos/vacunas</b><ul>${medRows}</ul></div><div><b>Total insumos y deuda</b><ul>${supRows}</ul><b>Deuda</b><ul>${debtRows}</ul></div></div><div class="line"><b>Costo automático sugerido:</b> ${money((summary.medsCost || 0) + (summary.suppliesCost || 0))} · <b>Precio cobrado editable:</b> ${money(Number($("#p_chargeManual")?.value || calculateProcedureCharge().total || 0))} · <b>Total adeudado:</b> ${money(summary.debtTotal || 0)}</div></section>`;
+}
 function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) {
   const box = $("#p_chargeBreakdown");
   if (!box) return;
@@ -6462,7 +6702,7 @@ function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) 
     box.innerHTML = '<div class="help">Aún no hay conceptos cobrables registrados.</div>';
     return;
   }
-  box.innerHTML = `${drawRows("Medicamentos del procedimiento", detail.medsProcedure, "medsProcedure")}${drawRows("Medicamentos de seguimiento", detail.medsFollowup, "medsFollowup")}${drawRows("Vacunas", detail.vaccines, "vaccines")}${drawRows("Insumos", detail.supplies, "supplies")}${drawRows("Servicio", detail.service, "service")}<h5>Total</h5><p><b>${money(breakdown.total || 0)}</b></p>`;
+  box.innerHTML = `${drawRows("Medicamentos del procedimiento", detail.medsProcedure, "medsProcedure")}${drawRows("Medicamentos de seguimiento", detail.medsFollowup, "medsFollowup")}${drawRows("Vacunas", detail.vaccines, "vaccines")}${drawRows("Insumos", detail.supplies, "supplies")}${drawRows("Servicio", detail.service, "service")}<h5>Total</h5><p><b>${money(breakdown.total || 0)}</b></p>${preventiveFinalSummaryHtml()}`;
   const allRows = {
     medsProcedure: detail.medsProcedure || [],
     medsFollowup: detail.medsFollowup || [],
@@ -6487,6 +6727,7 @@ function collectProcedure() {
     return cloned;
   });
   if (($("#p_type")?.value || "") === "CASO_CLINICO") {
+    const existingClinicalDraft = (state.draft.procedureAnimalEntries || [])[0] || {};
     const selectedClinicalAnimal = byId(currentAnimals(), $("#p_cc_registeredAnimal")?.value || $("#p_animalGroup")?.value || "");
     const animalName = $("#p_cc_animalName")?.value.trim() || $("#p_unregisteredAnimalName")?.value.trim() || animalLabel(selectedClinicalAnimal || {}) || "Animal atendido";
     animals = [createProcedureAnimalEntry(selectedClinicalAnimal || {}, {
@@ -6502,6 +6743,9 @@ function collectProcedure() {
       generalState: $("#p_cc_animalObservations")?.value.trim() || "",
       examIncluded: true,
       exam: { temperature: $("#p_cc_temp")?.value.trim() || "", findings: $("#p_cc_exam")?.value.trim() || "" },
+      medicationsApplied: existingClinicalDraft.medicationsApplied || [],
+      vaccinesApplied: existingClinicalDraft.vaccinesApplied || [],
+      suppliesApplied: existingClinicalDraft.suppliesApplied || [],
     })];
   }
   if (isUnregisteredClinicalCase() && !animals.length) {
@@ -6571,7 +6815,7 @@ function collectProcedure() {
     inventory: {
       meds: [...aggregated.meds, ...followupInventoryMeds, ...clinicalDayInventory.meds],
       vaccines: aggregated.vaccines,
-      supplies: [...state.draft.procedureSupplyUses, ...clinicalDayInventory.supplies],
+      supplies: [...(aggregated.supplies || []), ...state.draft.procedureSupplyUses, ...clinicalDayInventory.supplies],
     },
     procedureSpeciesDoses: [...(state.draft.procedureSpeciesDoses || [])],
     dosis_por_especie: groupSpeciesDoseRows(state.draft.procedureSpeciesDoses || []),
