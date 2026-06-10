@@ -1227,6 +1227,7 @@
                       <option value="cápsulas">cápsulas</option>
                       <option value="sobres">sobres</option>
                       <option value="mg">mg</option>
+                      <option value="U.I.">U.I. / Unidades Internacionales</option>
                       <option value="g">g</option>
                       <option value="kg">kg</option>
                       <option value="L">L</option>
@@ -1286,6 +1287,7 @@
                       <option value="">— Selecciona —</option>
                       <option value="mcg">mcg</option>
                       <option value="mg">mg</option>
+                      <option value="U.I.">U.I. / Unidades Internacionales</option>
                       <option value="g">g</option>
                       <option value="kg">kg</option>
                     </select>
@@ -1440,8 +1442,14 @@
 
                     <div>
                       <label>Dosis estructurada por especie para procedimientos</label>
-                      <div class="help">Configura aquí la dosis por especie para que los procedimientos usen el módulo de medicamentos y calculen dosis reales por animal según especie y peso.</div>
+                      <div class="help">Configura aquí listas dinámicas de dosis por especie. Puedes capturar manualmente o pegar JSON con la llave <code>dosis_por_especie</code>; cada dosis admite cantidad, unidad, por_cada, unidad_base, vía, frecuencia, duración y observaciones.</div>
+                      <div>
+                        <label for="m_speciesDoseJson">Rellenar dosis por JSON</label>
+                        <textarea id="m_speciesDoseJson" placeholder='{"dosis_por_especie":[{"especie":"Bovinos","dosis":[{"cantidad":10000,"unidad":"U.I.","por_cada":50,"unidad_base":"kg","via":"IM","frecuencia":"cada 24 h","duracion":"3 días","observaciones":""}]}]}'></textarea>
+                      </div>
                       <div class="row">
+                        <button class="btn small" type="button" id="m_applySpeciesDoseJson">✅ Aplicar JSON de dosis</button>
+                        <button class="btn small ghost" type="button" id="m_copySpeciesDoseJsonExample">🧪 Ejemplo dosis JSON</button>
                         <button class="btn small" type="button" id="m_addSpeciesDose">➕ Agregar dosis por especie</button>
                       </div>
                       <div class="list" id="m_speciesDoseList"></div>
@@ -2068,7 +2076,7 @@
               <div class="sep"></div>
 
               <details open>
-                <summary>2. Modo y selección de animales</summary>
+                <summary>2. Desglose central del animal</summary>
                 <div class="inner grid">
                   <div class="grid cols-4">
                     <div>
@@ -2105,11 +2113,22 @@
               <div class="sep"></div>
 
               <details open data-procedure-block="inventory">
-                <summary>3. Despliegue dinámico y subregistros por animal</summary>
+                <summary>3. Tratamiento/procedimiento, medicamentos y dosis</summary>
                 <div class="inner grid">
 
                   <div class="help">
                     Los medicamentos y vacunas se seleccionan dentro de cada tarjeta de animal. Aquí solo verás la sumatoria final por procedimiento, el margen operativo y los demás inventarios vinculados.
+                  </div>
+
+                  <div>
+                    <label for="p_speciesDoseJson">Dosis estructuradas por especie para este procedimiento (JSON)</label>
+                    <textarea id="p_speciesDoseJson" placeholder='Pega JSON con dosis_por_especie para documentar tratamientos/dosis del procedimiento o para copiarlo al medicamento correspondiente.'></textarea>
+                    <div class="help">El JSON admite múltiples especies y múltiples dosis por especie. Se guarda con el procedimiento y se visualiza/exporta sin sustituir el desglose del animal.</div>
+                    <div class="row">
+                      <button class="btn small" type="button" id="p_applySpeciesDoseJson">✅ Validar y guardar JSON de dosis</button>
+                      <button class="btn small ghost" type="button" id="p_copySpeciesDoseJsonExample">🧪 Ejemplo dosis JSON</button>
+                    </div>
+                    <div class="list" id="p_speciesDoseList"></div>
                   </div>
 
                   <div id="p_individualMedicationControls" class="grid cols-4">
@@ -2210,18 +2229,13 @@
               <div class="sep"></div>
 
               <details open data-procedure-block="clinical">
-                <summary>4. Caso clínico</summary>
+                <summary>4. Tratamiento/procedimiento y seguimiento</summary>
                 <div class="inner grid">
 
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_cc_reason">Motivo de consulta</label>
-                      <textarea id="p_cc_reason"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_cc_anamnesis">Anamnesis</label>
-                      <textarea id="p_cc_anamnesis"></textarea>
-                    </div>
+                  <div>
+                    <label for="p_cc_anamnesis">Anamnesis / antecedentes</label>
+                    <textarea id="p_cc_anamnesis"></textarea>
+                    <div class="help">El motivo de consulta se captura una sola vez en el desglose central del animal.</div>
                   </div>
 
                   <div class="grid cols-4">
@@ -2243,7 +2257,7 @@
                     </div>
                   </div>
 
-                  <div class="grid cols-5">
+                  <div class="grid cols-3">
                     <div>
                       <label for="p_cc_fc">FC</label>
                       <input id="p_cc_fc" type="text" />
@@ -2255,14 +2269,6 @@
                     <div>
                       <label for="p_cc_temp">T°</label>
                       <input id="p_cc_temp" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_weight2">Peso</label>
-                      <input id="p_cc_weight2" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_age">Edad</label>
-                      <input id="p_cc_age" type="text" placeholder="Ej. 2 años, 6 meses" />
                     </div>
                   </div>
 
@@ -2279,17 +2285,17 @@
 
                   <div class="grid cols-2">
                     <div>
-                      <label for="p_cc_treatment">Tratamiento</label>
+                      <label for="p_cc_treatment">Tratamiento/procedimiento realizado e indicaciones</label>
                       <textarea id="p_cc_treatment"></textarea>
                     </div>
                     <div>
-                      <label for="p_cc_recommendations">Recomendaciones</label>
+                      <label for="p_cc_recommendations">Indicaciones / próximas revisiones</label>
                       <textarea id="p_cc_recommendations"></textarea>
                     </div>
                   </div>
 
                   <div>
-                    <label for="p_cc_followup">Seguimiento</label>
+                    <label for="p_cc_followup">Seguimiento y evolución</label>
                     <textarea id="p_cc_followup"></textarea>
                   </div>
 
