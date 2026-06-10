@@ -2044,7 +2044,7 @@
                     <div class="help">Esta decisión se define antes de mostrar captura individual y determina si el flujo será por tarjeta animal o bloque único grupal.</div>
                   </div>
 
-                  <div class="help">Primero define productor(a), fecha, tipo y modalidad. Los datos clínicos individuales del animal aparecen después de seleccionar animales.</div>
+                  <div class="help">Primero define productor(a), fecha, tipo y modalidad. Después captura el caso clínico individual del animal atendido.</div>
 
                   <div class="grid cols-2">
                     <div>
@@ -2075,7 +2075,7 @@
 
               <div class="sep"></div>
 
-              <details open>
+              <details open data-procedure-block="animal-breakdown">
                 <summary>2. Desglose central del animal</summary>
                 <div class="inner grid">
                   <div class="grid cols-4">
@@ -2229,120 +2229,130 @@
               <div class="sep"></div>
 
               <details open data-procedure-block="clinical">
-                <summary>4. Tratamiento/procedimiento y seguimiento</summary>
+                <summary>Caso clínico individual</summary>
                 <div class="inner grid">
 
-                  <div>
-                    <label for="p_cc_anamnesis">Anamnesis / antecedentes</label>
-                    <textarea id="p_cc_anamnesis"></textarea>
-                    <div class="help">El motivo de consulta se captura una sola vez en el desglose central del animal.</div>
-                  </div>
-
-                  <div class="grid cols-4">
-                    <div>
-                      <label for="p_cc_bodyCondition">CC</label>
-                      <input id="p_cc_bodyCondition" type="text" placeholder="Ej. 2/5" />
-                    </div>
-                    <div>
-                      <label for="p_cc_mucosa">Mucosas</label>
-                      <input id="p_cc_mucosa" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_tllc">TLLC</label>
-                      <input id="p_cc_tllc" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_hydration">% Hidratación / deshidratación</label>
-                      <input id="p_cc_hydration" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-3">
-                    <div>
-                      <label for="p_cc_fc">FC</label>
-                      <input id="p_cc_fc" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_fr">FR</label>
-                      <input id="p_cc_fr" type="text" />
-                    </div>
-                    <div>
-                      <label for="p_cc_temp">T°</label>
-                      <input id="p_cc_temp" type="text" />
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_cc_exam">Examen físico / hallazgos</label>
-                      <textarea id="p_cc_exam"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_cc_presumptiveDx">Diagnóstico presuntivo</label>
-                      <textarea id="p_cc_presumptiveDx"></textarea>
-                    </div>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_cc_treatment">Tratamiento/procedimiento realizado e indicaciones</label>
-                      <textarea id="p_cc_treatment"></textarea>
-                    </div>
-                    <div>
-                      <label for="p_cc_recommendations">Indicaciones / próximas revisiones</label>
-                      <textarea id="p_cc_recommendations"></textarea>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label for="p_cc_followup">Seguimiento y evolución</label>
-                    <textarea id="p_cc_followup"></textarea>
-                  </div>
-
-                  <div class="grid cols-2">
-                    <div>
-                      <label for="p_cc_outcome">Resultado final del caso</label>
-                      <select id="p_cc_outcome">
-                        <option value="">— Selecciona —</option>
-                        <option value="EN_SEGUIMIENTO">En seguimiento</option>
-                        <option value="ALTA">Alta / recuperado</option>
-                        <option value="REFERIDO">Referido</option>
-                        <option value="DECESO">Deceso</option>
-                      </select>
-                      <div class="help">Selecciona deceso si el paciente murió para marcarlo también en los animales del productor(a).</div>
-                    </div>
-                    <div>
-                      <label for="p_cc_deathCause">Posible causa de deceso</label>
-                      <textarea id="p_cc_deathCause" placeholder="Captura la causa probable si el resultado fue deceso."></textarea>
-                    </div>
-                  </div>
-                  <div class="card" style="margin-top:10px;">
-                    <h4>Seguimiento farmacológico</h4>
-                    <div class="help">Registra aplicaciones posteriores usando el inventario real y cálculo automático por especie/peso.</div>
+                  <section class="procedure-section">
+                    <h3>Animal atendido</h3>
+                    <div class="help">Un caso clínico corresponde a un solo animal. La información de productor(a), propietaria/o o responsable se conserva únicamente en Datos base del procedimiento.</div>
                     <div class="grid cols-3">
-                      <div><label for="p_cc_followMedDate">Fecha</label><input id="p_cc_followMedDate" type="date" /></div>
-                      <div><label for="p_cc_followMedSelect">Medicamento</label><select id="p_cc_followMedSelect"><option value="">— Selecciona —</option></select></div>
-                      <div><label for="p_cc_followMedRoute">Vía</label><input id="p_cc_followMedRoute" type="text" disabled /></div>
-                    </div>
-                    <div class="grid cols-2">
-                      <div><label for="p_cc_followMedCalc">Cálculo automático</label><textarea id="p_cc_followMedCalc" disabled></textarea></div>
-                      <div><label for="p_cc_followMedQty">Cantidad final aplicada (editable)</label><input id="p_cc_followMedQty" type="number" min="0" step="0.0001" /></div>
-                    </div>
-                    <div class="grid cols-2">
-                      <div><label for="p_cc_followMedObs">Observaciones</label><input id="p_cc_followMedObs" type="text" /></div>
-                      <div class="row" style="align-items:flex-end;">
-                        <button class="btn small" type="button" id="p_cc_followMedAdd">➕ Aplicar medicamento</button>
-                        <button class="btn small ghost" type="button" id="p_cc_followMedCancelEdit">Cancelar edición</button>
+                      <div>
+                        <label for="p_cc_registeredAnimal">Animal registrado del productor(a), si aplica</label>
+                        <select id="p_cc_registeredAnimal"></select>
+                      </div>
+                      <div>
+                        <label for="p_cc_animalName">Nombre o identificación del animal</label>
+                        <input id="p_cc_animalName" type="text" />
+                      </div>
+                      <div>
+                        <label for="p_cc_species">Especie</label>
+                        <input id="p_cc_species" type="text" />
                       </div>
                     </div>
-                    <div class="list" id="p_cc_followMedicationList"></div>
-                  </div>
+                    <div class="grid cols-4">
+                      <div><label for="p_cc_breed">Raza, línea, tipo o cruza</label><input id="p_cc_breed" type="text" /></div>
+                      <div><label for="p_cc_sex">Sexo</label><input id="p_cc_sex" type="text" /></div>
+                      <div><label for="p_cc_age">Edad</label><input id="p_cc_age" type="text" /></div>
+                      <div><label for="p_cc_weight">Peso</label><input id="p_cc_weight" type="number" min="0" step="0.01" placeholder="kg" /></div>
+                    </div>
+                    <div class="grid cols-3">
+                      <div><label for="p_cc_bodyCondition">Condición corporal</label><input id="p_cc_bodyCondition" type="text" placeholder="Ej. 2/5" /></div>
+                      <div><label for="p_cc_reproductiveStatus">Estado reproductivo, si aplica</label><input id="p_cc_reproductiveStatus" type="text" /></div>
+                      <div><label for="p_cc_animalObservations">Observaciones generales del animal</label><input id="p_cc_animalObservations" type="text" /></div>
+                    </div>
+                  </section>
 
-                  <div>
-                    <label>Medicamentos aplicados en este caso clínico</label>
-                    <div class="help">Cada registro agregado conserva dosis, vía, inventario y ajuste manual individual.</div>
-                    <div class="list" id="p_caseMedicationAppliedList"></div>
-                  </div>
+                  <section class="procedure-section">
+                    <h3>Evaluación clínica</h3>
+                    <div class="grid cols-2">
+                      <div><label for="p_cc_reason">Motivo de consulta</label><textarea id="p_cc_reason"></textarea></div>
+                      <div><label for="p_cc_anamnesis">Anamnesis</label><textarea id="p_cc_anamnesis"></textarea></div>
+                    </div>
+                    <h4>Constantes fisiológicas</h4>
+                    <div class="grid cols-4">
+                      <div><label for="p_cc_fc">FC</label><input id="p_cc_fc" type="text" /></div>
+                      <div><label for="p_cc_fr">FR</label><input id="p_cc_fr" type="text" /></div>
+                      <div><label for="p_cc_temp">Temperatura</label><input id="p_cc_temp" type="text" /></div>
+                      <div><label for="p_cc_mucosa">Mucosas</label><input id="p_cc_mucosa" type="text" /></div>
+                    </div>
+                    <div class="grid cols-3">
+                      <div><label for="p_cc_tllc">TLLC</label><input id="p_cc_tllc" type="text" /></div>
+                      <div><label for="p_cc_hydration">Hidratación/deshidratación</label><input id="p_cc_hydration" type="text" /></div>
+                      <div><label for="p_cc_otherSigns">Otros signos relevantes</label><input id="p_cc_otherSigns" type="text" /></div>
+                    </div>
+                    <div class="grid cols-2">
+                      <div><label for="p_cc_exam">Examen físico / hallazgos</label><textarea id="p_cc_exam"></textarea></div>
+                      <div><label for="p_cc_presumptiveDx">Diagnóstico presuntivo</label><textarea id="p_cc_presumptiveDx"></textarea></div>
+                    </div>
+                    <div class="grid cols-2">
+                      <div><label for="p_cc_differentialDx">Diagnósticos diferenciales, si aplica</label><textarea id="p_cc_differentialDx"></textarea></div>
+                      <div><label for="p_cc_tests">Pruebas realizadas, si aplica</label><textarea id="p_cc_tests"></textarea></div>
+                    </div>
+                  </section>
+
+                  <section class="procedure-section">
+                    <h3>Medicación e insumos por día</h3>
+                    <div class="help">Registra medicamentos e insumos por fecha. La dosis permite cantidad, unidad, base por kg, vía, frecuencia, duración y observaciones sin volver a pedir peso.</div>
+                    <div class="card clinical-day-editor">
+                      <h4>Día de medicación / seguimiento</h4>
+                      <div class="grid cols-3">
+                        <div><label for="p_cc_dayDate">Fecha</label><input id="p_cc_dayDate" type="date" /></div>
+                        <div><label for="p_cc_dayHour">Hora, si aplica</label><input id="p_cc_dayHour" type="time" /></div>
+                        <div><label for="p_cc_dayNotes">Observaciones del día</label><input id="p_cc_dayNotes" type="text" /></div>
+                      </div>
+                      <h4>Medicamento del día</h4>
+                      <div class="grid cols-4">
+                        <div><label for="p_cc_dayMedName">Medicamento administrado</label><input id="p_cc_dayMedName" type="text" /></div>
+                        <div><label for="p_cc_dayDoseQty">Dosis / cantidad</label><input id="p_cc_dayDoseQty" type="number" min="0" step="0.0001" /></div>
+                        <div><label for="p_cc_dayDoseUnit">Unidad</label><select id="p_cc_dayDoseUnit"><option value="">— Selecciona —</option><option>mg</option><option>g</option><option>µg</option><option>mL</option><option>L</option><option>gotas</option><option>tabletas</option><option>cápsulas</option><option>U.I.</option><option>Unidades Internacionales</option><option>Otra</option></select></div>
+                        <div><label for="p_cc_dayPerKg">Por cada cuántos kg aplica</label><input id="p_cc_dayPerKg" type="number" min="0" step="0.01" /></div>
+                      </div>
+                      <div class="grid cols-4">
+                        <div><label for="p_cc_dayRoute">Vía</label><input id="p_cc_dayRoute" type="text" /></div>
+                        <div><label for="p_cc_dayFrequency">Frecuencia</label><input id="p_cc_dayFrequency" type="text" /></div>
+                        <div><label for="p_cc_dayDuration">Duración</label><input id="p_cc_dayDuration" type="text" /></div>
+                        <div><label for="p_cc_dayMedObs">Observaciones del medicamento</label><input id="p_cc_dayMedObs" type="text" /></div>
+                      </div>
+                      <div class="row"><button class="btn small" type="button" id="p_cc_addDayMedication">➕ Agregar medicamento</button></div>
+                      <div class="list" id="p_cc_dayMedicationDraftList"></div>
+                      <h4>Insumo del día</h4>
+                      <div class="grid cols-3">
+                        <div><label for="p_cc_daySupplyName">Insumos utilizados</label><input id="p_cc_daySupplyName" type="text" /></div>
+                        <div><label for="p_cc_daySupplyQty">Cantidad de insumos</label><input id="p_cc_daySupplyQty" type="number" min="0" step="0.01" /></div>
+                        <div><label for="p_cc_daySupplyObs">Observaciones del insumo</label><input id="p_cc_daySupplyObs" type="text" /></div>
+                      </div>
+                      <div class="row"><button class="btn small" type="button" id="p_cc_addDaySupply">➕ Agregar insumo</button></div>
+                      <div class="list" id="p_cc_daySupplyDraftList"></div>
+                      <div class="row"><button class="btn small" type="button" id="p_cc_addClinicalDay">➕ Agregar día de seguimiento</button></div>
+                    </div>
+                    <div class="list" id="p_cc_clinicalDayList"></div>
+                  </section>
+
+                  <section class="procedure-section">
+                    <h3>Seguimiento</h3>
+                    <div class="grid cols-2">
+                      <div><label for="p_cc_recommendations">Indicaciones</label><textarea id="p_cc_recommendations"></textarea></div>
+                      <div><label for="p_cc_followup">Evolución</label><textarea id="p_cc_followup"></textarea></div>
+                    </div>
+                    <div class="grid cols-3">
+                      <div><label for="p_cc_nextReview">Próxima revisión</label><input id="p_cc_nextReview" type="date" /></div>
+                      <div><label for="p_cc_treatmentChanges">Cambios al tratamiento</label><input id="p_cc_treatmentChanges" type="text" /></div>
+                      <div><label for="p_cc_followupObservations">Observaciones de seguimiento</label><input id="p_cc_followupObservations" type="text" /></div>
+                    </div>
+                  </section>
+
+                  <section class="procedure-section">
+                    <h3>Pronóstico y desenlace</h3>
+                    <div class="grid cols-3">
+                      <div><label for="p_cc_prognosis">Pronóstico</label><select id="p_cc_prognosis"><option value="">— Selecciona —</option><option>Bueno</option><option>Reservado</option><option>Malo</option><option>Grave</option><option>Otro</option></select></div>
+                      <div><label for="p_cc_outcome">Estado final</label><select id="p_cc_outcome"><option value="">— Selecciona —</option><option value="EN_SEGUIMIENTO">En seguimiento</option><option value="ALTA">Dado de alta</option><option value="REFERIDO">Referido</option><option value="DECESO">Murió</option><option value="EUTANASIA">Eutanasia</option><option value="OTRO">Otro</option></select></div>
+                      <div><label for="p_cc_closeDate">Fecha de cierre, alta, referencia, muerte o eutanasia</label><input id="p_cc_closeDate" type="date" /></div>
+                    </div>
+                    <div class="grid cols-2">
+                      <div><label for="p_cc_deathCause">Observaciones finales</label><textarea id="p_cc_deathCause" placeholder="Si murió, captura fecha de muerte arriba y observaciones aquí."></textarea></div>
+                      <div><label for="p_cc_finalRecommendations">Recomendaciones finales</label><textarea id="p_cc_finalRecommendations" placeholder="Si se dio de alta, registra recomendaciones finales."></textarea></div>
+                    </div>
+                  </section>
 
                   <div>
                     <label>📸 Fotos del caso clínico</label>
