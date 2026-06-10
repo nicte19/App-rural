@@ -1962,8 +1962,24 @@
 
                   <div class="grid cols-4">
                     <div>
-                      <label for="p_producer">Productor(a) *</label>
+                      <label for="p_caseOwnerMode">Vinculación del caso</label>
+                      <select id="p_caseOwnerMode">
+                        <option value="REGISTERED">Productor(a) registrado</option>
+                        <option value="UNREGISTERED">Sin productor(a) registrado todavía</option>
+                      </select>
+                      <div class="help">Los casos clínicos sin productor podrán editarse después para vincularlos a un productor registrado.</div>
+                    </div>
+                    <div>
+                      <label for="p_producer">Productor(a)</label>
                       <select id="p_producer"></select>
+                    </div>
+                    <div>
+                      <label for="p_unregisteredClientName">Nombre de la persona atendida</label>
+                      <input id="p_unregisteredClientName" type="text" placeholder="Nombre si aún no está registrada" />
+                    </div>
+                    <div>
+                      <label for="p_unregisteredAnimalName">Paciente / animal sin registro</label>
+                      <input id="p_unregisteredAnimalName" type="text" placeholder="Ej. becerro negro, perro de casa" />
                     </div>
                     <div>
                       <label for="p_date">Fecha *</label>
@@ -2275,6 +2291,24 @@
                   <div>
                     <label for="p_cc_followup">Seguimiento</label>
                     <textarea id="p_cc_followup"></textarea>
+                  </div>
+
+                  <div class="grid cols-2">
+                    <div>
+                      <label for="p_cc_outcome">Resultado final del caso</label>
+                      <select id="p_cc_outcome">
+                        <option value="">— Selecciona —</option>
+                        <option value="EN_SEGUIMIENTO">En seguimiento</option>
+                        <option value="ALTA">Alta / recuperado</option>
+                        <option value="REFERIDO">Referido</option>
+                        <option value="DECESO">Deceso</option>
+                      </select>
+                      <div class="help">Selecciona deceso si el paciente murió para marcarlo también en los animales del productor(a).</div>
+                    </div>
+                    <div>
+                      <label for="p_cc_deathCause">Posible causa de deceso</label>
+                      <textarea id="p_cc_deathCause" placeholder="Captura la causa probable si el resultado fue deceso."></textarea>
+                    </div>
                   </div>
                   <div class="card" style="margin-top:10px;">
                     <h4>Seguimiento farmacológico</h4>
