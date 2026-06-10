@@ -42,6 +42,7 @@ const state = {
     procedureClinicalDayMedications: [],
     procedureClinicalDaySupplies: [],
     procedureClinicalDays: [],
+    procedureClinicalDayEditId: null,
     labImages: [],
     labSupplyUses: [],
   },
@@ -1334,6 +1335,7 @@ function clearProducerScopedDraftState() {
   state.draft.procedureClinicalDayMedications = [];
   state.draft.procedureClinicalDaySupplies = [];
   state.draft.procedureClinicalDays = [];
+  state.draft.procedureClinicalDayEditId = null;
   if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = "";
   if ($("#a_especie")) resetAnimalEntry();
   if ($("#a_diseaseList")) resetDiseaseForm();
@@ -3972,6 +3974,7 @@ function collectProcedure() {
   };
 }
 function saveProcedure() {
+  if (!persistActiveClinicalDayEdit()) return show("p_err", "El día de medicación en edición debe conservar al menos un medicamento o insumo, o elimínalo antes de guardar.", "error");
   const p = collectProcedure();
   if (!p.date || !p.type || !p.producerId) {
     show("p_err", "Fecha, tipo y productor(a) son obligatorios.", "error");
@@ -5748,6 +5751,7 @@ function renderProcedureSpeciesDoseList() {
 function resetClinicalDayEditor(keepDate = true) {
   const keep = keepDate ? { date: $("#p_cc_dayDate")?.value || "", hour: $("#p_cc_dayHour")?.value || "", notes: $("#p_cc_dayNotes")?.value || "" } : {};
   ["p_cc_dayMedSelect", "p_cc_dayMedName", "p_cc_dayDoseSelect", "p_cc_dayMedRoute", "p_cc_dayIndication", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayUnitBase", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs", "p_cc_daySupplySelect", "p_cc_daySupplyName", "p_cc_daySupplyQty", "p_cc_daySupplyObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  state.draft.procedureClinicalDayEditId = null;
   syncClinicalDayMedicationSelection();
   syncClinicalDaySupplySelection();
   if (!keepDate) ["p_cc_dayDate", "p_cc_dayHour", "p_cc_dayNotes"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
@@ -5756,6 +5760,12 @@ function resetClinicalDayEditor(keepDate = true) {
     if ($("#p_cc_dayHour")) $("#p_cc_dayHour").value = keep.hour;
     if ($("#p_cc_dayNotes")) $("#p_cc_dayNotes").value = keep.notes;
   }
+  updateClinicalDaySaveButton();
+}
+function updateClinicalDaySaveButton() {
+  const btn = $("#p_cc_addClinicalDay");
+  if (!btn) return;
+  btn.textContent = state.draft.procedureClinicalDayEditId ? "💾 Guardar cambios del día" : "➕ Agregar día de seguimiento";
 }
 
 function clinicalMedicationOptionLabel(m) {
@@ -5880,6 +5890,199 @@ function clinicalInventoryFromDays(days = []) {
   });
   return { meds, supplies };
 }
+function nextDateValue(dateValue) {
+  if (!dateValue) return "";
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+function cloneClinicalDayMedication(item = {}) {
+  const med = byId(state.meds, item.itemId);
+  return { ...item, id: uid("ccmed"), route: med?.route || item.route || "" };
+}
+function cloneClinicalDaySupply(item = {}) {
+  return { ...item, id: uid("ccsup") };
+}
+function cloneClinicalDay(day = {}, overrides = {}) {
+  return {
+    ...day,
+    id: uid("ccday"),
+    date: overrides.date ?? nextDateValue(day.date),
+    hour: overrides.hour ?? (day.hour || ""),
+    medications: (day.medications || []).map(cloneClinicalDayMedication),
+    supplies: (day.supplies || []).map(cloneClinicalDaySupply),
+    observations: day.observations || "",
+  };
+}
+function fillClinicalDayMedicationForm(item = {}) {
+  if ($("#p_cc_dayMedSelect")) $("#p_cc_dayMedSelect").value = item.external ? "__EXTERNAL__" : (item.itemId || "");
+  syncClinicalDayMedicationSelection();
+  if ($("#p_cc_dayMedName")) $("#p_cc_dayMedName").value = item.external ? (item.name || "") : "";
+  if ($("#p_cc_dayDoseSelect")) $("#p_cc_dayDoseSelect").value = "";
+  if ($("#p_cc_dayMedRoute")) $("#p_cc_dayMedRoute").value = byId(state.meds, item.itemId)?.route || item.route || "";
+  if ($("#p_cc_dayIndication")) $("#p_cc_dayIndication").value = item.indication || "";
+  if ($("#p_cc_dayDoseQty")) $("#p_cc_dayDoseQty").value = item.doseQty || "";
+  if ($("#p_cc_dayDoseUnit")) $("#p_cc_dayDoseUnit").value = item.doseUnit || "";
+  if ($("#p_cc_dayPerKg")) $("#p_cc_dayPerKg").value = item.perKg || "";
+  if ($("#p_cc_dayUnitBase")) $("#p_cc_dayUnitBase").value = item.unitBase || "";
+  if ($("#p_cc_dayFrequency")) $("#p_cc_dayFrequency").value = item.frequency || "";
+  if ($("#p_cc_dayDuration")) $("#p_cc_dayDuration").value = item.duration || "";
+  if ($("#p_cc_dayMedObs")) $("#p_cc_dayMedObs").value = item.observations || "";
+}
+function fillClinicalDaySupplyForm(item = {}) {
+  if ($("#p_cc_daySupplySelect")) $("#p_cc_daySupplySelect").value = item.external ? "__EXTERNAL__" : (item.itemId || "");
+  syncClinicalDaySupplySelection();
+  if ($("#p_cc_daySupplyName")) $("#p_cc_daySupplyName").value = item.external ? (item.name || "") : "";
+  if ($("#p_cc_daySupplyQty")) $("#p_cc_daySupplyQty").value = item.qty || "";
+  if ($("#p_cc_daySupplyObs")) $("#p_cc_daySupplyObs").value = item.observations || "";
+}
+function editClinicalDayMedication(id) {
+  const idx = (state.draft.procedureClinicalDayMedications || []).findIndex((item) => item.id === id);
+  if (idx < 0) return;
+  const [item] = state.draft.procedureClinicalDayMedications.splice(idx, 1);
+  fillClinicalDayMedicationForm(item);
+  renderProcedureDraftLists();
+  show("p_msg", "Medicamento cargado para editar. Ajusta los datos y vuelve a agregarlo al día.", "warning");
+}
+function editClinicalDaySupply(id) {
+  const idx = (state.draft.procedureClinicalDaySupplies || []).findIndex((item) => item.id === id);
+  if (idx < 0) return;
+  const [item] = state.draft.procedureClinicalDaySupplies.splice(idx, 1);
+  fillClinicalDaySupplyForm(item);
+  renderProcedureDraftLists();
+  show("p_msg", "Insumo cargado para editar. Ajusta los datos y vuelve a agregarlo al día.", "warning");
+}
+function loadClinicalDayForEdit(dayId) {
+  const day = (state.draft.procedureClinicalDays || []).find((item) => item.id === dayId);
+  if (!day) return;
+  state.draft.procedureClinicalDayEditId = day.id;
+  if ($("#p_cc_dayDate")) $("#p_cc_dayDate").value = day.date || "";
+  if ($("#p_cc_dayHour")) $("#p_cc_dayHour").value = day.hour || "";
+  if ($("#p_cc_dayNotes")) $("#p_cc_dayNotes").value = day.observations || "";
+  state.draft.procedureClinicalDayMedications = (day.medications || []).map((item) => ({ ...item }));
+  state.draft.procedureClinicalDaySupplies = (day.supplies || []).map((item) => ({ ...item }));
+  updateClinicalDaySaveButton();
+  renderProcedureDraftLists();
+  show("p_msg", "Día de medicación cargado para editar. Guarda los cambios del día antes de guardar el procedimiento.", "warning");
+}
+function duplicateClinicalDay(dayId) {
+  const original = (state.draft.procedureClinicalDays || []).find((item) => item.id === dayId);
+  if (!original) return;
+  const duplicated = cloneClinicalDay(original);
+  state.draft.procedureClinicalDays.push(duplicated);
+  loadClinicalDayForEdit(duplicated.id);
+  show("p_msg", "Tratamiento duplicado. Revisa fecha, hora, cantidades, medicamentos e insumos antes de guardar el procedimiento.", "success");
+}
+function addClinicalDayMedication() {
+  const selected = $("#p_cc_dayMedSelect")?.value || "";
+  const med = byId(state.meds, selected);
+  const external = selected === "__EXTERNAL__";
+  const name = external ? ($("#p_cc_dayMedName")?.value.trim() || "") : (med?.brand || "");
+  if (!name) return show("p_msg", "Selecciona un medicamento o captura uso externo.", "warning");
+  const doseQty = Number($("#p_cc_dayDoseQty")?.value || 0);
+  if (doseQty <= 0) return show("p_msg", "Captura cantidad usada/dosis del medicamento.", "warning");
+  state.draft.procedureClinicalDayMedications.push({
+    id: uid("ccmed"),
+    itemId: med?.id || "",
+    external,
+    name,
+    active: med?.active || "",
+    indication: $("#p_cc_dayIndication")?.value.trim() || "",
+    doseQty,
+    doseUnit: $("#p_cc_dayDoseUnit")?.value || med?.unit || "",
+    perKg: $("#p_cc_dayPerKg")?.value || "",
+    unitBase: $("#p_cc_dayUnitBase")?.value.trim() || "",
+    route: med?.route || $("#p_cc_dayMedRoute")?.value.trim() || "",
+    frequency: $("#p_cc_dayFrequency")?.value.trim() || "",
+    duration: $("#p_cc_dayDuration")?.value.trim() || "",
+    observations: $("#p_cc_dayMedObs")?.value.trim() || "",
+  });
+  ["p_cc_dayMedSelect", "p_cc_dayMedName", "p_cc_dayDoseSelect", "p_cc_dayMedRoute", "p_cc_dayIndication", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayUnitBase", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  syncClinicalDayMedicationSelection();
+  renderProcedureDraftLists();
+}
+function addClinicalDaySupply() {
+  const selected = $("#p_cc_daySupplySelect")?.value || "";
+  const supply = byId(state.supplies, selected);
+  const external = selected === "__EXTERNAL__";
+  const name = external ? ($("#p_cc_daySupplyName")?.value.trim() || "") : (supply?.name || "");
+  if (!name) return show("p_msg", "Selecciona un insumo o captura uso externo.", "warning");
+  const qty = Number($("#p_cc_daySupplyQty")?.value || 0);
+  if (qty <= 0) return show("p_msg", "Captura cantidad de insumo.", "warning");
+  state.draft.procedureClinicalDaySupplies.push({ id: uid("ccsup"), itemId: supply?.id || "", external, name, qty, observations: $("#p_cc_daySupplyObs")?.value.trim() || "", type: supply?.type || "EXTERNAL", unitCost: supply ? supplyDisplayCost(supply) : 0, owner: supply?.owner || "", stockBefore: supply ? supplyRemaining(supply) : "" });
+  ["p_cc_daySupplySelect", "p_cc_daySupplyName", "p_cc_daySupplyQty", "p_cc_daySupplyObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  syncClinicalDaySupplySelection();
+  renderProcedureDraftLists();
+}
+function persistActiveClinicalDayEdit() {
+  const editId = state.draft.procedureClinicalDayEditId;
+  if (!editId) return true;
+  if (!state.draft.procedureClinicalDayMedications.length && !state.draft.procedureClinicalDaySupplies.length) return false;
+  const idx = (state.draft.procedureClinicalDays || []).findIndex((item) => item.id === editId);
+  const updated = {
+    id: editId,
+    date: $("#p_cc_dayDate")?.value || "",
+    hour: $("#p_cc_dayHour")?.value || "",
+    medications: state.draft.procedureClinicalDayMedications.map((item) => ({ ...item, route: byId(state.meds, item.itemId)?.route || item.route || "" })),
+    supplies: state.draft.procedureClinicalDaySupplies.map((item) => ({ ...item })),
+    observations: $("#p_cc_dayNotes")?.value.trim() || "",
+  };
+  if (idx >= 0) state.draft.procedureClinicalDays[idx] = updated;
+  else state.draft.procedureClinicalDays.push(updated);
+  return true;
+}
+function addClinicalDay() {
+  if (!state.draft.procedureClinicalDayMedications.length && !state.draft.procedureClinicalDaySupplies.length) return show("p_msg", "Agrega al menos un medicamento o insumo al día.", "warning");
+  const day = {
+    id: state.draft.procedureClinicalDayEditId || uid("ccday"),
+    date: $("#p_cc_dayDate")?.value || "",
+    hour: $("#p_cc_dayHour")?.value || "",
+    medications: state.draft.procedureClinicalDayMedications.map((item) => ({ ...item, route: byId(state.meds, item.itemId)?.route || item.route || "" })),
+    supplies: state.draft.procedureClinicalDaySupplies.map((item) => ({ ...item })),
+    observations: $("#p_cc_dayNotes")?.value.trim() || "",
+  };
+  const idx = (state.draft.procedureClinicalDays || []).findIndex((item) => item.id === day.id);
+  if (idx >= 0) state.draft.procedureClinicalDays[idx] = day;
+  else state.draft.procedureClinicalDays.push(day);
+  state.draft.procedureClinicalDayMedications = [];
+  state.draft.procedureClinicalDaySupplies = [];
+  resetClinicalDayEditor(false);
+  renderProcedureDraftLists();
+}
+function renderClinicalDayItemDraftList(listId, arr, titleFn, editAttr, removeAttr) {
+  const list = $(listId);
+  if (!list) return;
+  list.innerHTML = arr.length ? arr.map((item) => `<div class="item"><div class="line">${esc(titleFn(item))}</div><div class="actions"><button class="btn small" type="button" ${editAttr}="${esc(item.id)}">Editar</button><button class="btn small bad" type="button" ${removeAttr}="${esc(item.id)}">Quitar</button></div></div>`).join("") : "";
+  list.querySelectorAll(`[${editAttr}]`).forEach((btn) => btn.addEventListener("click", () => editAttr.includes("med") ? editClinicalDayMedication(btn.getAttribute(editAttr)) : editClinicalDaySupply(btn.getAttribute(editAttr))));
+  list.querySelectorAll(`[${removeAttr}]`).forEach((btn) => btn.addEventListener("click", () => {
+    const id = btn.getAttribute(removeAttr);
+    if (removeAttr.includes("med")) state.draft.procedureClinicalDayMedications = (state.draft.procedureClinicalDayMedications || []).filter((item) => item.id !== id);
+    else state.draft.procedureClinicalDaySupplies = (state.draft.procedureClinicalDaySupplies || []).filter((item) => item.id !== id);
+    renderProcedureDraftLists();
+  }));
+}
+function renderClinicalDayDraftLists() {
+  renderClinicalDayItemDraftList("#p_cc_dayMedicationDraftList", state.draft.procedureClinicalDayMedications || [], (x) => `${x.name} · ${x.doseQty || ""} ${x.doseUnit || ""}${x.perKg ? ` / cada ${x.perKg} ${x.unitBase || "kg"}` : ""} · ${x.route || "Sin vía"} · ${x.frequency || "Sin frecuencia"}${x.external ? " · externo/no inventariado" : ""}`, "data-edit-clinical-day-med", "data-remove-clinical-day-med");
+  renderClinicalDayItemDraftList("#p_cc_daySupplyDraftList", state.draft.procedureClinicalDaySupplies || [], (x) => `${x.name} · ${x.qty || 0}`, "data-edit-clinical-day-supply", "data-remove-clinical-day-supply");
+  const list = $("#p_cc_clinicalDayList");
+  if (!list) return;
+  const days = state.draft.procedureClinicalDays || [];
+  list.innerHTML = days.length ? days.map((day) => `<div class="item"><h4>${esc(day.date || "Sin fecha")}${day.hour ? ` · ${esc(day.hour)}` : ""}${state.draft.procedureClinicalDayEditId === day.id ? " · Editando" : ""}</h4><div class="line"><b>Medicamentos:</b> ${esc((day.medications || []).map((m) => `${m.name} ${m.doseQty || ""} ${m.doseUnit || ""}`.trim()).join(" · ") || "Sin medicamentos")}</div><div class="line"><b>Insumos:</b> ${esc((day.supplies || []).map((sup) => `${sup.name} (${sup.qty || 0})`).join(" · ") || "Sin insumos")}</div><div class="line"><b>Observaciones:</b> ${esc(day.observations || "")}</div><div class="actions"><button class="btn small" type="button" data-edit-clinical-day="${esc(day.id)}">Editar</button><button class="btn small" type="button" data-duplicate-clinical-day="${esc(day.id)}">Duplicar tratamiento</button><button class="btn small bad" type="button" data-remove-clinical-day="${esc(day.id)}">Eliminar</button></div></div>`).join("") : '<div class="help">Aún no hay días de medicación o seguimiento agregados.</div>';
+  list.querySelectorAll("[data-edit-clinical-day]").forEach((btn) => btn.addEventListener("click", () => loadClinicalDayForEdit(btn.getAttribute("data-edit-clinical-day"))));
+  list.querySelectorAll("[data-duplicate-clinical-day]").forEach((btn) => btn.addEventListener("click", () => duplicateClinicalDay(btn.getAttribute("data-duplicate-clinical-day"))));
+  list.querySelectorAll("[data-remove-clinical-day]").forEach((btn) => btn.addEventListener("click", () => {
+    const id = btn.getAttribute("data-remove-clinical-day");
+    state.draft.procedureClinicalDays = (state.draft.procedureClinicalDays || []).filter((day) => day.id !== id);
+    if (state.draft.procedureClinicalDayEditId === id) {
+      state.draft.procedureClinicalDayMedications = [];
+      state.draft.procedureClinicalDaySupplies = [];
+      resetClinicalDayEditor(false);
+    }
+    renderProcedureDraftLists();
+  }));
+  updateClinicalDaySaveButton();
+}
 function previousInventoryQty(previous, collection, itemId) {
   return Number(((previous?.inventory?.[collection] || []).filter((item) => item.itemId === itemId).reduce((acc, item) => acc + Number(item.inventoryDeductionQty || item.totalUsedQty || item.chargeableQty || item.qty || 0), 0)).toFixed(4));
 }
@@ -5962,82 +6165,6 @@ function renderClinicalConsumptionSummary() {
   box.innerHTML = `<h4>Resumen de consumo y deuda</h4><div class="grid cols-3"><div><b>Medicamentos usados</b><ul>${medRows}</ul></div><div><b>Insumos usados</b><ul>${supRows}</ul></div><div><b>Deuda</b><ul>${debtRows}</ul></div></div><div class="line"><b>Costo total medicamentos:</b> ${money(summary.medsCost)} · <b>Costo total insumos:</b> ${money(summary.suppliesCost)} · <b>Total adeudado:</b> ${money(summary.debtTotal)}</div>`;
 }
 
-function addClinicalDayMedication() {
-  const selected = $("#p_cc_dayMedSelect")?.value || "";
-  const external = selected === "__EXTERNAL__";
-  const med = byId(state.meds, selected);
-  const name = external ? ($("#p_cc_dayMedName")?.value.trim() || "") : (med?.brand || "");
-  if (!selected) return show("p_msg", "Selecciona un medicamento del inventario o uso externo/no inventariado.", "warning");
-  if (!name) return show("p_msg", "Captura el medicamento externo/no inventariado.", "warning");
-  const doseQty = Number($("#p_cc_dayDoseQty")?.value || 0);
-  if (!doseQty) return show("p_msg", "Captura la cantidad usada del medicamento.", "warning");
-  state.draft.procedureClinicalDayMedications.push({
-    id: uid("ccmed"),
-    itemId: med?.id || "",
-    external,
-    name,
-    active: med?.active || "",
-    owner: med?.owner || "",
-    unitCost: Number(med?.unitCost || 0),
-    stockUnit: med?.unit || "",
-    stockBefore: med ? medRemaining(med) : "",
-    indication: $("#p_cc_dayIndication")?.value.trim() || "",
-    doseQty,
-    doseUnit: $("#p_cc_dayDoseUnit")?.value || med?.unit || "",
-    perKg: $("#p_cc_dayPerKg")?.value || "",
-    unitBase: $("#p_cc_dayUnitBase")?.value.trim() || "",
-    route: med?.route || $("#p_cc_dayMedRoute")?.value.trim() || "",
-    frequency: $("#p_cc_dayFrequency")?.value.trim() || "",
-    duration: $("#p_cc_dayDuration")?.value.trim() || "",
-    observations: $("#p_cc_dayMedObs")?.value.trim() || "",
-  });
-  ["p_cc_dayMedSelect", "p_cc_dayMedName", "p_cc_dayDoseSelect", "p_cc_dayMedRoute", "p_cc_dayIndication", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayUnitBase", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
-  syncClinicalDayMedicationSelection();
-  renderProcedureDraftLists();
-}
-function addClinicalDaySupply() {
-  const selected = $("#p_cc_daySupplySelect")?.value || "";
-  const external = selected === "__EXTERNAL__";
-  const supply = byId(state.supplies, selected);
-  const name = external ? ($("#p_cc_daySupplyName")?.value.trim() || "") : (supply?.name || "");
-  if (!selected) return show("p_msg", "Selecciona un insumo del inventario o uso externo/no inventariado.", "warning");
-  if (!name) return show("p_msg", "Captura el insumo externo/no inventariado.", "warning");
-  const qty = Number($("#p_cc_daySupplyQty")?.value || 0);
-  if (!qty) return show("p_msg", "Captura la cantidad usada del insumo.", "warning");
-  state.draft.procedureClinicalDaySupplies.push({ id: uid("ccsup"), itemId: supply?.id || "", external, name, qty, observations: $("#p_cc_daySupplyObs")?.value.trim() || "", type: supply?.type || "EXTERNAL", unitCost: supply ? supplyDisplayCost(supply) : 0, owner: supply?.owner || "", stockBefore: supply ? supplyRemaining(supply) : "" });
-  ["p_cc_daySupplySelect", "p_cc_daySupplyName", "p_cc_daySupplyQty", "p_cc_daySupplyObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
-  syncClinicalDaySupplySelection();
-  renderProcedureDraftLists();
-}
-function addClinicalDay() {
-  const date = $("#p_cc_dayDate")?.value || "";
-  if (!date) return show("p_msg", "Captura la fecha del día de medicación/seguimiento.", "warning");
-  if (!state.draft.procedureClinicalDayMedications.length && !state.draft.procedureClinicalDaySupplies.length) return show("p_msg", "Agrega al menos un medicamento o insumo al día.", "warning");
-  state.draft.procedureClinicalDays.push({
-    id: uid("ccday"),
-    date,
-    hour: $("#p_cc_dayHour")?.value || "",
-    medications: [...state.draft.procedureClinicalDayMedications],
-    supplies: [...state.draft.procedureClinicalDaySupplies],
-    observations: $("#p_cc_dayNotes")?.value.trim() || "",
-  });
-  state.draft.procedureClinicalDayMedications = [];
-  state.draft.procedureClinicalDaySupplies = [];
-  resetClinicalDayEditor(false);
-  renderProcedureDraftLists();
-}
-function renderClinicalDayDraftLists() {
-  renderSimpleList("#p_cc_dayMedicationDraftList", state.draft.procedureClinicalDayMedications || [], (x) => `${x.name} · ${x.doseQty || ""} ${x.doseUnit || ""}${x.perKg ? ` / cada ${x.perKg} ${x.unitBase || "kg"}` : ""} · ${x.route || "Sin vía"} · ${x.frequency || "Sin frecuencia"}${x.external ? " · externo/no inventariado" : ""}`);
-  renderSimpleList("#p_cc_daySupplyDraftList", state.draft.procedureClinicalDaySupplies || [], (x) => `${x.name} · ${x.qty || 0}`);
-  const list = $("#p_cc_clinicalDayList");
-  if (!list) return;
-  const days = state.draft.procedureClinicalDays || [];
-  list.innerHTML = days.length ? days.map((day) => `<div class="item"><h4>${esc(day.date || "Sin fecha")}${day.hour ? ` · ${esc(day.hour)}` : ""}</h4><div class="line"><b>Medicamentos:</b> ${esc((day.medications || []).map((m) => `${m.name} ${m.doseQty || ""} ${m.doseUnit || ""}`.trim()).join(" · ") || "Sin medicamentos")}</div><div class="line"><b>Insumos:</b> ${esc((day.supplies || []).map((sup) => `${sup.name} (${sup.qty || 0})`).join(" · ") || "Sin insumos")}</div><div class="line"><b>Observaciones:</b> ${esc(day.observations || "")}</div><div class="actions"><button class="btn small bad" type="button" data-remove-clinical-day="${esc(day.id)}">Eliminar</button></div></div>`).join("") : '<div class="help">Aún no hay días de medicación o seguimiento agregados.</div>';
-  list.querySelectorAll("[data-remove-clinical-day]").forEach((btn) => btn.addEventListener("click", () => {
-    state.draft.procedureClinicalDays = (state.draft.procedureClinicalDays || []).filter((day) => day.id !== btn.getAttribute("data-remove-clinical-day"));
-    renderProcedureDraftLists();
-  }));
-}
 function applyRegisteredClinicalAnimalToForm() {
   const animal = byId(currentAnimals(), $("#p_cc_registeredAnimal")?.value || "");
   if (!animal) return;
@@ -6494,6 +6621,7 @@ function collectProcedure() {
   };
 }
 function saveProcedure() {
+  if (!persistActiveClinicalDayEdit()) return show("p_err", "El día de medicación en edición debe conservar al menos un medicamento o insumo, o elimínalo antes de guardar.", "error");
   const p = collectProcedure();
   if (!p.date || !p.type) return show("p_err", "Fecha y tipo son obligatorios.", "error");
   if (!p.producerId && !(p.type === "CASO_CLINICO" && p.ownerMode === "UNREGISTERED")) return show("p_err", "Productor(a) es obligatorio salvo caso clínico sin productor registrado.", "error");
@@ -6564,6 +6692,7 @@ function resetProcedure() {
   state.draft.procedureClinicalDayMedications = [];
   state.draft.procedureClinicalDaySupplies = [];
   state.draft.procedureClinicalDays = [];
+  state.draft.procedureClinicalDayEditId = null;
   if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = "";
   resetProcedureFollowupMedicationForm();
   renderProcedureType(); renderProcedureDraftLists(); renderProcedureAnimalSelect();
@@ -6584,6 +6713,7 @@ function fillProcedure(p) {
   state.draft.procedureClinicalDayMedications = [];
   state.draft.procedureClinicalDaySupplies = [];
   state.draft.procedureClinicalDays = [...(p.caseClinical?.medicationDays || [])];
+  state.draft.procedureClinicalDayEditId = null;
   state.draft.procedureSpeciesDoses = (p.procedureSpeciesDoses || p.caseClinical?.structuredDoses || (p.dosis_por_especie ? flattenSpeciesDoseJson({ dosis_por_especie: p.dosis_por_especie }) : []));
   if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = state.draft.procedureSpeciesDoses.length ? JSON.stringify({ dosis_por_especie: groupSpeciesDoseRows(state.draft.procedureSpeciesDoses) }, null, 2) : "";
   resetProcedureFollowupMedicationForm();
