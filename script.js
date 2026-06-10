@@ -2518,6 +2518,7 @@ function normalizeDoseRow(raw = {}, speciesFallback = "") {
     porCada,
     unitBase,
     calculationMode,
+    indication: safe(raw.indication ?? raw.indicacion ?? raw.indicación ?? "").trim(),
     route: safe(raw.route ?? raw.via ?? raw.vía ?? "").trim(),
     frequency: safe(raw.frequency ?? raw.frecuencia ?? "").trim(),
     duration: safe(raw.duration ?? raw.duracion ?? raw.duración ?? "").trim(),
@@ -2541,7 +2542,7 @@ function groupSpeciesDoseRows(rows = []) {
     if (!map.has(normalized.species)) map.set(normalized.species, []);
     map.get(normalized.species).push(normalized);
   });
-  return Array.from(map.entries()).map(([species, dosis]) => ({ especie: species, dosis: dosis.map((row) => ({ cantidad: row.dose, unidad: row.doseUnit, por_cada: row.porCada || 1, unidad_base: row.unitBase || doseRuleDenominator(row.calculationMode) || "kg", via: row.route || "", frecuencia: row.frequency || "", duracion: row.duration || "", observaciones: row.notes || "" })) }));
+  return Array.from(map.entries()).map(([species, dosis]) => ({ especie: species, dosis: dosis.map((row) => ({ indicacion: row.indication || "", cantidad: row.dose, unidad: row.doseUnit, por_cada: row.porCada || 1, unidad_base: row.unitBase || doseRuleDenominator(row.calculationMode) || "kg", frecuencia: row.frequency || "", duracion: row.duration || "", observaciones: row.notes || "" })) }));
 }
 function validateSpeciesDoseRows(rows = []) {
   const errors = [];
@@ -2557,10 +2558,10 @@ function validateSpeciesDoseRows(rows = []) {
 }
 function speciesDoseSummary(row = {}) {
   const n = normalizeDoseRow(row);
-  return `${n.species}: ${n.dose} ${n.doseUnit}/${n.porCada || 1} ${n.unitBase || doseRuleDenominator(n.calculationMode)}${n.route ? ` · vía ${n.route}` : ""}${n.frequency ? ` · ${n.frequency}` : ""}${n.duration ? ` · ${n.duration}` : ""}${n.notes ? ` · ${n.notes}` : ""}`;
+  return `${n.species}: ${n.indication ? `${n.indication} · ` : ""}${n.dose} ${n.doseUnit}/${n.porCada || 1} ${n.unitBase || doseRuleDenominator(n.calculationMode)}${n.frequency ? ` · ${n.frequency}` : ""}${n.duration ? ` · ${n.duration}` : ""}${n.notes ? ` · ${n.notes}` : ""}`;
 }
 function speciesDoseJsonExample() {
-  return JSON.stringify({ dosis_por_especie: [{ especie: "Bovinos", dosis: [{ cantidad: 10000, unidad: "U.I.", por_cada: 50, unidad_base: "kg", via: "IM", frecuencia: "cada 24 h", duracion: "3 días", observaciones: "Ajustar según criterio clínico" }, { cantidad: 1, unidad: "mL", por_cada: 25, unidad_base: "kg", via: "SC", frecuencia: "dosis única", duracion: "1 aplicación", observaciones: "" }] }, { especie: "Perros", dosis: [{ cantidad: 0.5, unidad: "mL", por_cada: 10, unidad_base: "kg", via: "VO", frecuencia: "cada 12 h", duracion: "5 días", observaciones: "" }] }] }, null, 2);
+  return JSON.stringify({ dosis_por_especie: [{ especie: "Bovinos", dosis: [{ indicacion: "Infecciones susceptibles", cantidad: 10000, unidad: "U.I.", por_cada: 50, unidad_base: "kg", frecuencia: "cada 24 h", duracion: "3 días", observaciones: "Ajustar según criterio clínico" }, { indicacion: "Soporte terapéutico", cantidad: 1, unidad: "mL", por_cada: 25, unidad_base: "kg", frecuencia: "dosis única", duracion: "1 aplicación", observaciones: "" }] }, { especie: "Perros", dosis: [{ indicacion: "Tratamiento de referencia", cantidad: 0.5, unidad: "mL", por_cada: 10, unidad_base: "kg", frecuencia: "cada 12 h", duracion: "5 días", observaciones: "" }] }] }, null, 2);
 }
 
 function getMedicationSpeciesDoseRows() {
@@ -2569,20 +2570,32 @@ function getMedicationSpeciesDoseRows() {
       species: row.querySelector('[data-field="species"]')?.value.trim() || "",
       dose: row.querySelector('[data-field="dose"]')?.value || 0,
       doseUnit: row.querySelector('[data-field="doseUnit"]')?.value.trim() || "",
+      indication: row.querySelector('[data-field="indication"]')?.value.trim() || "",
       porCada: row.querySelector('[data-field="porCada"]')?.value || 1,
       unitBase: row.querySelector('[data-field="unitBase"]')?.value.trim() || "kg",
       calculationMode: row.querySelector('[data-field="calculationMode"]')?.value || "PER_KG",
-      route: row.querySelector('[data-field="route"]')?.value.trim() || "",
       frequency: row.querySelector('[data-field="frequency"]')?.value.trim() || "",
       duration: row.querySelector('[data-field="duration"]')?.value.trim() || "",
       notes: row.querySelector('[data-field="notes"]')?.value.trim() || "",
     }))
-    .filter((row) => row.species || row.dose || row.doseUnit || row.notes);
+    .filter((row) => row.species || row.dose || row.doseUnit || row.indication || row.notes);
+}
+function firstDoseRoute(rows = []) {
+  return (rows || []).map((row) => normalizeDoseRow(row).route).find((route) => route) || "";
+}
+function getIncomingGeneralRoute(payload = {}, rows = []) {
+  return safe(payload.via_administracion ?? payload.route ?? payload.via ?? payload.vía ?? payload.administration_route ?? firstDoseRoute(rows)).trim();
+}
+function fillGeneralRouteFromLegacyDose(payload = {}, rows = []) {
+  const route = getIncomingGeneralRoute(payload, rows);
+  const routeField = $("#m_route");
+  if (route && routeField && !routeField.value.trim()) routeField.value = route;
+  return route;
 }
 function renderMedicationSpeciesDoseRows(rows = []) {
   const box = $("#m_speciesDoseList");
   if (!box) return;
-  const normalizedRows = (rows || []).map((row) => normalizeDoseRow(row)).filter((row) => row.species || row.dose || row.doseUnit || row.notes);
+  const normalizedRows = (rows || []).map((row) => normalizeDoseRow(row)).filter((row) => row.species || row.dose || row.doseUnit || row.indication || row.notes);
   if (!normalizedRows.length) {
     box.innerHTML =
       '<div class="help">Todavía no hay dosis por especie. Agrégalas o pega JSON para que procedimientos usen medicamentos existentes con cálculo automático por animal.</div>';
@@ -2598,14 +2611,16 @@ function renderMedicationSpeciesDoseRows(rows = []) {
         <div><label>Por cada</label><input data-field="porCada" type="number" min="0.0001" step="0.0001" value="${esc(row.porCada || 1)}" /></div>
         <div><label>Unidad base</label><select data-field="unitBase"><option value="kg" ${row.unitBase === "kg" ? "selected" : ""}>kg</option><option value="animal" ${row.unitBase === "animal" ? "selected" : ""}>animal</option><option value="L" ${row.unitBase === "L" ? "selected" : ""}>L</option><option value="kg alimento" ${row.unitBase === "kg alimento" ? "selected" : ""}>kg alimento</option></select></div>
       </div>
-      <div class="grid cols-5">
+      <div class="grid cols-4">
         <div><label>Regla compatible</label><select data-field="calculationMode"><option value="PER_KG" ${row.calculationMode === "PER_KG" ? "selected" : ""}>Por peso/base kg</option><option value="PER_ANIMAL" ${row.calculationMode === "PER_ANIMAL" ? "selected" : ""}>Por animal</option><option value="PER_LITER" ${row.calculationMode === "PER_LITER" ? "selected" : ""}>Por litro</option><option value="PER_KG_FEED" ${row.calculationMode === "PER_KG_FEED" ? "selected" : ""}>Por kg alimento</option></select></div>
-        <div><label>Vía</label><input data-field="route" type="text" value="${esc(row.route || "")}" placeholder="IM, SC, VO..." /></div>
         <div><label>Frecuencia</label><input data-field="frequency" type="text" value="${esc(row.frequency || "")}" placeholder="cada 24 h" /></div>
         <div><label>Duración</label><input data-field="duration" type="text" value="${esc(row.duration || "")}" placeholder="3 días" /></div>
         <div style="display:flex;align-items:flex-end;"><button class="btn small bad" type="button" data-action="remove">Quitar</button></div>
       </div>
-      <div><label>Observaciones</label><input data-field="notes" type="text" value="${esc(row.notes || "")}" placeholder="Opcional" /></div>
+      <div class="grid cols-2">
+        <div><label>Indicación</label><input data-field="indication" type="text" value="${esc(row.indication || "")}" placeholder="Ej. Infecciones susceptibles" /></div>
+        <div><label>Observaciones</label><input data-field="notes" type="text" value="${esc(row.notes || "")}" placeholder="Opcional" /></div>
+      </div>
     </div>`,
     )
     .join("");
@@ -2861,7 +2876,11 @@ function fillMed(m) {
   });
   renderMedStockType();
   renderMedicationConcentrationMode();
-  renderMedicationSpeciesDoseRows((m.speciesDoses || []).length ? m.speciesDoses : flattenSpeciesDoseJson(m.dosis_por_especie ? { dosis_por_especie: m.dosis_por_especie } : {}));
+  const loadedSpeciesDoses = (m.speciesDoses || []).length
+    ? m.speciesDoses
+    : (m.dosis_por_especie ? flattenSpeciesDoseJson({ dosis_por_especie: m.dosis_por_especie }) : []);
+  fillGeneralRouteFromLegacyDose(m, loadedSpeciesDoses);
+  renderMedicationSpeciesDoseRows(loadedSpeciesDoses);
   state.draft.medRxPhoto = m.photos?.rx || null;
   state.draft.medTicketPhoto = m.photos?.ticket || null;
   setThumb("m_rx_preview", state.draft.medRxPhoto, "Sin<br/>receta");
@@ -2921,6 +2940,58 @@ function renderMedList() {
     list.appendChild(item);
   });
 }
+function safeSetMedicationJsonField(id, incomingValue, label, applied = { fields: 0, skipped: 0 }) {
+  const el = $("#" + id);
+  if (!el) return applied;
+  const incoming = safe(incomingValue).trim();
+  if (!incoming) {
+    applied.skipped += 1;
+    return applied;
+  }
+  const current = safe(el.value).trim();
+  if (!current) {
+    el.value = incoming;
+    applied.fields += 1;
+    return applied;
+  }
+  if (current === incoming) return applied;
+  const replace = window.confirm(`El campo “${label}” ya tiene información. ¿Deseas reemplazarla con el JSON?\n\nAceptar = reemplazar\nCancelar = conservar lo capturado`);
+  if (replace) {
+    el.value = incoming;
+    applied.fields += 1;
+  } else {
+    applied.skipped += 1;
+  }
+  return applied;
+}
+function chooseSpeciesDoseMergeMode(existingCount = 0, incomingCount = 0) {
+  if (!existingCount) return "append";
+  const answer = window.prompt(
+    `Ya existen ${existingCount} dosis estructurada(s) y el JSON trae ${incomingCount}.\n\nEscribe una opción:\n1 = Agregar dosis nuevas sin borrar las existentes (seguro, recomendado)\n2 = Reemplazar dosis existentes\n3 = Cancelar`,
+    "1",
+  );
+  const normalized = safe(answer).trim().toLowerCase();
+  if (!normalized || normalized === "1" || normalized.startsWith("agregar")) return "append";
+  if (normalized === "2" || normalized.startsWith("reemplazar")) {
+    return window.confirm("Confirmación explícita: ¿reemplazar y borrar las dosis estructuradas existentes?") ? "replace" : "cancel";
+  }
+  return "cancel";
+}
+function applySpeciesDoseRowsSafely(rows = [], statusTarget = "ai_status", payload = {}) {
+  const errors = validateSpeciesDoseRows(rows);
+  if (errors.length) throw new Error(errors[0]);
+  fillGeneralRouteFromLegacyDose(payload, rows);
+  const existing = getMedicationSpeciesDoseRows();
+  const mode = chooseSpeciesDoseMergeMode(existing.length, rows.length);
+  if (mode === "cancel") {
+    show(statusTarget, "Aplicación de dosis cancelada; no se modificaron las dosis existentes.", "warning");
+    return { applied: false, count: 0, mode };
+  }
+  const finalRows = mode === "replace" ? rows : existing.concat(rows);
+  renderMedicationSpeciesDoseRows(finalRows);
+  return { applied: true, count: rows.length, mode };
+}
+
 function bindMeds() {
   renderMedMode();
   renderMedicationSpeciesDoseRows([]);
@@ -2978,7 +3049,7 @@ function bindMeds() {
       porCada: 1,
       unitBase: "kg",
       calculationMode: "PER_KG",
-      route: "",
+      indication: "",
       frequency: "",
       duration: "",
       notes: "",
@@ -2988,11 +3059,12 @@ function bindMeds() {
 
   $("#m_applySpeciesDoseJson")?.addEventListener("click", () => {
     try {
-      const rows = flattenSpeciesDoseJson(JSON.parse($("#m_speciesDoseJson")?.value || "{}"));
-      const errors = validateSpeciesDoseRows(rows);
-      if (errors.length) throw new Error(errors[0]);
-      renderMedicationSpeciesDoseRows(rows);
-      show("ai_status", `JSON de dosis aplicado: ${rows.length} dosis.`, "success");
+      const payload = JSON.parse($("#m_speciesDoseJson")?.value || "{}");
+      const rows = flattenSpeciesDoseJson(payload);
+      const result = applySpeciesDoseRowsSafely(rows, "ai_status", payload);
+      if (result.applied) {
+        show("ai_status", `JSON de dosis aplicado: ${rows.length} dosis ${result.mode === "append" ? "agregadas sin borrar las existentes" : "reemplazadas por confirmación"}.`, "success");
+      }
     } catch (error) {
       show("ai_status", error.message || "JSON de dosis inválido.", "error");
     }
@@ -3006,29 +3078,33 @@ function bindMeds() {
   $("#ai_fillFromJson")?.addEventListener("click", () => {
     try {
       const j = JSON.parse($("#ai_result").value);
+      const stats = { fields: 0, skipped: 0 };
       Object.entries({
-        m_use: j.use,
-        m_mech: j.mech,
-        m_adverse: j.adverse,
-        m_preg: j.preg,
-        m_pk: j.pk,
-        m_overdose: j.overdose,
-        m_interactions: j.interactions,
-        m_dosing: j.dosing,
-      }).forEach(([k, v]) => ($("#" + k).value = safe(v)));
+        m_use: [j.use, "Uso"],
+        m_mech: [j.mech, "Mecanismo de acción"],
+        m_adverse: [j.adverse, "Efectos adversos"],
+        m_preg: [j.preg, "Precauciones"],
+        m_pk: [j.pk, "Farmacocinética"],
+        m_overdose: [j.overdose, "Sobredosis"],
+        m_interactions: [j.interactions, "Interacciones"],
+        m_dosing: [j.dosing, "Dosing"],
+      }).forEach(([k, [v, label]]) => safeSetMedicationJsonField(k, v, label, stats));
+      safeSetMedicationJsonField("m_route", j.via_administracion ?? j.route ?? j.via ?? j.vía, "Vía de administración", stats);
+      let doseMessage = "sin dosis estructuradas en el JSON";
       if (j.dosis_por_especie || j.speciesDoses || j.dosesBySpecies) {
         const rows = flattenSpeciesDoseJson(j);
-        const errors = validateSpeciesDoseRows(rows);
-        if (errors.length) throw new Error(errors[0]);
-        renderMedicationSpeciesDoseRows(rows);
+        const result = applySpeciesDoseRowsSafely(rows, "ai_status", j);
+        doseMessage = result.applied
+          ? `${rows.length} dosis ${result.mode === "append" ? "agregadas sin borrar las existentes" : "reemplazadas por confirmación"}`
+          : "dosis no aplicadas por cancelación";
       }
-      show("ai_status", "JSON aplicado correctamente.", "success");
+      show("ai_status", `JSON aplicado con merge seguro: ${stats.fields} campo(s) llenado(s)/actualizado(s), ${stats.skipped} conservado(s), ${doseMessage}.`, "success");
     } catch (err) {
-      show("ai_status", "JSON inválido.", "error");
+      show("ai_status", err.message || "JSON inválido.", "error");
     }
   });
   $("#ai_copyExample")?.addEventListener("click", async () => {
-    const example = JSON.stringify({ use: "Para control antiparasitario", mech: "Actúa sobre canales iónicos", adverse: "Puede causar depresión o vómito", preg: "Usar con criterio veterinario", pk: "Absorción lenta y vida media prolongada", overdose: "Neurológico", interactions: "Precaución con otros lactonas macrocíclicas", dosing: "Según peso vivo y especie", dosis_por_especie: JSON.parse(speciesDoseJsonExample()).dosis_por_especie }, null, 2);
+    const example = JSON.stringify({ use: "Para control antiparasitario", mech: "Actúa sobre canales iónicos", adverse: "Puede causar depresión o vómito", preg: "Usar con criterio veterinario", pk: "Absorción lenta y vida media prolongada", overdose: "Neurológico", interactions: "Precaución con otros lactonas macrocíclicas", dosing: "Según peso vivo y especie", via_administracion: "Subcutánea e intramuscular", dosis_por_especie: JSON.parse(speciesDoseJsonExample()).dosis_por_especie }, null, 2);
     $("#ai_result").value = example;
     await navigator.clipboard.writeText(example);
     show("ai_status", "Ejemplo JSON copiado y pegado en el resultado.", "success");
@@ -4756,6 +4832,10 @@ function getProcedureAnimalMedicationSummary(entry) {
     requiredActiveUnit: converted?.requiredActiveUnit || "",
     conversionApplied: Boolean(converted?.conversionApplied),
     conversionExplanation: converted?.explanation || "",
+    indication: profile?.indication || "",
+    frequency: profile?.frequency || "",
+    duration: profile?.duration || "",
+    observations: profile?.notes || "",
     warning,
     summary: med
       ? profile
@@ -4843,9 +4923,11 @@ function normalizeEntryMedicationApplied(entry = {}) {
       calculatedSuggestionUnit: entry.suggestedDoseUnit || "",
       finalAppliedAmount: Number(entry.convertedDoseQty || 0) || 0,
       finalUnit: entry.convertedDoseUnit || entry.suggestedDoseUnit || "",
-      route: entry.doseRoute || med?.route || "",
+      indication: entry.doseIndication || "",
+      route: med?.route || "",
       frequency: entry.doseFrequency || "",
       duration: entry.doseDuration || "",
+      observations: entry.doseObservations || "",
       concentrationSummary: usesStructuredConcentration(med) ? (medicationConcentrationSummary(med) || "") : "Modo sin concentración estructurada",
       expiryDate: med?.expiry || "",
       expiryStatus: medicationExpiryInfo(med?.expiry || "").text,
@@ -4876,9 +4958,11 @@ function addMedicationAppliedToEntry(entry) {
     calculatedSuggestionUnit: entry.suggestedDoseUnit || "",
     finalAppliedAmount: Number(entry.convertedDoseQty || 0) || 0,
     finalUnit: entry.convertedDoseUnit || entry.suggestedDoseUnit || "",
-    route: entry.doseRoute || med?.route || "",
+    indication: entry.doseIndication || "",
+    route: med?.route || "",
     frequency: entry.doseFrequency || "",
     duration: entry.doseDuration || "",
+    observations: entry.doseObservations || "",
     concentrationSummary: usesStructuredConcentration(med) ? (medicationConcentrationSummary(med) || "") : "Modo sin concentración estructurada",
     expiryDate: med?.expiry || "",
     expiryStatus: medicationExpiryInfo(med?.expiry || "").text,
@@ -4898,9 +4982,11 @@ function addMedicationAppliedToEntry(entry) {
   entry.doseCalculationMode = "";
   entry.dosePorCada = 1;
   entry.doseUnitBase = "";
+  entry.doseIndication = "";
   entry.doseRoute = "";
   entry.doseFrequency = "";
   entry.doseDuration = "";
+  entry.doseObservations = "";
   entry.theoreticalDoseTotal = 0;
   entry.suggestedDoseQty = 0;
   entry.suggestedDoseUnit = "";
@@ -4947,9 +5033,11 @@ function syncProcedureAnimalSummary(entry) {
   entry.doseCalculationMode = medSummary.mode;
   entry.dosePorCada = medSummary.profile?.porCada || 1;
   entry.doseUnitBase = medSummary.profile?.unitBase || doseRuleDenominator(medSummary.mode);
-  entry.doseRoute = medSummary.profile?.route || "";
-  entry.doseFrequency = medSummary.profile?.frequency || "";
-  entry.doseDuration = medSummary.profile?.duration || "";
+  entry.doseIndication = medSummary.indication || "";
+  entry.doseRoute = medSummary.med?.route || "";
+  entry.doseFrequency = medSummary.frequency || "";
+  entry.doseDuration = medSummary.duration || "";
+  entry.doseObservations = medSummary.observations || "";
   entry.medicationName = medSummary.med?.brand || "";
   entry.medicationWarning = medSummary.warning || "";
   entry.suggestedDoseQty = Number(medSummary.convertedDoseQty || medSummary.theoreticalDoseTotal || 0);
