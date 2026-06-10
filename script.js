@@ -2242,31 +2242,27 @@ function ensureAnaRosaDebtState() {
 function reconcileAnaRosaDebtFromProcedures() {
   ensureAnaRosaDebtState();
   const activeByKey = new Map((state.anaRosaDebt.records || []).map((item) => [item.debtKey, item]));
-  const paidByKey = new Set((state.anaRosaDebt.paidHistory || []).map((item) => item.debtKey));
+  const paidByKey = new Set((state.anaRosaDebt.paidHistory || []).filter((item) => item.paymentStatus === "Pagado" || item.paid).map((item) => item.debtKey));
   const rebuilt = [];
   (state.procedures || []).forEach((proc) => {
-    (proc.inventory?.meds || []).forEach((use) => {
-      const med = byId(state.meds, use.itemId);
-      if (!med || med.owner !== "DRA_ANA_ROSA") return;
-      const applied = resolveMedicationAppliedAmount({
-        med,
-        qty: use.inventoryDeductionQty || use.totalUsedQty || use.chargeableQty || use.qty || 0,
-        unit: use.inventoryDeductionUnit || use.unit || med.unit || "",
-      });
-      const qtyUsed = Number(applied.qty || 0);
-      if (qtyUsed <= 0) return;
-      const amount = Number((qtyUsed * Number(use.unitCost || med.unitCost || 0)).toFixed(2));
-      const debtKey = `${proc.id}::${use.itemId}`;
+    procedureDebtRecords(proc).forEach((debt) => {
+      const debtKey = `${proc.id}::${debt.kind}::${debt.itemId}`;
       const base = activeByKey.get(debtKey) || {
         id: uid("debt"),
         debtKey,
         procedureId: proc.id,
-        procedureLabel: `${proc.date || "Sin fecha"} · ${proc.type || "Procedimiento"}`,
-        date: proc.date || "",
-        medicationId: med.id,
-        medicationName: med.brand || "Medicamento",
+        procedureLabel: debt.procedureLabel,
+        date: debt.date,
+        paymentStatus: "Pendiente",
       };
-      rebuilt.push({ ...base, qtyUsed, unit: applied.unit || med.unit || "", amount, paid: false });
+      rebuilt.push({
+        ...base,
+        ...debt,
+        debtKey,
+        amount: debt.amount,
+        paid: false,
+        paymentStatus: base.paymentStatus && base.paymentStatus !== "Pagado" ? base.paymentStatus : "Pendiente",
+      });
     });
   });
   state.anaRosaDebt.records = rebuilt.filter((item) => !paidByKey.has(item.debtKey));
@@ -2280,17 +2276,17 @@ function renderAnaRosaDebtSidebar() {
   const total = (state.anaRosaDebt.records || []).reduce((acc, item) => acc + Number(item.amount || 0), 0);
   totalEl.textContent = money(total);
   activeEl.innerHTML = (state.anaRosaDebt.records || []).length
-    ? state.anaRosaDebt.records.map((item) => `<div class="item"><div class="line"><b>Procedimiento:</b> ${esc(item.procedureLabel || item.procedureId || "")}</div><div class="line"><b>Fecha:</b> ${esc(item.date || "")}</div><div class="line"><b>Medicamento:</b> ${esc(item.medicationName || "")}</div><div class="line"><b>Cantidad usada:</b> ${Number(item.qtyUsed || 0).toFixed(2)} ${esc(item.unit || "")}</div><div class="line"><b>Monto:</b> ${money(item.amount || 0)}</div><div class="actions"><button class="btn small" type="button" data-mark-debt-paid="${esc(item.id)}">Marcar como pagado</button></div></div>`).join("")
+    ? state.anaRosaDebt.records.map((item) => `<div class="item"><div class="line"><b>Procedimiento:</b> ${esc(item.procedureLabel || item.procedureId || "")}</div><div class="line"><b>Fecha:</b> ${esc(item.date || "")}</div><div class="line"><b>Concepto:</b> ${esc(item.kind || "")} · ${esc(item.itemName || item.medicationName || "")}</div><div class="line"><b>Productor(a) / animal:</b> ${esc(item.producerName || "")} · ${esc(item.animalName || "")}</div><div class="line"><b>Persona propietaria:</b> ${esc(medOwnerLabel(item.owner || ""))}</div><div class="line"><b>Cantidad usada:</b> ${Number(item.qtyUsed || 0).toFixed(2)} ${esc(item.unit || "")}</div><div class="line"><b>Costo unitario:</b> ${money(item.unitCost || 0)} · <b>Monto:</b> ${money(item.amount || 0)}</div><div class="line"><b>Estado:</b> ${esc(item.paymentStatus || "Pendiente")}</div><div class="actions"><button class="btn small" type="button" data-mark-debt-paid="${esc(item.id)}">Marcar como pagado</button></div></div>`).join("")
     : '<div class="help">Sin deuda activa con Dra. Ana Rosa.</div>';
   paidEl.innerHTML = (state.anaRosaDebt.paidHistory || []).length
-    ? state.anaRosaDebt.paidHistory.slice().reverse().map((item) => `<div class="item"><div class="line"><b>${esc(item.medicationName || "")}</b> · ${money(item.amount || 0)}</div><div class="help">${esc(item.date || "")} · ${esc(item.procedureLabel || "")}</div></div>`).join("")
+    ? state.anaRosaDebt.paidHistory.slice().reverse().map((item) => `<div class="item"><div class="line"><b>${esc(item.itemName || item.medicationName || "")}</b> · ${money(item.amount || 0)}</div><div class="help">${esc(item.date || "")} · ${esc(item.procedureLabel || "")}</div></div>`).join("")
     : '<div class="help">Sin pagos registrados todavía.</div>';
   activeEl.querySelectorAll('[data-mark-debt-paid]').forEach((btn) => btn.addEventListener('click', () => {
     const id = btn.getAttribute('data-mark-debt-paid');
     const record = (state.anaRosaDebt.records || []).find((item) => item.id === id);
     if (!record) return;
     state.anaRosaDebt.records = state.anaRosaDebt.records.filter((item) => item.id !== id);
-    state.anaRosaDebt.paidHistory.push({ ...record, paidAt: new Date().toISOString(), paid: true });
+    state.anaRosaDebt.paidHistory.push({ ...record, paidAt: new Date().toISOString(), paid: true, paymentStatus: "Pagado" });
     saveState();
     renderAll();
   }));
@@ -3322,6 +3318,7 @@ function collectSupply() {
     type,
     name: $("#s_name").value.trim(),
     acquired: $("#s_acquired").value,
+    owner: $("#s_owner")?.value || "SERVICIOS",
     donated: checked("s_donated"),
     presentation: $("#s_presentation").value.trim(),
     qty,
@@ -3373,6 +3370,7 @@ function fillSupply(s) {
   Object.entries({
     s_name: s.name,
     s_acquired: s.acquired,
+    s_owner: s.owner || "SERVICIOS",
     s_presentation: s.presentation,
     s_qty: s.qty,
     s_price: s.price,
@@ -3398,7 +3396,7 @@ function renderSupplyList() {
   state.supplies.forEach((s) => {
     const item = document.createElement("div");
     item.className = "item";
-    item.innerHTML = `<h4>${esc(s.name)}</h4><div class="line"><b>Tipo:</b> ${s.type === "NON_DISPOSABLE" ? "No desechable" : "Desechable"}</div><div class="line"><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</div><div class="line"><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    item.innerHTML = `<h4>${esc(s.name)}</h4><div class="line"><b>Tipo:</b> ${s.type === "NON_DISPOSABLE" ? "No desechable" : "Desechable"}</div><div class="line"><b>Pertenece a:</b> ${esc(medOwnerLabel(s.owner || "SERVICIOS"))}</div><div class="line"><b>Disponibilidad:</b> ${esc(supplyRemaining(s))}</div><div class="line"><b>${s.type === "NON_DISPOSABLE" ? "Costo por uso" : "Costo unitario real"}:</b> ${money(supplyDisplayCost(s))}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
     const [edit, w, e, del] = item.querySelectorAll("button");
     edit.onclick = () => fillSupply(s);
     w.onclick = () =>
@@ -3578,6 +3576,7 @@ function populateInventorySelects() {
         )
         .join("");
   }
+  populateClinicalDayInventorySelectors();
 }
 function isUnregisteredClinicalCase() {
   return $("#p_type")?.value === "CASO_CLINICO" && $("#p_caseOwnerMode")?.value === "UNREGISTERED";
@@ -3752,6 +3751,7 @@ function renderProcedureDraftLists() {
   const breakdown = calculateProcedureCharge();
   $("#p_chargeCalculated").value = breakdown.total.toFixed(2);
   renderProcedureChargeBreakdown(breakdown);
+  renderClinicalConsumptionSummary();
 }
 function calculateProcedureChargeBreakdown() {
   const meds = (state.draft.procedureMedUses || []).map((x) => {
@@ -4116,7 +4116,7 @@ function fillProcedure(p) {
   renderProcedureAnimalSelect();
   state.draft.procedureMedUses = [...(p.inventory?.meds || [])];
   state.draft.procedureVaccineUses = [...(p.inventory?.vaccines || [])];
-  state.draft.procedureSupplyUses = [...(p.inventory?.supplies || [])];
+  state.draft.procedureSupplyUses = [...(p.inventory?.supplies || []).filter((item) => item.source !== "CLINICAL_DAY")];
   state.draft.procedureLabIds = [...(p.labIds || [])];
   state.draft.procedureCasePhotos = [...(p.caseClinical?.photos || [])];
   state.draft.procedureNecropsyPhotos = [...(p.necropsy?.photos || [])];
@@ -4169,7 +4169,11 @@ function bindProcedures() {
       $("#p_producer").value || state.selectedProducerId;
     renderProcedureAnimalSelect();
   });
-  $("#p_cc_registeredAnimal")?.addEventListener("change", applyRegisteredClinicalAnimalToForm);
+  $("#p_cc_registeredAnimal")?.addEventListener("change", () => { applyRegisteredClinicalAnimalToForm(); syncClinicalDayMedicationSelection(); renderProcedureDraftLists(); });
+  $("#p_cc_dayMedSelect")?.addEventListener("change", syncClinicalDayMedicationSelection);
+  $("#p_cc_dayDoseSelect")?.addEventListener("change", applyClinicalDoseSelection);
+  $("#p_cc_daySupplySelect")?.addEventListener("change", syncClinicalDaySupplySelection);
+  $("#p_cc_species")?.addEventListener("input", syncClinicalDayMedicationSelection);
   $("#p_cc_addDayMedication")?.addEventListener("click", addClinicalDayMedication);
   $("#p_cc_addDaySupply")?.addEventListener("click", addClinicalDaySupply);
   $("#p_cc_addClinicalDay")?.addEventListener("click", addClinicalDay);
@@ -5743,7 +5747,9 @@ function renderProcedureSpeciesDoseList() {
 }
 function resetClinicalDayEditor(keepDate = true) {
   const keep = keepDate ? { date: $("#p_cc_dayDate")?.value || "", hour: $("#p_cc_dayHour")?.value || "", notes: $("#p_cc_dayNotes")?.value || "" } : {};
-  ["p_cc_dayMedName", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayRoute", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs", "p_cc_daySupplyName", "p_cc_daySupplyQty", "p_cc_daySupplyObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  ["p_cc_dayMedSelect", "p_cc_dayMedName", "p_cc_dayDoseSelect", "p_cc_dayMedRoute", "p_cc_dayIndication", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayUnitBase", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs", "p_cc_daySupplySelect", "p_cc_daySupplyName", "p_cc_daySupplyQty", "p_cc_daySupplyObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  syncClinicalDayMedicationSelection();
+  syncClinicalDaySupplySelection();
   if (!keepDate) ["p_cc_dayDate", "p_cc_dayHour", "p_cc_dayNotes"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
   else {
     if ($("#p_cc_dayDate")) $("#p_cc_dayDate").value = keep.date;
@@ -5751,28 +5757,256 @@ function resetClinicalDayEditor(keepDate = true) {
     if ($("#p_cc_dayNotes")) $("#p_cc_dayNotes").value = keep.notes;
   }
 }
+
+function clinicalMedicationOptionLabel(m) {
+  return [
+    m.brand || "Medicamento",
+    m.active ? `Activo: ${m.active}` : "Sin sustancia activa",
+    m.presentation || m.stockType || "Sin presentación",
+    `Existencia: ${Number(medRemaining(m) || 0).toFixed(2)} ${m.unit || ""}`.trim(),
+    `Pertenece a: ${medOwnerLabel(m.owner || "SERVICIOS") || "Sin propietario"}`,
+    `Vía: ${m.route || "Sin vía"}`,
+    `Costo: ${money(m.unitCost || 0)}/${m.unit || "u"}`,
+  ].join(" · ");
+}
+function clinicalSupplyOptionLabel(s) {
+  return [
+    s.name || "Insumo",
+    s.type === "NON_DISPOSABLE" ? "No desechable" : "Desechable",
+    `Existencia: ${supplyRemaining(s)} ${s.type === "NON_DISPOSABLE" ? "" : "pzas"}`.trim(),
+    `Pertenece a: ${medOwnerLabel(s.owner || "SERVICIOS")}`,
+    `Costo: ${money(supplyDisplayCost(s))}/${s.type === "NON_DISPOSABLE" ? "uso" : "pieza"}`,
+  ].join(" · ");
+}
+function populateClinicalDayInventorySelectors() {
+  const medSelect = $("#p_cc_dayMedSelect");
+  if (medSelect) {
+    const prev = medSelect.value || "";
+    medSelect.innerHTML = '<option value="">— Selecciona medicamento de inventario —</option><option value="__EXTERNAL__">Uso externo/no inventariado</option>' + state.meds.map((m) => `<option value="${m.id}">${esc(clinicalMedicationOptionLabel(m))}</option>`).join("");
+    medSelect.value = state.meds.some((m) => m.id === prev) || prev === "__EXTERNAL__" ? prev : "";
+  }
+  const supplySelect = $("#p_cc_daySupplySelect");
+  if (supplySelect) {
+    const prev = supplySelect.value || "";
+    supplySelect.innerHTML = '<option value="">— Selecciona insumo de inventario —</option><option value="__EXTERNAL__">Uso externo/no inventariado</option>' + state.supplies.map((sup) => `<option value="${sup.id}">${esc(clinicalSupplyOptionLabel(sup))}</option>`).join("");
+    supplySelect.value = state.supplies.some((sup) => sup.id === prev) || prev === "__EXTERNAL__" ? prev : "";
+  }
+  syncClinicalDayMedicationSelection();
+  syncClinicalDaySupplySelection();
+}
+function clinicalDoseRowsForMedication(med) {
+  const rows = (med?.speciesDoses || []).map((row) => normalizeDoseRow(row)).filter((row) => row.species || row.dose || row.doseUnit || row.indication);
+  const species = normalizeSpeciesRef($("#p_cc_species")?.value || "");
+  if (!species) return rows;
+  const matching = rows.filter((row) => normalizeSpeciesRef(row.species) === species);
+  return matching.length ? matching : rows;
+}
+function syncClinicalDayDoseOptions(med) {
+  const doseSelect = $("#p_cc_dayDoseSelect");
+  if (!doseSelect) return;
+  const rows = clinicalDoseRowsForMedication(med);
+  doseSelect.innerHTML = '<option value="">— Dosis manual/editable —</option>' + rows.map((row, index) => `<option value="${index}">${esc(speciesDoseSummary(row))}</option>`).join("");
+  doseSelect.dataset.medicationId = med?.id || "";
+  doseSelect.dataset.doses = JSON.stringify(rows);
+}
+function applyClinicalDoseSelection() {
+  const doseSelect = $("#p_cc_dayDoseSelect");
+  if (!doseSelect || doseSelect.value === "") return;
+  const rows = JSON.parse(doseSelect.dataset.doses || "[]");
+  const row = normalizeDoseRow(rows[Number(doseSelect.value)] || {});
+  if ($("#p_cc_dayIndication")) $("#p_cc_dayIndication").value = row.indication || "";
+  if ($("#p_cc_dayDoseQty")) $("#p_cc_dayDoseQty").value = row.dose || "";
+  if ($("#p_cc_dayDoseUnit")) $("#p_cc_dayDoseUnit").value = row.doseUnit || "";
+  if ($("#p_cc_dayPerKg")) $("#p_cc_dayPerKg").value = row.porCada || "";
+  if ($("#p_cc_dayUnitBase")) $("#p_cc_dayUnitBase").value = row.unitBase || doseRuleDenominator(row.calculationMode) || "";
+  if ($("#p_cc_dayFrequency")) $("#p_cc_dayFrequency").value = row.frequency || "";
+  if ($("#p_cc_dayDuration")) $("#p_cc_dayDuration").value = row.duration || "";
+  if ($("#p_cc_dayMedObs")) $("#p_cc_dayMedObs").value = row.notes || "";
+}
+function syncClinicalDayMedicationSelection() {
+  const selected = $("#p_cc_dayMedSelect")?.value || "";
+  const med = byId(state.meds, selected);
+  const external = selected === "__EXTERNAL__";
+  const externalInput = $("#p_cc_dayMedName");
+  if (externalInput) {
+    externalInput.disabled = !external;
+    if (!external) externalInput.value = "";
+  }
+  if ($("#p_cc_dayMedRoute")) $("#p_cc_dayMedRoute").value = med?.route || "";
+  if ($("#p_cc_dayMedInfo")) $("#p_cc_dayMedInfo").textContent = med ? clinicalMedicationOptionLabel(med) : external ? "Uso externo/no inventariado: no descuenta existencias ni genera deuda." : "Selecciona un medicamento para ver nombre comercial, sustancia activa, existencia, unidad, costo, pertenencia y dosis.";
+  syncClinicalDayDoseOptions(med);
+  if (med) {
+    if ($("#p_cc_dayDoseUnit") && !$("#p_cc_dayDoseUnit").value) $("#p_cc_dayDoseUnit").value = med.unit || "";
+    const rows = clinicalDoseRowsForMedication(med);
+    if (rows.length && $("#p_cc_dayDoseSelect")) {
+      $("#p_cc_dayDoseSelect").value = "0";
+      applyClinicalDoseSelection();
+    }
+  }
+}
+function syncClinicalDaySupplySelection() {
+  const selected = $("#p_cc_daySupplySelect")?.value || "";
+  const supply = byId(state.supplies, selected);
+  const external = selected === "__EXTERNAL__";
+  const externalInput = $("#p_cc_daySupplyName");
+  if (externalInput) {
+    externalInput.disabled = !external;
+    if (!external) externalInput.value = "";
+  }
+  if ($("#p_cc_daySupplyInfo")) $("#p_cc_daySupplyInfo").textContent = supply ? clinicalSupplyOptionLabel(supply) : external ? "Uso externo/no inventariado: no descuenta existencias ni genera deuda." : "Selecciona un insumo para ver categoría, existencia, unidad, costo y pertenencia.";
+}
+function ownerCreatesDebt(owner) {
+  return owner && owner !== "SERVICIOS";
+}
+function clinicalInventoryFromDays(days = []) {
+  const meds = [];
+  const supplies = [];
+  (days || []).forEach((day) => {
+    (day.medications || []).forEach((item) => {
+      if (!item.itemId || item.external) return;
+      const med = byId(state.meds, item.itemId);
+      if (!med) return;
+      const applied = resolveMedicationAppliedAmount({ med, qty: item.doseQty || 0, unit: item.doseUnit || med.unit || "" });
+      meds.push({
+        id: item.id || uid("ccmed"), itemId: med.id, name: med.brand, unit: applied.unit || med.unit || "", unitCost: Number(med.unitCost || 0), owner: med.owner || "SERVICIOS", route: med.route || "", theoreticalQty: Number(item.doseQty || 0), theoreticalUnit: item.doseUnit || med.unit || "", qty: Number(applied.qty || 0), totalUsedQty: Number(applied.qty || 0), inventoryDeductionQty: Number(applied.qty || 0), inventoryDeductionUnit: applied.unit || med.unit || "", chargeableQty: Number(applied.qty || 0), source: "CLINICAL_DAY", applicationDate: day.date, notes: item.observations || "", calculationSummary: item.indication || "Día de medicación / seguimiento",
+      });
+    });
+    (day.supplies || []).forEach((item) => {
+      if (!item.itemId || item.external) return;
+      const sup = byId(state.supplies, item.itemId);
+      if (!sup) return;
+      supplies.push({ id: item.id || uid("ccsup"), itemId: sup.id, name: sup.name, qty: Number(item.qty || 0), notes: item.observations || "", type: sup.type, unitCost: supplyDisplayCost(sup), owner: sup.owner || "SERVICIOS", source: "CLINICAL_DAY", applicationDate: day.date });
+    });
+  });
+  return { meds, supplies };
+}
+function previousInventoryQty(previous, collection, itemId) {
+  return Number(((previous?.inventory?.[collection] || []).filter((item) => item.itemId === itemId).reduce((acc, item) => acc + Number(item.inventoryDeductionQty || item.totalUsedQty || item.chargeableQty || item.qty || 0), 0)).toFixed(4));
+}
+function validateClinicalDayInventory(p, previous) {
+  const problems = [];
+  const medTotals = new Map();
+  const supplyTotals = new Map();
+  (p.inventory?.meds || []).filter((item) => item.source === "CLINICAL_DAY").forEach((item) => medTotals.set(item.itemId, Number((Number(medTotals.get(item.itemId) || 0) + Number(item.inventoryDeductionQty || item.qty || 0)).toFixed(4))));
+  (p.inventory?.supplies || []).filter((item) => item.source === "CLINICAL_DAY").forEach((item) => supplyTotals.set(item.itemId, Number((Number(supplyTotals.get(item.itemId) || 0) + Number(item.qty || 0)).toFixed(4))));
+  medTotals.forEach((required, itemId) => {
+    const med = byId(state.meds, itemId);
+    if (!med) return problems.push("No se encontró un medicamento de día clínico seleccionado.");
+    const available = Number(medRemaining(med) || 0) + previousInventoryQty(previous, "meds", med.id);
+    if (required > available + 0.0001) problems.push(`No hay stock suficiente de ${med.brand} para día clínico. Disponible: ${available.toFixed(2)} ${med.unit || ""}. Requerido: ${required.toFixed(2)} ${med.unit || ""}.`);
+  });
+  supplyTotals.forEach((required, itemId) => {
+    const sup = byId(state.supplies, itemId);
+    if (!sup) return problems.push("No se encontró un insumo de día clínico seleccionado.");
+    if (sup.type === "NON_DISPOSABLE") return;
+    const available = Number(supplyRemaining(sup) || 0) + previousInventoryQty(previous, "supplies", sup.id);
+    if (required > available + 0.0001) problems.push(`No hay existencia suficiente de ${sup.name}. Disponible: ${available.toFixed(2)} piezas. Requerido: ${required.toFixed(2)}.`);
+  });
+  return problems;
+}
+function procedureDebtRecords(p) {
+  const person = procedureProducerName(p) || p.producerName || "";
+  const animal = p.identification || p.caseClinical?.animalName || "";
+  const grouped = new Map();
+  const addDebtItem = (item) => {
+    const key = `${item.kind}::${item.itemId}`;
+    const current = grouped.get(key) || { ...item, qtyUsed: 0, amount: 0 };
+    current.qtyUsed = Number((Number(current.qtyUsed || 0) + Number(item.qtyUsed || 0)).toFixed(4));
+    current.amount = Number((Number(current.amount || 0) + Number(item.qtyUsed || 0) * Number(item.unitCost || 0)).toFixed(2));
+    grouped.set(key, current);
+  };
+  (p.inventory?.meds || []).forEach((use) => {
+    const med = byId(state.meds, use.itemId);
+    const owner = med?.owner || use.owner || "";
+    if (!ownerCreatesDebt(owner)) return;
+    const qty = Number(use.inventoryDeductionQty || use.totalUsedQty || use.chargeableQty || use.qty || 0);
+    if (qty <= 0) return;
+    addDebtItem({ kind: "Medicamento", itemId: use.itemId, itemName: use.name || med?.brand || "Medicamento", qtyUsed: qty, unit: use.inventoryDeductionUnit || use.unit || med?.unit || "", unitCost: Number(use.unitCost || med?.unitCost || 0), owner });
+  });
+  (p.inventory?.supplies || []).forEach((use) => {
+    const sup = byId(state.supplies, use.itemId);
+    const owner = sup?.owner || use.owner || "";
+    if (!ownerCreatesDebt(owner)) return;
+    const qty = Number(use.qty || 0);
+    if (qty <= 0) return;
+    addDebtItem({ kind: "Insumo", itemId: use.itemId, itemName: use.name || sup?.name || "Insumo", qtyUsed: qty, unit: use.type === "NON_DISPOSABLE" ? "usos" : "pzas", unitCost: Number(use.unitCost || supplyDisplayCost(sup || {}) || 0), owner });
+  });
+  return Array.from(grouped.values()).map((item) => ({ ...item, procedureId: p.id, procedureLabel: `${p.date || "Sin fecha"} · ${p.type || "Procedimiento"}`, date: p.date || "", producerName: person, animalName: animal, paymentStatus: "Pendiente" }));
+}
+function buildProcedureInventoryMovements(p) {
+  const movements = [];
+  (p.inventory?.meds || []).forEach((item) => {
+    if (!item.itemId || Number(item.inventoryDeductionQty || item.qty || 0) <= 0) return;
+    movements.push({ id: uid("mov"), procedureId: p.id, date: p.date, type: "SALIDA", category: "MEDICAMENTO", itemId: item.itemId, itemName: item.name, qty: Number(item.inventoryDeductionQty || item.qty || 0), unit: item.inventoryDeductionUnit || item.unit || "", source: item.source || item.applicationMode || "PROCEDURE" });
+  });
+  (p.inventory?.supplies || []).forEach((item) => {
+    if (!item.itemId || Number(item.qty || 0) <= 0) return;
+    movements.push({ id: uid("mov"), procedureId: p.id, date: p.date, type: "SALIDA", category: "INSUMO", itemId: item.itemId, itemName: item.name, qty: Number(item.qty || 0), unit: item.type === "NON_DISPOSABLE" ? "usos" : "pzas", source: item.source || "PROCEDURE" });
+  });
+  return movements;
+}
+function consumptionDebtSummary(p = collectProcedure()) {
+  const meds = (p.inventory?.meds || []).filter((item) => item.source === "CLINICAL_DAY" || item.source === "FOLLOWUP" || item.applicationMode || item.itemId);
+  const supplies = p.inventory?.supplies || [];
+  const debt = procedureDebtRecords(p);
+  return { meds, supplies, debt, medsCost: meds.reduce((acc, item) => acc + Number(item.inventoryDeductionQty || item.qty || 0) * Number(item.unitCost || 0), 0), suppliesCost: supplies.reduce((acc, item) => acc + Number(item.qty || 0) * Number(item.unitCost || 0), 0), debtTotal: debt.reduce((acc, item) => acc + Number(item.amount || 0), 0) };
+}
+function renderClinicalConsumptionSummary() {
+  const box = $("#p_cc_consumptionDebtSummary");
+  if (!box) return;
+  const p = collectProcedure();
+  const summary = consumptionDebtSummary(p);
+  const medRows = summary.meds.map((m) => `<li>${esc(m.name || "Medicamento")} · ${Number(m.inventoryDeductionQty || m.qty || 0).toFixed(2)} ${esc(m.inventoryDeductionUnit || m.unit || "")} · restante: ${esc(m.itemId ? medRemaining(byId(state.meds, m.itemId) || {}) : "N/A")} · ${money(Number(m.inventoryDeductionQty || m.qty || 0) * Number(m.unitCost || 0))}</li>`).join("") || "<li>Sin medicamentos usados.</li>";
+  const supRows = summary.supplies.map((sup) => `<li>${esc(sup.name || "Insumo")} · ${Number(sup.qty || 0).toFixed(2)} ${esc(sup.type === "NON_DISPOSABLE" ? "usos" : "pzas")} · restante: ${esc(sup.itemId ? supplyRemaining(byId(state.supplies, sup.itemId) || {}) : "N/A")} · ${money(Number(sup.qty || 0) * Number(sup.unitCost || 0))}</li>`).join("") || "<li>Sin insumos usados.</li>";
+  const debtRows = summary.debt.map((d) => `<li>${esc(d.itemName)} · ${Number(d.qtyUsed || 0).toFixed(2)} ${esc(d.unit || "")} · ${money(d.amount || 0)} · ${esc(medOwnerLabel(d.owner))} · ${esc(d.paymentStatus || "Pendiente")}</li>`).join("") || "<li>Sin deuda con personas propietarias externas.</li>";
+  box.innerHTML = `<h4>Resumen de consumo y deuda</h4><div class="grid cols-3"><div><b>Medicamentos usados</b><ul>${medRows}</ul></div><div><b>Insumos usados</b><ul>${supRows}</ul></div><div><b>Deuda</b><ul>${debtRows}</ul></div></div><div class="line"><b>Costo total medicamentos:</b> ${money(summary.medsCost)} · <b>Costo total insumos:</b> ${money(summary.suppliesCost)} · <b>Total adeudado:</b> ${money(summary.debtTotal)}</div>`;
+}
+
 function addClinicalDayMedication() {
-  const name = $("#p_cc_dayMedName")?.value.trim() || "";
-  if (!name) return show("p_msg", "Captura el medicamento administrado.", "warning");
+  const selected = $("#p_cc_dayMedSelect")?.value || "";
+  const external = selected === "__EXTERNAL__";
+  const med = byId(state.meds, selected);
+  const name = external ? ($("#p_cc_dayMedName")?.value.trim() || "") : (med?.brand || "");
+  if (!selected) return show("p_msg", "Selecciona un medicamento del inventario o uso externo/no inventariado.", "warning");
+  if (!name) return show("p_msg", "Captura el medicamento externo/no inventariado.", "warning");
+  const doseQty = Number($("#p_cc_dayDoseQty")?.value || 0);
+  if (!doseQty) return show("p_msg", "Captura la cantidad usada del medicamento.", "warning");
   state.draft.procedureClinicalDayMedications.push({
     id: uid("ccmed"),
+    itemId: med?.id || "",
+    external,
     name,
-    doseQty: Number($("#p_cc_dayDoseQty")?.value || 0),
-    doseUnit: $("#p_cc_dayDoseUnit")?.value || "",
+    active: med?.active || "",
+    owner: med?.owner || "",
+    unitCost: Number(med?.unitCost || 0),
+    stockUnit: med?.unit || "",
+    stockBefore: med ? medRemaining(med) : "",
+    indication: $("#p_cc_dayIndication")?.value.trim() || "",
+    doseQty,
+    doseUnit: $("#p_cc_dayDoseUnit")?.value || med?.unit || "",
     perKg: $("#p_cc_dayPerKg")?.value || "",
-    route: $("#p_cc_dayRoute")?.value.trim() || "",
+    unitBase: $("#p_cc_dayUnitBase")?.value.trim() || "",
+    route: med?.route || $("#p_cc_dayMedRoute")?.value.trim() || "",
     frequency: $("#p_cc_dayFrequency")?.value.trim() || "",
     duration: $("#p_cc_dayDuration")?.value.trim() || "",
     observations: $("#p_cc_dayMedObs")?.value.trim() || "",
   });
-  ["p_cc_dayMedName", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayRoute", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  ["p_cc_dayMedSelect", "p_cc_dayMedName", "p_cc_dayDoseSelect", "p_cc_dayMedRoute", "p_cc_dayIndication", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayUnitBase", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  syncClinicalDayMedicationSelection();
   renderProcedureDraftLists();
 }
 function addClinicalDaySupply() {
-  const name = $("#p_cc_daySupplyName")?.value.trim() || "";
-  if (!name) return show("p_msg", "Captura el insumo utilizado.", "warning");
-  state.draft.procedureClinicalDaySupplies.push({ id: uid("ccsup"), name, qty: Number($("#p_cc_daySupplyQty")?.value || 0), observations: $("#p_cc_daySupplyObs")?.value.trim() || "" });
-  ["p_cc_daySupplyName", "p_cc_daySupplyQty", "p_cc_daySupplyObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  const selected = $("#p_cc_daySupplySelect")?.value || "";
+  const external = selected === "__EXTERNAL__";
+  const supply = byId(state.supplies, selected);
+  const name = external ? ($("#p_cc_daySupplyName")?.value.trim() || "") : (supply?.name || "");
+  if (!selected) return show("p_msg", "Selecciona un insumo del inventario o uso externo/no inventariado.", "warning");
+  if (!name) return show("p_msg", "Captura el insumo externo/no inventariado.", "warning");
+  const qty = Number($("#p_cc_daySupplyQty")?.value || 0);
+  if (!qty) return show("p_msg", "Captura la cantidad usada del insumo.", "warning");
+  state.draft.procedureClinicalDaySupplies.push({ id: uid("ccsup"), itemId: supply?.id || "", external, name, qty, observations: $("#p_cc_daySupplyObs")?.value.trim() || "", type: supply?.type || "EXTERNAL", unitCost: supply ? supplyDisplayCost(supply) : 0, owner: supply?.owner || "", stockBefore: supply ? supplyRemaining(supply) : "" });
+  ["p_cc_daySupplySelect", "p_cc_daySupplyName", "p_cc_daySupplyQty", "p_cc_daySupplyObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
+  syncClinicalDaySupplySelection();
   renderProcedureDraftLists();
 }
 function addClinicalDay() {
@@ -5793,7 +6027,7 @@ function addClinicalDay() {
   renderProcedureDraftLists();
 }
 function renderClinicalDayDraftLists() {
-  renderSimpleList("#p_cc_dayMedicationDraftList", state.draft.procedureClinicalDayMedications || [], (x) => `${x.name} · ${x.doseQty || ""} ${x.doseUnit || ""}${x.perKg ? ` / cada ${x.perKg} kg` : ""} · ${x.route || "Sin vía"} · ${x.frequency || "Sin frecuencia"}`);
+  renderSimpleList("#p_cc_dayMedicationDraftList", state.draft.procedureClinicalDayMedications || [], (x) => `${x.name} · ${x.doseQty || ""} ${x.doseUnit || ""}${x.perKg ? ` / cada ${x.perKg} ${x.unitBase || "kg"}` : ""} · ${x.route || "Sin vía"} · ${x.frequency || "Sin frecuencia"}${x.external ? " · externo/no inventariado" : ""}`);
   renderSimpleList("#p_cc_daySupplyDraftList", state.draft.procedureClinicalDaySupplies || [], (x) => `${x.name} · ${x.qty || 0}`);
   const list = $("#p_cc_clinicalDayList");
   if (!list) return;
@@ -5866,6 +6100,7 @@ function renderProcedureDraftLists() {
   const breakdown = calculateProcedureCharge();
   $("#p_chargeCalculated").value = breakdown.total.toFixed(2);
   renderProcedureChargeBreakdown(breakdown);
+  renderClinicalConsumptionSummary();
 }
 function getProcedureFollowupAnimalContext() {
   const fromDraft = (state.draft.procedureAnimalEntries || [])[0];
@@ -6150,6 +6385,7 @@ function collectProcedure() {
   const medicationApplicationMode = getProcedureMedicationApplicationMode();
   const groupMedication = calculateGroupMedicationDraft();
   const aggregated = aggregateProcedureInventoryFromAnimals(animals);
+  const clinicalDayInventory = clinicalInventoryFromDays(state.draft.procedureClinicalDays || []);
   const followupInventoryMeds = (state.draft.procedureFollowupMedicationEntries || []).map((item) => ({
     id: item.id || uid("pmed"),
     itemId: item.medicationId,
@@ -6206,9 +6442,9 @@ function collectProcedure() {
     groupMedication,
     animals: animals,
     inventory: {
-      meds: [...aggregated.meds, ...followupInventoryMeds],
+      meds: [...aggregated.meds, ...followupInventoryMeds, ...clinicalDayInventory.meds],
       vaccines: aggregated.vaccines,
-      supplies: [...state.draft.procedureSupplyUses],
+      supplies: [...state.draft.procedureSupplyUses, ...clinicalDayInventory.supplies],
     },
     procedureSpeciesDoses: [...(state.draft.procedureSpeciesDoses || [])],
     dosis_por_especie: groupSpeciesDoseRows(state.draft.procedureSpeciesDoses || []),
@@ -6297,6 +6533,9 @@ function saveProcedure() {
     return required > available + 0.0001 ? `No hay stock suficiente de ${med.brand} para seguimiento. Disponible: ${available.toFixed(2)} ${med.unit || ""}. Requerido: ${required.toFixed(2)} ${item.unit || med.unit || ""}.` : "";
   }).filter(Boolean);
   if (followupStockProblems.length) return show("p_err", followupStockProblems[0], "error");
+  const clinicalStockProblems = validateClinicalDayInventory(p, previous);
+  if (clinicalStockProblems.length) return show("p_err", clinicalStockProblems[0], "error");
+  p.inventoryMovements = buildProcedureInventoryMovements(p);
   if (idx >= 0) state.procedures[idx] = p; else state.procedures.unshift(p);
   reconcileAnaRosaDebtFromProcedures();
   applyClinicalOutcomeToRegisteredAnimal(p, previous);
@@ -6337,7 +6576,7 @@ function fillProcedure(p) {
   state.draft.procedureAnimalEntries = ((p.animals || []).length ? p.animals : [createProcedureAnimalEntry(byId(currentAnimals(), p.animalId) || {}, { animalId: p.animalId, identification: p.identification, species: p.species, weight: p.weight, examIncluded: false })]).map((entry) => createProcedureAnimalEntry(byId(currentAnimals(), entry.animalId) || {}, { ...entry, age: entry.age || p.caseClinical?.age || "", sex: entry.sex || p.caseClinical?.sex || "", procedureReason: entry.procedureReason || p.caseClinical?.reason || "" }));
   state.draft.procedureMedUses = [...(p.inventory?.meds || [])];
   state.draft.procedureVaccineUses = [...(p.inventory?.vaccines || [])];
-  state.draft.procedureSupplyUses = [...(p.inventory?.supplies || [])];
+  state.draft.procedureSupplyUses = [...(p.inventory?.supplies || []).filter((item) => item.source !== "CLINICAL_DAY")];
   state.draft.procedureLabIds = [...(p.labIds || [])];
   state.draft.procedureCasePhotos = [...(p.caseClinical?.photos || [])];
   state.draft.procedureFollowupMedicationEntries = [...(p.caseClinical?.followupMedications || [])];
@@ -6460,7 +6699,7 @@ function producerExcelSheets(producers = state.producers, animals = [], meds = s
     { name: "Animales", rows: [["Productor(a)","Especie","Raza","Cantidad","¿De quién son?","¿Quién decide si se venden?","¿Quién limpia/alimenta?","Función","Extra"], ...animalRows.map((a) => [a.producer || producerName(state.selectedProducerId), a.species, a.breed, a.quantity, displayAnimalPeople(a.owner || []).join(", "), displayAnimalPeople(a.decideSale || []).join(", "), displayAnimalPeople(a.feedClean || []).join(", "), (a.function || []).join(", "), a.functionOther || ""])] },
     { name: "Medicamentos", rows: [["Nombre","Activo","Propiedad","Tipo inventario","Contenido por presentación","No. presentaciones/envases","Existencia total","Unidad","Concentración/equivalencia","Disponible","Costo por presentación","Costo unitario","Vía administración","Contenido original","Costo original","Cantidad remanente","Dosis por especie"], ...meds.map((m) => [m.brand,m.active,medOwnerLabel(m.owner),m.stockType === "USADO" ? "Usado" : "Nuevo",m.contentPerPresentation || "",m.packageCount || 1,m.totalQty,m.unit,medicationConcentrationSummary(m) || "",medRemaining(m),m.cost,m.unitCost,m.route || "Sin vía de administración registrada",m.stockMeta?.originalQty || "",m.stockMeta?.originalCost || "",m.stockMeta?.remainingQty || "",(m.speciesDoses || []).map(speciesDoseSummary).join(" | ")])] },
     { name: "Vacunas", rows: [["Marca","Propiedad","Caducidad","Cobertura","Disponible","Costo total","Costo unitario","Enfermedades","Notas"], ...vaccines.map((v) => [v.brand,medOwnerLabel(v.owner),v.expiry,v.coverageAnimals,vaccineRemaining(v),v.price,v.unitCost,v.diseases,v.notes || ""])] },
-    { name: "Insumos", rows: [["Nombre","Tipo","Cantidad","Disponible","Costo mostrado","Notas"], ...supplies.map((s) => [s.name,s.type,s.qty,supplyRemaining(s),supplyDisplayCost(s),s.notes || ""])] },
+    { name: "Insumos", rows: [["Nombre","Tipo","Pertenece a","Cantidad","Disponible","Costo mostrado","Notas"], ...supplies.map((s) => [s.name,s.type,medOwnerLabel(s.owner || "SERVICIOS"),s.qty,supplyRemaining(s),supplyDisplayCost(s),s.notes || ""])] },
     { name: "Procedimientos", rows: [["Fecha","Tipo","Modalidad","Productor(a)","Identificación animal","Especie","Método peso","Peso utilizable (kg)","Edad caso clínico","Volumen (L)","PT","LC","Medicamento","Dosis base especie","Dosis teórica","Sugerida automática","Cantidad final","Ajuste manual","Descuento inventario","Vacuna","Estado general","Examen físico","Hallazgos","Cálculo explicado","Observaciones"], ...procedureRows] },
     { name: "MedicamentosProc", rows: [["Fecha","Procedimiento","Productor(a)","Medicamento","Base cálculo","Detalle cálculo","Dosis total","Margen operativo","Total usado","Descuento inventario","Costo unitario","Costo calculado","Justificación"], ...medRows] },
     { name: "CobrosProc", rows: [["Fecha","Tipo","Productor(a)","Cobro procedimiento","Costo medicamentos","Cobro vacunas","Cobro insumos","Subtotal","Total","Cobro final","Observaciones"], ...procedures.map((p) => [p.date,p.type,procedureProducerName(p),p.charge?.base,p.charge?.meds,p.charge?.vaccines,p.charge?.supplies,p.charge?.subtotal,p.charge?.total,p.charge?.manual,p.charge?.reason || p.charge?.notes || ""])] },
@@ -6715,7 +6954,11 @@ function bindProcedures() {
     renderProcedureAnimalSelect();
     renderProcedureDraftLists();
   });
-  $("#p_cc_registeredAnimal")?.addEventListener("change", applyRegisteredClinicalAnimalToForm);
+  $("#p_cc_registeredAnimal")?.addEventListener("change", () => { applyRegisteredClinicalAnimalToForm(); syncClinicalDayMedicationSelection(); renderProcedureDraftLists(); });
+  $("#p_cc_dayMedSelect")?.addEventListener("change", syncClinicalDayMedicationSelection);
+  $("#p_cc_dayDoseSelect")?.addEventListener("change", applyClinicalDoseSelection);
+  $("#p_cc_daySupplySelect")?.addEventListener("change", syncClinicalDaySupplySelection);
+  $("#p_cc_species")?.addEventListener("input", syncClinicalDayMedicationSelection);
   $("#p_cc_addDayMedication")?.addEventListener("click", addClinicalDayMedication);
   $("#p_cc_addDaySupply")?.addEventListener("click", addClinicalDaySupply);
   $("#p_cc_addClinicalDay")?.addEventListener("click", addClinicalDay);
