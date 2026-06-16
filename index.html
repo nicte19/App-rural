@@ -2154,19 +2154,20 @@
                   </details>
 
                   <div id="p_manualMedicationUseControls" class="grid">
-                    <div class="help">Medicamentos usados del procedimiento. La dosis estructurada se configura en Medicamentos; aquí solo se selecciona el inventario y se capturan los datos necesarios para calcular cantidad usada, costo y cobro.</div>
-                    <div class="row"><button class="btn small primary" type="button" id="p_startMedUse">➕ Agregar medicamento</button></div>
+                    <div class="help">MEDICAMENTOS / VACUNAS USADOS: una sola lista y un solo formulario para agregar, editar, eliminar o duplicar productos usados. La dosis estructurada se toma desde Medicamentos cuando existe.</div>
+                    <div class="row"><button class="btn small primary" type="button" id="p_startMedUse">➕ Agregar medicamento/vacuna</button></div>
                     <div id="p_medUseEditor" class="grid" style="display:none;">
                     <div class="grid cols-4">
-                      <div><label for="p_medSelect">Medicamento / inventario</label><select id="p_medSelect"></select></div>
+                      <div><label for="p_productType">Tipo de producto</label><select id="p_productType"><option value="MEDICAMENTO">Medicamento</option><option value="VACUNA">Vacuna</option><option value="INSUMO">Insumo</option></select></div>
+                      <div><label for="p_medSelect">Producto del inventario</label><select id="p_medSelect"></select></div>
                       <div><label for="p_medSpecies">Especie / paciente / grupo</label><input id="p_medSpecies" type="text" placeholder="Ej. Bovinos, Aves, Perros" /></div>
-                      <div><label for="p_medAdministrationType">Tipo de administración</label><select id="p_medAdministrationType"><option>Agua</option><option>Alimento</option><option>Oral</option><option>IM</option><option>SC</option><option>IV</option><option>Tópico</option><option>Oftálmico</option><option>Ótico</option><option>Otro</option></select></div>
+                      <div><label for="p_medAdministrationType">Tipo de administración</label><select id="p_medAdministrationType"><option>Agua</option><option>Alimento</option><option>Oral</option><option>IM</option><option>SC</option><option>IV</option><option>Tópico</option><option>Oftálmico</option><option>Ótico</option><option>Intranasal</option><option>Aspersión</option><option>Ocular</option><option>Subcutánea</option><option>Intramuscular</option><option>Otra</option></select></div>
                       <div><label for="p_medBaseAmount" id="p_medBaseAmountLabel">Litros / animales / kg / cantidad base</label><input id="p_medBaseAmount" type="number" min="0" step="0.0001" /></div>
                       <div><label for="p_medBaseUnit">Unidad del volumen/cantidad base</label><select id="p_medBaseUnit"><option value="L">L</option><option value="mL">mL</option><option value="kg">kg</option><option value="g">g</option><option value="animal">animal</option><option value="paciente">paciente</option><option value="dosis">dosis</option><option value="otra">otra</option></select></div>
                     </div>
                     <div class="help" id="p_medSuggestedDose">Selecciona medicamento y especie para traer la dosis estructurada desde Medicamentos. Si no existe, podrás usar una dosis manual solo para este procedimiento o guardarla también en Medicamentos.</div>
                     <div class="grid cols-4">
-                      <div><label for="p_medCalculationRule">Regla de cálculo usada</label><select id="p_medCalculationRule"><option value="PER_LITER">Por litro</option><option value="PER_ML">Por mL</option><option value="PER_KG_FEED">Por kg de alimento</option><option value="PER_KG">Por kg de peso vivo</option><option value="PER_PATIENT">Por paciente</option><option value="PER_ANIMAL">Por animal</option><option value="PER_GROUP">Por grupo</option><option value="FIXED">Dosis fija</option><option value="MANUAL">Manual</option></select></div>
+                      <div><label for="p_medCalculationRule">Regla de cálculo usada</label><select id="p_medCalculationRule"><option value="PER_LITER">Por litro</option><option value="PER_ML">Por mL</option><option value="PER_KG_FEED">Por kg de alimento</option><option value="PER_KG">Por kg de peso vivo</option><option value="PER_PATIENT">Por paciente</option><option value="PER_ANIMAL">Por animal</option><option value="PER_GROUP">Por grupo</option><option value="PER_DOSE">Por dosis</option><option value="FIXED">Dosis fija</option><option value="MANUAL">Manual</option></select></div>
                       <div><label for="p_medDoseBase">Dosis sugerida / editable</label><input id="p_medDoseBase" type="number" min="0" step="0.0001" /></div>
                       <div><label for="p_medDoseUnit">Unidad dosis</label><select id="p_medDoseUnit"><option value="mg">mg</option><option value="g">g</option><option value="mL">mL</option><option value="gotas">gotas</option><option value="tabletas">tabletas</option><option value="U.I.">UI</option><option value="%">%</option><option value="otra">otra</option></select></div>
                       <div><label for="p_medCalculatedTotal">Cantidad total calculada</label><input id="p_medCalculatedTotal" type="number" min="0" step="0.0001" /></div>
@@ -2176,7 +2177,7 @@
                       <div><label for="p_medUnitUsed">Unidad usada</label><input id="p_medUnitUsed" type="text" placeholder="Se toma del medicamento si queda vacío" /></div>
                       <div><label for="p_medCostSuggested">Costo sugerido automático</label><input id="p_medCostSuggested" type="number" min="0" step="0.01" readonly /></div>
                       <div><label for="p_medCostCharged">Costo final cobrado</label><input id="p_medCostCharged" type="number" min="0" step="0.01" /></div>
-                      <div style="display:flex;align-items:flex-end;"><button class="btn small" type="button" id="p_addMedUse">➕ Agregar medicamento usado</button></div>
+                      <div style="display:flex;align-items:flex-end;"><button class="btn small" type="button" id="p_addMedUse">💾 Guardar medicamento/vacuna</button></div>
                     </div>
                     <div><label for="p_medNotes">Notas / advertencias</label><textarea id="p_medNotes" placeholder="Explicación del cálculo y advertencias"></textarea></div>
                     <div class="row"><button class="btn small ghost" type="button" id="p_cancelMedUse">Cancelar edición</button></div>
