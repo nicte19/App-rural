@@ -1447,14 +1447,28 @@
                       <label>Dosis estructurada por especie para procedimientos</label>
                       <div class="help">Configura aquí listas dinámicas de dosis por especie. Puedes capturar manualmente o pegar JSON con la llave <code>dosis_por_especie</code>; cada dosis admite indicación, cantidad, unidad, por_cada, unidad_base, frecuencia, duración y observaciones. La vía se toma del campo general “Vía de administración” del medicamento.</div>
                       <div>
-                        <label for="m_speciesDoseJson">Rellenar dosis por JSON</label>
-                        <textarea id="m_speciesDoseJson" placeholder='{"dosis_por_especie":[{"especie":"Bovinos","dosis":[{"indicacion":"Infecciones susceptibles","cantidad":10000,"unidad":"U.I.","por_cada":50,"unidad_base":"kg","frecuencia":"cada 24 h","duracion":"3 días","observaciones":""}]}]}'></textarea>
+                        <label for="m_speciesDoseSource">Texto fuente del medicamento para dosis por especie</label>
+                        <textarea id="m_speciesDoseSource" placeholder="Pega aquí el texto del medicamento, prospecto o ficha técnica para extraer solo dosis por especie"></textarea>
+                      </div>
+                      <div class="row">
+                        <button class="btn small primary" type="button" id="m_makeSpeciesDosePrompt">🧾 Generar prompt de dosis</button>
+                        <button class="btn small ghost" type="button" id="m_copySpeciesDosePrompt">📋 Copiar prompt</button>
+                        <button class="btn small ghost" type="button" id="m_openSpeciesDoseChatGPT">🔗 Abrir ChatGPT</button>
+                      </div>
+                      <div>
+                        <label for="m_speciesDosePrompt">Prompt listo para dosis por especie</label>
+                        <textarea id="m_speciesDosePrompt" readonly></textarea>
+                      </div>
+                      <div>
+                        <label for="m_speciesDoseJson">Respuesta JSON de dosis por especie</label>
+                        <textarea id="m_speciesDoseJson" placeholder='{"dosis_por_especie":[{"especie":"Aves","cantidad":2,"unidad":"g","por_cada":1,"unidad_base":"L","regla_compatible":"Por litro","frecuencia":"cada 24 h","duracion":"3 días","indicacion":"Infecciones susceptibles","observaciones":"Usar según criterio clínico"}]}'></textarea>
                       </div>
                       <div class="row">
                         <button class="btn small" type="button" id="m_applySpeciesDoseJson">✅ Aplicar JSON de dosis</button>
                         <button class="btn small ghost" type="button" id="m_copySpeciesDoseJsonExample">🧪 Ejemplo dosis JSON</button>
                         <button class="btn small" type="button" id="m_addSpeciesDose">➕ Agregar dosis por especie</button>
                       </div>
+                      <div id="m_speciesDoseStatus" class="help"></div>
                       <div class="list" id="m_speciesDoseList"></div>
                     </div>
                   </div>
