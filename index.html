@@ -2127,16 +2127,48 @@
                     Los medicamentos y vacunas se seleccionan dentro de cada tarjeta de animal. Aquí solo verás la sumatoria final por procedimiento, el margen operativo y los demás inventarios vinculados.
                   </div>
 
-                  <div>
-                    <label for="p_speciesDoseJson">Dosis estructuradas por especie para este procedimiento (JSON)</label>
-                    <textarea id="p_speciesDoseJson" placeholder='Pega JSON con dosis_por_especie para documentar tratamientos/dosis del procedimiento o para copiarlo al medicamento correspondiente.'></textarea>
-                    <div class="help">El JSON admite múltiples especies y múltiples dosis por especie. Se guarda con el procedimiento y se visualiza/exporta sin sustituir el desglose del animal.</div>
-                    <div class="row">
-                      <button class="btn small" type="button" id="p_applySpeciesDoseJson">✅ Validar y guardar JSON de dosis</button>
-                      <button class="btn small ghost" type="button" id="p_copySpeciesDoseJsonExample">🧪 Ejemplo dosis JSON</button>
+                  <details data-procedure-dose-ai>
+                    <summary>🧠 Ficha de dosis para medicamentos</summary>
+                    <div class="inner grid">
+                      <div class="help">
+                        Las dosis estructuradas pertenecen al medicamento, no al procedimiento. Pega el texto del prospecto o ficha técnica, genera un prompt para ChatGPT y aplica el JSON resultante al medicamento seleccionado para que los procedimientos calculen automáticamente por especie.
+                      </div>
+                      <div class="grid cols-2">
+                        <div>
+                          <label for="p_aiDoseApiKey">API key de OpenAI / OpenRouter</label>
+                          <input id="p_aiDoseApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+                        </div>
+                        <div>
+                          <label for="p_aiDoseModel">Modelo</label>
+                          <input id="p_aiDoseModel" type="text" value="gpt-4o-mini" />
+                        </div>
+                      </div>
+                      <div>
+                        <label for="p_aiDoseSource">Texto fuente (prospecto/ficha técnica)</label>
+                        <textarea id="p_aiDoseSource" placeholder="Pega aquí el texto del medicamento para extraer dosis por especie"></textarea>
+                      </div>
+                      <div class="row">
+                        <button class="btn primary" type="button" id="p_aiDoseMakePrompt">📄 Generar prompt</button>
+                        <button class="btn primary" type="button" id="p_aiDoseRun">🤖 Analizar con ChatGPT</button>
+                        <button class="btn small ghost" type="button" id="p_aiDoseCopyPrompt">📋 Copiar prompt</button>
+                        <button class="btn small ghost" type="button" id="p_aiDoseOpenChatGPT">🔗 Abrir ChatGPT</button>
+                      </div>
+                      <div>
+                        <label for="p_aiDosePrompt">Prompt listo</label>
+                        <textarea id="p_aiDosePrompt"></textarea>
+                      </div>
+                      <div>
+                        <label for="p_aiDoseResult">Respuesta JSON</label>
+                        <textarea id="p_aiDoseResult" placeholder='{"dosis_por_especie":[...]}'></textarea>
+                      </div>
+                      <div class="row">
+                        <button class="btn small" type="button" id="p_aiDoseApplyToMedication">✅ Aplicar JSON al medicamento seleccionado</button>
+                        <button class="btn small ghost" type="button" id="p_aiDoseExample">🧪 Ejemplo dosis JSON</button>
+                        <button class="btn small ghost" type="button" id="p_aiDoseClear">🧹 Limpiar</button>
+                      </div>
+                      <div id="p_aiDoseStatus" class="help"></div>
                     </div>
-                    <div class="list" id="p_speciesDoseList"></div>
-                  </div>
+                  </details>
 
                   <div id="p_manualMedicationUseControls" class="grid cols-4">
                     <div>
