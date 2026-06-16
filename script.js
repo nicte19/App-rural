@@ -2377,6 +2377,8 @@ function canonicalUnit(unit = "") {
     litros: "L",
     tableta: "tableta",
     tabletas: "tableta",
+    comprimida: "tableta",
+    comprimidas: "tableta",
     capsula: "cápsula",
     capsulas: "cápsula",
     "cápsula": "cápsula",
@@ -2391,6 +2393,17 @@ function canonicalUnit(unit = "") {
     bolo: "bolo",
     bolos: "bolo",
     animal: "animal",
+    animales: "animal",
+    paciente: "paciente",
+    pacientes: "paciente",
+    frasco: "frasco",
+    frascos: "frasco",
+    ampolleta: "ampolleta",
+    ampolletas: "ampolleta",
+    unidad: "unidad",
+    unidades: "unidad",
+    ui: "U.I.",
+    iu: "U.I.",
     "%": "%",
     porcentaje: "%",
   };
@@ -2488,18 +2501,21 @@ function calculateConvertedMedicationDose({
   }
   const directInventoryQty = convertCompatibleUnits(theoretical, unit, inventoryUnit || unit);
   if (!activeAmount || !perAmount || !activeUnit || !perUnit) {
-    if (directInventoryQty != null && inventoryUnit && canonicalUnit(unit) === inventoryUnit) {
-      return { convertedQty: Number(directInventoryQty.toFixed(4)), convertedUnit: inventoryUnit, requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: "", explanation: `${lines.join(" · ")} · La unidad de dosis coincide con inventario; no se requiere conversión por concentración.`, conversionApplied: false };
+    if (directInventoryQty != null && inventoryUnit) {
+      return { convertedQty: Number(directInventoryQty.toFixed(4)), convertedUnit: inventoryUnit, requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: "", explanation: `${lines.join(" · ")} · La unidad de dosis es compatible con inventario; no se requiere concentración/equivalencia.`, conversionApplied: false };
     }
-    return { convertedQty: 0, convertedUnit: inventoryUnit || unit || "", requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: "Falta concentración/equivalencia del medicamento; no se calculó una dosis administrable para evitar un cálculo incorrecto.", explanation: `${lines.join(" · ")} · Falta concentración/equivalencia registrada en medicamentos.`, conversionApplied: false };
+    return { convertedQty: 0, convertedUnit: inventoryUnit || unit || "", requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: "Se calculó la dosis teórica, pero no se pudo convertir a la presentación real del medicamento porque falta concentración o equivalencia.", explanation: `${lines.join(" · ")} · Falta concentración/equivalencia registrada en medicamentos; captura cantidad administrable manualmente y, si corresponde, guarda la equivalencia en Medicamentos para futuras ocasiones.`, conversionApplied: false };
   }
   lines.push(`Concentración registrada: ${medicationConcentrationSummary(med)}`);
   if (concentration.percentConverted) lines.push(`Porcentaje convertido automáticamente a ${activeAmount} ${activeUnit}/${perAmount} ${perUnit}`);
   const requiredInActiveUnit = convertCompatibleUnits(theoretical, unit, activeUnit);
   if (requiredInActiveUnit != null) {
-    const convertedQty = Number((requiredInActiveUnit / (activeAmount / perAmount)).toFixed(4));
-    lines.push(`Dosis real administrable (${normalizeMedicationPresentationKind(med)}): ${Number(convertedQty).toFixed(4).replace(/\.?0+$/, "")} ${perUnit}`);
-    return { convertedQty, convertedUnit: perUnit, requiredActiveQty: Number(requiredInActiveUnit.toFixed(4)), requiredActiveUnit: activeUnit, warning: "", explanation: lines.join(" · "), conversionApplied: true };
+    const presentationQty = requiredInActiveUnit / (activeAmount / perAmount);
+    const inventoryQty = convertCompatibleUnits(presentationQty, perUnit, inventoryUnit || perUnit);
+    const convertedQty = Number(((inventoryQty != null ? inventoryQty : presentationQty)).toFixed(4));
+    const convertedUnit = inventoryQty != null ? (inventoryUnit || perUnit) : perUnit;
+    lines.push(`Dosis real administrable (${normalizeMedicationPresentationKind(med)}): ${Number(convertedQty).toFixed(4).replace(/\.?0+$/, "")} ${convertedUnit}`);
+    return { convertedQty, convertedUnit, requiredActiveQty: Number(requiredInActiveUnit.toFixed(4)), requiredActiveUnit: activeUnit, warning: "", explanation: lines.join(" · "), conversionApplied: true };
   }
   return { convertedQty: 0, convertedUnit: inventoryUnit || perUnit || unit || "", requiredActiveQty: theoretical, requiredActiveUnit: unit || "", warning: `La unidad de dosis (${unit || "sin unidad"}) no es compatible con la concentración registrada (${activeUnit}/${perUnit}).`, explanation: `${lines.join(" · ")} · Unidad de dosis incompatible con la concentración.`, conversionApplied: false };
 }
@@ -6445,7 +6461,7 @@ function buildClinicalDayMedicationDoseDraft(med, { doseQty = 0, doseUnit = "", 
     basisValue,
     basisLabel: mode === "PER_KG" ? `Peso del paciente usado: ${Number(context.weightKg || 0).toFixed(2)} kg` : mode === "PER_ANIMAL" ? "Base aplicada: 1 animal" : "Dosis indicada como total",
   });
-  if (converted?.warning) return { ...converted, warning: converted.warning };
+  const hasConversionWarning = Boolean(converted?.warning);
   return {
     mode,
     perCada: denominator,
@@ -6458,7 +6474,7 @@ function buildClinicalDayMedicationDoseDraft(med, { doseQty = 0, doseUnit = "", 
     requiredActiveUnit: converted?.requiredActiveUnit || canonicalUnit(doseUnit || med?.unit || ""),
     calculationSummary: converted?.explanation || "",
     conversionApplied: Boolean(converted?.conversionApplied),
-    warning: "",
+    warning: hasConversionWarning ? converted.warning : "",
   };
 }
 
@@ -6585,7 +6601,7 @@ function addClinicalDayMedication() {
   const doseDraft = !external && med
     ? buildClinicalDayMedicationDoseDraft(med, { doseQty: indicatedDoseQty, doseUnit: indicatedDoseUnit, perCada, unitBase })
     : { administeredQty: indicatedDoseQty, administeredUnit: indicatedDoseUnit, theoreticalQty: indicatedDoseQty, theoreticalUnit: indicatedDoseUnit, calculationSummary: "Uso externo/no inventariado o dosis manual." };
-  if (doseDraft.warning) return show("p_msg", doseDraft.warning, "warning");
+  const conversionWarning = doseDraft.warning || "";
   state.draft.procedureClinicalDayMedications.push({
     id: uid("ccmed"),
     itemId: med?.id || "",
@@ -6603,7 +6619,8 @@ function addClinicalDayMedication() {
     administeredUnit: doseDraft.administeredUnit || indicatedDoseUnit,
     requiredActiveQty: doseDraft.requiredActiveQty ?? indicatedDoseQty,
     requiredActiveUnit: doseDraft.requiredActiveUnit || indicatedDoseUnit,
-    calculationSummary: doseDraft.calculationSummary || "",
+    calculationSummary: [doseDraft.calculationSummary || "", conversionWarning].filter(Boolean).join(" · "),
+    conversionWarning,
     conversionApplied: Boolean(doseDraft.conversionApplied),
     weightKg: doseDraft.weightKg || 0,
     perKg: perCada,
@@ -6616,6 +6633,7 @@ function addClinicalDayMedication() {
   ["p_cc_dayMedSelect", "p_cc_dayMedName", "p_cc_dayDoseSelect", "p_cc_dayMedRoute", "p_cc_dayIndication", "p_cc_dayDoseQty", "p_cc_dayDoseUnit", "p_cc_dayPerKg", "p_cc_dayUnitBase", "p_cc_dayFrequency", "p_cc_dayDuration", "p_cc_dayMedObs"].forEach((id) => { if ($("#" + id)) $("#" + id).value = ""; });
   syncClinicalDayMedicationSelection();
   renderProcedureDraftLists();
+  if (conversionWarning) show("p_msg", conversionWarning, "warning");
 }
 
 function addClinicalDaySupply() {
