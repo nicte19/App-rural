@@ -4656,10 +4656,16 @@ function bindGlobal() {
   $("#btnBackupJson")?.addEventListener("click", () =>
     (() => {
       const imageMap = {};
-      const sanitized = cloneStateWithImageRefs(state, imageMap);
-      download(`app_rural_backup_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(sanitized, null, 2), "application/json");
-      download(`app_rural_backup_images_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(imageMap, null, 2), "application/json");
-      showFloatingNotice("Respaldo JSON generado (datos + imágenes separadas).");
+      const data = cloneStateWithImageRefs(state, imageMap);
+      const payload = {
+        format: "app-rural-full-backup",
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        data,
+        imageMap,
+      };
+      download(`app_rural_backup_completo_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2), "application/json");
+      showFloatingNotice("Respaldo JSON completo generado (datos e imágenes en un solo archivo).");
     })(),
   );
   $("#btnRestoreJsonInput")?.addEventListener("change", async (e) => {
@@ -4669,7 +4675,10 @@ function bindGlobal() {
     fr.onload = async () => {
       try {
         const parsed = JSON.parse(fr.result);
-        Object.assign(state, restoreStateImageRefs(parsed, {}));
+        const restored = parsed?.format === "app-rural-full-backup"
+          ? restoreStateImageRefs(parsed.data || {}, parsed.imageMap || {})
+          : restoreStateImageRefs(parsed, {});
+        Object.assign(state, restored);
         normalizeEntityCollections(window.AppServices?.auth?.getCurrentUser?.()?.uid || null);
         saveState();
         await loadState();
@@ -5348,7 +5357,7 @@ function renderProcedureType() {
       (block === "necropsy" && type === "NECROPSIA") ||
       (block === "zootecnia" && type === "ZOOTECNIA") ||
       (block === "animal-breakdown" && !clinical) ||
-      (block === "inventory" && !clinical && type !== "PREVENTIVA")
+      (block === "inventory" && !clinical)
     );
     detail.style.display = visible ? "block" : "none";
   });
@@ -6323,6 +6332,37 @@ function renderClinicalDayDraftLists() {
 function previousInventoryQty(previous, collection, itemId) {
   return Number(((previous?.inventory?.[collection] || []).filter((item) => item.itemId === itemId).reduce((acc, item) => acc + Number(item.inventoryDeductionQty || item.totalUsedQty || item.chargeableQty || item.qty || 0), 0)).toFixed(4));
 }
+
+function validateProcedureInventoryStock(p, previous) {
+  const problems = [];
+  const medTotals = new Map();
+  const supplyTotals = new Map();
+  (p.inventory?.meds || []).forEach((item) => {
+    if (!item.itemId) return;
+    const qty = Number(item.inventoryDeductionQty || item.totalUsedQty || item.chargeableQty || item.qty || 0);
+    if (qty > 0) medTotals.set(item.itemId, Number((Number(medTotals.get(item.itemId) || 0) + qty).toFixed(4)));
+  });
+  (p.inventory?.supplies || []).forEach((item) => {
+    if (!item.itemId) return;
+    const qty = Number(item.qty || 0);
+    if (qty > 0) supplyTotals.set(item.itemId, Number((Number(supplyTotals.get(item.itemId) || 0) + qty).toFixed(4)));
+  });
+  medTotals.forEach((required, itemId) => {
+    const med = byId(state.meds, itemId);
+    if (!med) return problems.push("No se encontró un medicamento seleccionado para el procedimiento.");
+    const available = Number(medRemaining(med) || 0) + previousInventoryQty(previous, "meds", med.id);
+    if (required > available + 0.0001) problems.push(`No hay stock suficiente de ${med.brand}. Disponible: ${available.toFixed(2)} ${med.unit || ""}. Requerido: ${required.toFixed(2)} ${med.unit || ""}.`);
+  });
+  supplyTotals.forEach((required, itemId) => {
+    const sup = byId(state.supplies, itemId);
+    if (!sup) return problems.push("No se encontró un insumo seleccionado para el procedimiento.");
+    if (sup.type === "NON_DISPOSABLE") return;
+    const available = Number(supplyRemaining(sup) || 0) + previousInventoryQty(previous, "supplies", sup.id);
+    if (required > available + 0.0001) problems.push(`No hay existencia suficiente de ${sup.name}. Disponible: ${available.toFixed(2)} piezas. Requerido: ${required.toFixed(2)}.`);
+  });
+  return problems;
+}
+
 function validateClinicalDayInventory(p, previous) {
   const problems = [];
   const medTotals = new Map();
@@ -6869,7 +6909,7 @@ function collectProcedure() {
     groupMedication,
     animals: animals,
     inventory: {
-      meds: [...aggregated.meds, ...followupInventoryMeds, ...clinicalDayInventory.meds],
+      meds: [...aggregated.meds, ...state.draft.procedureMedUses, ...followupInventoryMeds, ...clinicalDayInventory.meds],
       vaccines: aggregated.vaccines,
       supplies: [...(aggregated.supplies || []), ...state.draft.procedureSupplyUses, ...clinicalDayInventory.supplies],
     },
@@ -6961,6 +7001,8 @@ function saveProcedure() {
     return required > available + 0.0001 ? `No hay stock suficiente de ${med.brand} para seguimiento. Disponible: ${available.toFixed(2)} ${med.unit || ""}. Requerido: ${required.toFixed(2)} ${item.unit || med.unit || ""}.` : "";
   }).filter(Boolean);
   if (followupStockProblems.length) return show("p_err", followupStockProblems[0], "error");
+  const inventoryStockProblems = validateProcedureInventoryStock(p, previous);
+  if (inventoryStockProblems.length) return show("p_err", inventoryStockProblems[0], "error");
   const clinicalStockProblems = validateClinicalDayInventory(p, previous);
   if (clinicalStockProblems.length) return show("p_err", clinicalStockProblems[0], "error");
   p.inventoryMovements = buildProcedureInventoryMovements(p);
