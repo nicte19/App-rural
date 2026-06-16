@@ -2140,12 +2140,14 @@
                   </details>
 
                   <div id="p_manualMedicationUseControls" class="grid">
-                    <div class="help">Medicamentos usados del procedimiento. Cada bloque conserva medicamento, vía, base de cálculo, dosis, cantidad real para descontar inventario, costo editable y advertencias.</div>
+                    <div class="help">Medicamentos usados del procedimiento. La dosis estructurada se configura en Medicamentos; aquí solo se selecciona el inventario y se capturan los datos necesarios para calcular cantidad usada, costo y cobro.</div>
+                    <div class="row"><button class="btn small primary" type="button" id="p_startMedUse">➕ Agregar medicamento</button></div>
+                    <div id="p_medUseEditor" class="grid" style="display:none;">
                     <div class="grid cols-4">
                       <div><label for="p_medSelect">Medicamento / inventario</label><select id="p_medSelect"></select></div>
                       <div><label for="p_medSpecies">Especie / paciente / grupo</label><input id="p_medSpecies" type="text" placeholder="Ej. Bovinos, Aves, Perros" /></div>
                       <div><label for="p_medAdministrationType">Tipo de administración</label><select id="p_medAdministrationType"><option>Agua</option><option>Alimento</option><option>Oral</option><option>IM</option><option>SC</option><option>IV</option><option>Tópico</option><option>Oftálmico</option><option>Ótico</option><option>Otro</option></select></div>
-                      <div><label for="p_medBaseAmount">Volumen total o cantidad base</label><input id="p_medBaseAmount" type="number" min="0" step="0.0001" /></div>
+                      <div><label for="p_medBaseAmount" id="p_medBaseAmountLabel">Litros / animales / kg / cantidad base</label><input id="p_medBaseAmount" type="number" min="0" step="0.0001" /></div>
                       <div><label for="p_medBaseUnit">Unidad del volumen/cantidad base</label><select id="p_medBaseUnit"><option value="L">L</option><option value="mL">mL</option><option value="kg">kg</option><option value="g">g</option><option value="animal">animal</option><option value="paciente">paciente</option><option value="dosis">dosis</option><option value="otra">otra</option></select></div>
                     </div>
                     <div class="help" id="p_medSuggestedDose">Selecciona medicamento y especie para traer la dosis estructurada desde Medicamentos. Si no existe, podrás usar una dosis manual solo para este procedimiento o guardarla también en Medicamentos.</div>
@@ -2163,6 +2165,8 @@
                       <div style="display:flex;align-items:flex-end;"><button class="btn small" type="button" id="p_addMedUse">➕ Agregar medicamento usado</button></div>
                     </div>
                     <div><label for="p_medNotes">Notas / advertencias</label><textarea id="p_medNotes" placeholder="Explicación del cálculo y advertencias"></textarea></div>
+                    <div class="row"><button class="btn small ghost" type="button" id="p_cancelMedUse">Cancelar edición</button></div>
+                    </div>
                     <div class="list" id="p_medUseList"></div>
                   </div>
 
