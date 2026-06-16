@@ -1332,11 +1332,13 @@ function clearProducerScopedDraftState() {
   state.draft.procedureFollowupMedicationEntries = [];
   state.draft.procedureFollowupMedicationEditId = null;
   state.draft.procedureSpeciesDoses = [];
+  state.draft.procedureNecropsyFindings = [];
   state.draft.procedureClinicalDayMedications = [];
   state.draft.procedureClinicalDaySupplies = [];
   state.draft.procedureClinicalDays = [];
   state.draft.procedureClinicalDayEditId = null;
   if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = "";
+  renderNecropsySystematicList([]);
   if ($("#a_especie")) resetAnimalEntry();
   if ($("#a_diseaseList")) resetDiseaseForm();
   if ($("#a_programasList")) resetProgramForm();
@@ -2318,9 +2320,14 @@ function doseRuleDenominator(mode = "") {
 function doseRuleLabel(mode = "") {
   return mode === "PER_KG" ? "Por kg"
     : mode === "PER_ANIMAL" ? "Por animal"
-      : mode === "PER_LITER" ? "Por litro"
-        : mode === "PER_KG_FEED" ? "Por kg alimento"
-          : mode || "";
+      : mode === "PER_PATIENT" ? "Por paciente"
+        : mode === "PER_GROUP" ? "Por grupo"
+          : mode === "PER_ML" ? "Por mL"
+            : mode === "PER_LITER" ? "Por litro"
+              : mode === "PER_KG_FEED" ? "Por kg alimento"
+                : mode === "FIXED" ? "Dosis fija"
+                  : mode === "MANUAL" ? "Manual"
+                    : mode || "";
 }
 const MASS_UNIT_FACTORS_MG = {
   mcg: 0.001,
@@ -4136,7 +4143,7 @@ function fillProcedure(p) {
     p_nec_finalDx: p.necropsy?.finalDx,
     p_nec_comments: p.necropsy?.comments,
     p_nec_biblioSummary: p.necropsy?.biblioSummary,
-    p_nec_bibliography: p.necropsy?.bibliography,
+    p_nec_bibliography: p.necropsy?.bibliography, p_nec_samplesTaken: p.necropsy?.samplesTaken,
     p_zoo_evaluation: p.zootecnia?.evaluation,
     p_zoo_intervention: p.zootecnia?.intervention,
     p_zoo_plan: p.zootecnia?.plan,
@@ -4159,6 +4166,8 @@ function fillProcedure(p) {
   state.draft.procedureLabIds = [...(p.labIds || [])];
   state.draft.procedureCasePhotos = [...(p.caseClinical?.photos || [])];
   state.draft.procedureNecropsyPhotos = [...(p.necropsy?.photos || [])];
+  state.draft.procedureNecropsyFindings = mergeNecropsyFindings(p.necropsy?.systematicFindings || []);
+  renderNecropsySystematicList(state.draft.procedureNecropsyFindings);
   state.draft.procedureChargePhoto = p.charge?.photo || null;
   renderProcedureType();
   renderProcedureDraftLists();
@@ -5923,18 +5932,93 @@ function renderProcedureAnimalCards() {
     }));
   });
 }
+
+const NECROPSY_DEFAULT_SYSTEMS = [
+  { section: "Datos generales", organs: ["Fecha de necropsia", "Hora de necropsia", "Responsable / médico veterinario", "Propietario o unidad productiva", "Estado productivo", "Fecha y hora de muerte", "Método de conservación del cadáver", "Tiempo post mortem aproximado", "Condición del cadáver", "Grado de autólisis / descomposición", "Diagnóstico clínico presuntivo", "Motivo de necropsia", "Antecedentes relevantes", "Signos clínicos previos", "Tratamientos previos", "Vacunas / desparasitaciones"] },
+  { section: "Examen externo", organs: ["Condición corporal", "Estado de hidratación", "Piel", "Pelo / plumas / lana", "Mucosas", "Ojos", "Oídos", "Narinas", "Cavidad oral externa", "Ano / cloaca", "Genitales externos", "Heridas", "Abscesos", "Tumores o masas", "Ectoparásitos", "Secreciones", "Traumatismos", "Fracturas visibles", "Lesiones externas", "Observaciones generales"] },
+  { section: "Tejido subcutáneo, musculatura y linfonodos superficiales", organs: ["Grasa subcutánea", "Edema", "Hemorragias", "Coloración de músculos", "Lesiones musculares", "Linfonodos mandibulares", "Linfonodos cervicales", "Linfonodos axilares", "Linfonodos inguinales", "Otros linfonodos superficiales"] },
+  { section: "Cavidades corporales", organs: ["Cavidad torácica", "Cavidad abdominal", "Cavidad pélvica", "Presencia de líquido", "Cantidad de líquido", "Color", "Olor", "Transparencia", "Fibrina", "Exudado", "Adherencias", "Hemorragias", "Contenido anormal", "Peritoneo", "Pleura", "Pericardio"] },
+  { section: "Sistema cardiovascular", organs: ["Corazón", "Pericardio", "Epicardio", "Miocardio", "Endocardio", "Válvulas", "Grandes vasos", "Coronarias", "Contenido de cámaras cardiacas", "Coágulos", "Hemorragias", "Malformaciones", "Grosor ventricular", "Observaciones"] },
+  { section: "Sistema respiratorio", organs: ["Narinas", "Cavidad nasal", "Senos paranasales", "Laringe", "Tráquea", "Bronquios", "Pulmones", "Pleura", "Linfonodos traqueobronquiales / mediastínicos", "Sacos aéreos en aves", "Exudado", "Congestión", "Edema", "Consolidación", "Neumonía", "Hemorragias", "Parásitos", "Observaciones"] },
+  { section: "Sistema digestivo completo", organs: ["Cavidad oral", "Lengua", "Dientes / pico", "Encías", "Paladar", "Glándulas salivales", "Faringe", "Esófago", "Buche en aves", "Estómago", "Proventrículo en aves", "Molleja en aves", "Rumen", "Retículo", "Omaso", "Abomaso", "Duodeno", "Yeyuno", "Íleon", "Ciegos", "Ciego / ciegos aviares", "Colon", "Recto", "Ano", "Cloaca en aves", "Contenido gastrointestinal", "Color del contenido", "Consistencia", "Olor", "Parásitos", "Hemorragias", "Úlceras", "Enteritis", "Necrosis", "Impactación", "Cuerpos extraños", "Linfonodos mesentéricos"] },
+  { section: "Hígado, vesícula biliar y vías biliares", organs: ["Hígado", "Tamaño", "Color", "Bordes", "Consistencia", "Patrón lobulillar", "Congestión", "Degeneración", "Necrosis", "Abscesos", "Parásitos", "Vesícula biliar", "Contenido biliar", "Conductos biliares", "Observaciones"] },
+  { section: "Páncreas", organs: ["Páncreas", "Tamaño", "Color", "Consistencia", "Hemorragias", "Necrosis", "Lesiones focales", "Observaciones"] },
+  { section: "Bazo", organs: ["Bazo", "Tamaño", "Color", "Consistencia", "Bordes", "Congestión", "Infartos", "Nódulos", "Ruptura", "Observaciones"] },
+  { section: "Sistema urinario", organs: ["Riñón derecho", "Riñón izquierdo", "Cápsula renal", "Corteza", "Médula", "Pelvis renal", "Uréteres", "Vejiga urinaria", "Uretra", "Orina", "Color de orina", "Sedimento", "Cálculos", "Hemorragias", "Nefritis", "Uratos en aves", "Observaciones"] },
+  { section: "Sistema reproductor", organs: ["Ovarios", "Oviductos", "Útero", "Cérvix", "Vagina", "Vulva", "Oviducto aviar", "Folículos ováricos en aves", "Huevo retenido", "Gestación", "Placenta", "Testículos", "Epidídimos", "Conductos deferentes", "Próstata", "Glándulas accesorias", "Pene", "Prepucio", "Lesiones"] },
+  { section: "Sistema endocrino", organs: ["Tiroides", "Paratiroides", "Glándulas adrenales", "Hipófisis", "Observaciones"] },
+  { section: "Sistema nervioso", organs: ["Cráneo", "Encéfalo", "Cerebro", "Cerebelo", "Tronco encefálico", "Médula espinal", "Meninges", "Nervios periféricos", "Hemorragias", "Congestión", "Malformaciones", "Traumatismos", "Observaciones"] },
+  { section: "Sistema musculoesquelético", organs: ["Músculos", "Huesos", "Articulaciones", "Cartílago", "Tendones", "Médula ósea", "Fracturas", "Artritis", "Deformaciones", "Lesiones traumáticas", "Observaciones"] },
+  { section: "Sistema linfático e inmune", organs: ["Linfonodos superficiales", "Linfonodos profundos", "Linfonodos mesentéricos", "Timo en animales jóvenes", "Bolsa de Fabricio en aves", "Bazo", "Observaciones"] },
+  { section: "Órganos especiales en aves", organs: ["Pico", "Coanas", "Buche", "Proventrículo", "Molleja", "Sacos aéreos", "Siringe", "Ovario / testículos", "Oviducto", "Bolsa de Fabricio", "Médula ósea", "Plumas y piel", "Músculos pectorales", "Quilla", "Grasa abdominal", "Lesiones respiratorias/digestivas/septicémicas/parasitarias/metabólicas"] },
+  { section: "Diagnósticos", organs: ["Diagnósticos macroscópicos", "Diagnóstico presuntivo", "Diagnósticos diferenciales", "Causa probable de muerte", "Mecanismo probable de muerte", "Recomendaciones", "Pruebas complementarias sugeridas", "Comentarios finales"] },
+];
+
+function necropsyKey(section, organ) { return `${section}::${organ}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "").toLowerCase(); }
+function defaultNecropsyFinding(section, organ) { return { key: necropsyKey(section, organ), section, organ, status: "NO_REVISADO", description: "", lesions: "", distribution: "", severity: "", color: "", size: "", consistency: "", content: "", odor: "", parasites: "", samples: "", photos: "", observations: "", custom: false }; }
+function getNecropsyFindingsFromDom() {
+  return $$("#p_nec_systematicList [data-nec-key]").map((el) => ({ key: el.dataset.necKey, section: el.dataset.section || "", organ: el.dataset.organ || "", custom: el.dataset.custom === "true", status: el.querySelector('[data-field="status"]')?.value || "NO_REVISADO", description: el.querySelector('[data-field="description"]')?.value.trim() || "", lesions: el.querySelector('[data-field="lesions"]')?.value.trim() || "", distribution: el.querySelector('[data-field="distribution"]')?.value || "", severity: el.querySelector('[data-field="severity"]')?.value || "", color: el.querySelector('[data-field="color"]')?.value.trim() || "", size: el.querySelector('[data-field="size"]')?.value.trim() || "", consistency: el.querySelector('[data-field="consistency"]')?.value.trim() || "", content: el.querySelector('[data-field="content"]')?.value.trim() || "", odor: el.querySelector('[data-field="odor"]')?.value.trim() || "", parasites: el.querySelector('[data-field="parasites"]')?.value.trim() || "", samples: el.querySelector('[data-field="samples"]')?.value.trim() || "", photos: el.querySelector('[data-field="photos"]')?.value.trim() || "", observations: el.querySelector('[data-field="observations"]')?.value.trim() || "" }));
+}
+function mergeNecropsyFindings(saved = []) {
+  const map = new Map((Array.isArray(saved) ? saved : []).map((f) => [f.key || necropsyKey(f.section || "Personalizado", f.organ || f.name || "Órgano"), f]));
+  const defaults = NECROPSY_DEFAULT_SYSTEMS.flatMap((g) => g.organs.map((organ) => defaultNecropsyFinding(g.section, organ)));
+  const merged = defaults.map((d) => ({ ...d, ...(map.get(d.key) || {}) }));
+  (Array.isArray(saved) ? saved : []).forEach((f) => { const key = f.key || necropsyKey(f.section || "Personalizado", f.organ || f.name || "Órgano"); if (!merged.some((x) => x.key === key)) merged.push({ ...defaultNecropsyFinding(f.section || "Personalizado", f.organ || f.name || "Órgano"), ...f, key, custom: true }); });
+  return merged;
+}
+function renderNecropsySystematicList(saved = null) {
+  const box = $("#p_nec_systematicList"); if (!box) return;
+  const rows = mergeNecropsyFindings(saved || state.draft.procedureNecropsyFindings || []);
+  state.draft.procedureNecropsyFindings = rows;
+  const groups = new Map(); rows.forEach((r) => { if (!groups.has(r.section)) groups.set(r.section, []); groups.get(r.section).push(r); });
+  box.innerHTML = Array.from(groups.entries()).map(([section, items]) => `<details class="item" data-nec-section open><summary><b>${esc(section)}</b> · ${items.length} campos/órganos</summary>${items.map((r) => `<div class="item" data-nec-key="${esc(r.key)}" data-section="${esc(r.section)}" data-organ="${esc(r.organ)}" data-custom="${r.custom ? "true" : "false"}"><div class="grid cols-4"><div><label>${esc(r.organ)}</label><select data-field="status"><option value="NO_REVISADO" ${r.status === "NO_REVISADO" ? "selected" : ""}>No revisado</option><option value="SIN_LESIONES" ${r.status === "SIN_LESIONES" ? "selected" : ""}>Sin lesiones macroscópicas relevantes</option><option value="CON_LESIONES" ${r.status === "CON_LESIONES" ? "selected" : ""}>Con lesiones</option><option value="NO_APLICA" ${r.status === "NO_APLICA" ? "selected" : ""}>No aplica</option></select></div><div><label>Distribución</label><select data-field="distribution"><option></option><option>focal</option><option>multifocal</option><option>difusa</option><option>segmentaria</option><option>bilateral</option><option>unilateral</option></select></div><div><label>Severidad</label><select data-field="severity"><option></option><option>leve</option><option>moderada</option><option>severa</option></select></div><div style="display:flex;align-items:end"><button class="btn small ghost" type="button" data-nec-normal>Sin lesiones</button></div></div><div class="grid cols-2"><div><label>Descripción macroscópica</label><textarea data-field="description">${esc(r.description || "")}</textarea></div><div><label>Lesiones encontradas</label><textarea data-field="lesions">${esc(r.lesions || "")}</textarea></div></div><div class="grid cols-4"><input data-field="color" placeholder="Color" value="${esc(r.color || "")}"/><input data-field="size" placeholder="Tamaño" value="${esc(r.size || "")}"/><input data-field="consistency" placeholder="Consistencia" value="${esc(r.consistency || "")}"/><input data-field="content" placeholder="Contenido" value="${esc(r.content || "")}"/></div><div class="grid cols-4"><input data-field="odor" placeholder="Olor" value="${esc(r.odor || "")}"/><input data-field="parasites" placeholder="Parásitos" value="${esc(r.parasites || "")}"/><input data-field="samples" placeholder="Muestras tomadas" value="${esc(r.samples || "")}"/><input data-field="photos" placeholder="Fotos/referencias" value="${esc(r.photos || "")}"/></div><textarea data-field="observations" placeholder="Observaciones">${esc(r.observations || "")}</textarea></div>`).join("")}</details>`).join("");
+  box.querySelectorAll('[data-field="distribution"]').forEach((el) => { const row = rows.find((r) => r.key === el.closest('[data-nec-key]')?.dataset.necKey); if (row) el.value = row.distribution || ""; });
+  box.querySelectorAll('[data-field="severity"]').forEach((el) => { const row = rows.find((r) => r.key === el.closest('[data-nec-key]')?.dataset.necKey); if (row) el.value = row.severity || ""; });
+  box.querySelectorAll('[data-nec-normal]').forEach((btn) => btn.addEventListener("click", () => { const card = btn.closest('[data-nec-key]'); card.querySelector('[data-field="status"]').value = "SIN_LESIONES"; }));
+}
+function wireNecropsyControls() {
+  $("#p_nec_markAllUnreviewed")?.addEventListener("click", () => $$('#p_nec_systematicList [data-field="status"]').forEach((el) => { el.value = "NO_REVISADO"; }));
+  $("#p_nec_markAllNormal")?.addEventListener("click", () => $$('#p_nec_systematicList [data-field="status"]').forEach((el) => { el.value = "SIN_LESIONES"; }));
+  $("#p_nec_expandAll")?.addEventListener("click", () => $$('#p_nec_systematicList details').forEach((el) => { el.open = true; }));
+  $("#p_nec_collapseAll")?.addEventListener("click", () => $$('#p_nec_systematicList details').forEach((el) => { el.open = false; }));
+  $("#p_nec_addCustomOrgan")?.addEventListener("click", () => { const name = $("#p_nec_customOrganName")?.value.trim(); if (!name) return; const rows = getNecropsyFindingsFromDom(); rows.push({ ...defaultNecropsyFinding("Órganos personalizados", name), custom: true }); if ($("#p_nec_customOrganName")) $("#p_nec_customOrganName").value = ""; renderNecropsySystematicList(rows); });
+  renderNecropsySystematicList();
+}
+
+function getProcedureMedicationSpecies() {
+  return $("#p_medSpecies")?.value.trim() || $("#p_nec_species")?.value.trim() || $("#p_cc_species")?.value.trim() || $("#p_species")?.value.trim() || "";
+}
+function applyMedicationDoseProfileToProcedure(force = false) {
+  const med = byId(state.meds, $("#p_medSelect")?.value);
+  const species = getProcedureMedicationSpecies();
+  const profile = med ? getMedicationDoseProfile(med, species) : null;
+  const help = $("#p_medSuggestedDose");
+  if (!med) { if (help) help.textContent = "Selecciona medicamento y especie para traer la dosis estructurada desde Medicamentos."; return; }
+  if (profile) {
+    const row = normalizeDoseRow(profile, species);
+    if (force || !$("#p_medDoseBase")?.value) $("#p_medDoseBase").value = row.dose || "";
+    if (force || !$("#p_medDoseUnit")?.value) $("#p_medDoseUnit").value = row.doseUnit || med.unit || "";
+    if (force || !$("#p_medCalculationRule")?.value) $("#p_medCalculationRule").value = row.calculationMode || "MANUAL";
+    if (force || !$("#p_medBaseUnit")?.value) $("#p_medBaseUnit").value = row.unitBase === "kg alimento" ? "kg" : (row.unitBase || "kg");
+    if (force || !$("#p_medAdministrationType")?.value) $("#p_medAdministrationType").value = med.route || $("#p_medAdministrationType")?.value || "Otro";
+    if (help) help.textContent = `Dosis sugerida desde Medicamentos para ${species || row.species}: ${row.dose} ${row.doseUnit} por ${row.porCada || 1} ${row.unitBase || doseRuleDenominator(row.calculationMode)} · ${row.frequency || "sin frecuencia"} · ${row.duration || "sin duración"}. Todo es editable en este procedimiento.`;
+  } else if (help) {
+    help.textContent = "Este medicamento no tiene dosis estructurada registrada para esta especie. Puedes elegir otra especie o capturar dosis manual solo para este procedimiento; si deseas reutilizarla, guárdala también en Medicamentos desde su ficha.";
+  }
+}
 function procedureManualMedDraftFromForm(existingId = null) {
   const med = byId(state.meds, $("#p_medSelect")?.value);
   if (!med) return null;
   const baseAmount = Number($("#p_medBaseAmount")?.value || 0);
   const doseBase = Number($("#p_medDoseBase")?.value || 0);
   const rule = $("#p_medCalculationRule")?.value || "MANUAL";
-  const calculatedTotal = Number($("#p_medCalculatedTotal")?.value || 0) || (["MANUAL", "FIXED"].includes(rule) ? doseBase : baseAmount * doseBase);
-  const converted = calculateConvertedMedicationDose({ med, theoreticalQty: calculatedTotal, theoreticalUnit: $("#p_medDoseUnit")?.value || med.unit || "", rule: rule === "PER_PATIENT" ? "PER_ANIMAL" : rule, basisValue: baseAmount, basisLabel: `${baseAmount || 0} ${$("#p_medBaseUnit")?.value || "base"}` });
+  const perEvery = Number(getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.porCada || 1) || 1;
+  const calculatedTotal = Number($("#p_medCalculatedTotal")?.value || 0) || (["MANUAL", "FIXED"].includes(rule) ? doseBase : doseBase * (baseAmount / perEvery));
+  const converted = calculateConvertedMedicationDose({ med, theoreticalQty: calculatedTotal, theoreticalUnit: $("#p_medDoseUnit")?.value || med.unit || "", rule: ["PER_PATIENT", "PER_GROUP"].includes(rule) ? "PER_ANIMAL" : rule, basisValue: baseAmount, basisLabel: `${baseAmount || 0} ${$("#p_medBaseUnit")?.value || "base"}` });
   const usedQty = Number($("#p_medDoseKg")?.value || 0) || Number(converted.convertedQty || calculatedTotal || 0);
   const usedUnit = $("#p_medUnitUsed")?.value.trim() || converted.convertedUnit || med.unit || "";
   const autoCost = Number((usedQty * Number(med.unitCost || 0)).toFixed(2));
-  return { id: existingId || uid("pmed"), itemId: med.id, name: med.brand, medicationName: med.brand, administrationType: $("#p_medAdministrationType")?.value || "", baseAmount, baseUnit: $("#p_medBaseUnit")?.value || "", calculationMode: rule, doseBase, doseUnit: $("#p_medDoseUnit")?.value || "", theoreticalQty: calculatedTotal, theoreticalUnit: $("#p_medDoseUnit")?.value || "", calculatedTotal, qty: usedQty, totalUsedQty: usedQty, inventoryDeductionQty: usedQty, chargeableQty: usedQty, unit: usedUnit, inventoryDeductionUnit: usedUnit, unitCost: Number(med.unitCost || 0), costSuggested: autoCost, costCharged: Number($("#p_medCostCharged")?.value || autoCost), route: $("#p_medAdministrationType")?.value || med.route || "", owner: med.owner || "", notes: $("#p_medNotes")?.value.trim() || "", calculationSummary: [converted.explanation, converted.warning].filter(Boolean).join(" · "), warning: converted.warning || "" };
+  return { id: existingId || uid("pmed"), itemId: med.id, medicationId: med.id, name: med.brand, medicationName: med.brand, species: getProcedureMedicationSpecies(), doseSource: getMedicationDoseProfile(med, getProcedureMedicationSpecies()) ? "MEDICATION" : "PROCEDURE_MANUAL", administrationType: $("#p_medAdministrationType")?.value || "", baseAmount, baseUnit: $("#p_medBaseUnit")?.value || "", calculationMode: rule, doseBase, doseUnit: $("#p_medDoseUnit")?.value || "", theoreticalQty: calculatedTotal, theoreticalUnit: $("#p_medDoseUnit")?.value || "", calculatedTotal, qty: usedQty, totalUsedQty: usedQty, inventoryDeductionQty: usedQty, chargeableQty: usedQty, unit: usedUnit, inventoryDeductionUnit: usedUnit, unitCost: Number(med.unitCost || 0), costSuggested: autoCost, costCharged: Number($("#p_medCostCharged")?.value || autoCost), route: $("#p_medAdministrationType")?.value || med.route || "", owner: med.owner || "", frequency: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.frequency || "", duration: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.duration || "", indication: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.indication || "", notes: $("#p_medNotes")?.value.trim() || "", calculationSummary: [converted.explanation, converted.warning].filter(Boolean).join(" · "), warning: converted.warning || "" };
 }
 function syncProcedureManualMedCalculation() {
   const med = byId(state.meds, $("#p_medSelect")?.value);
@@ -5944,14 +6028,23 @@ function syncProcedureManualMedCalculation() {
   if (!draft) return;
   if ($("#p_medCalculatedTotal")) $("#p_medCalculatedTotal").value = Number(draft.calculatedTotal || 0).toFixed(4).replace(/\.?0+$/, "");
   if ($("#p_medDoseKg") && !$("#p_medDoseKg").value) $("#p_medDoseKg").value = Number(draft.qty || 0).toFixed(4).replace(/\.?0+$/, "");
-  if ($("#p_medCostCharged")) $("#p_medCostCharged").value = Number(draft.costCharged || 0).toFixed(2);
+  if ($("#p_medCostSuggested")) $("#p_medCostSuggested").value = Number(draft.costSuggested || 0).toFixed(2);
+  if ($("#p_medCostCharged") && !$("#p_medCostCharged").value) $("#p_medCostCharged").value = Number(draft.costCharged || 0).toFixed(2);
   if ($("#p_medNotes") && !$("#p_medNotes").value) $("#p_medNotes").value = draft.calculationSummary || "";
 }
-function clearProcedureManualMedForm() { ["p_medBaseAmount","p_medDoseBase","p_medCalculatedTotal","p_medDoseKg","p_medUnitUsed","p_medCostCharged","p_medNotes"].forEach((id)=>{ if ($("#"+id)) $("#"+id).value=""; }); state.draft.procedureMedUseEditId = null; }
+function clearProcedureManualMedForm() { ["p_medSpecies","p_medBaseAmount","p_medDoseBase","p_medCalculatedTotal","p_medDoseKg","p_medUnitUsed","p_medCostSuggested","p_medCostCharged","p_medNotes"].forEach((id)=>{ if ($("#"+id)) $("#"+id).value=""; }); state.draft.procedureMedUseEditId = null; applyMedicationDoseProfileToProcedure(true); }
 function addProcedureMedUse() {
   const draft = procedureManualMedDraftFromForm(state.draft.procedureMedUseEditId);
   if (!draft) return show("p_msg", "Selecciona un medicamento de inventario.", "warning");
   if (!(Number(draft.qty || 0) > 0)) return show("p_msg", "Captura la cantidad usada real para descontar inventario.", "warning");
+  if (draft.doseSource === "PROCEDURE_MANUAL" && draft.species && draft.doseBase > 0) {
+    const med = byId(state.meds, draft.itemId);
+    if (med && confirm("Este medicamento no tiene dosis estructurada registrada para esta especie. ¿Guardar también esta dosis manual en Medicamentos para usarla después? Aceptar = guardar también; Cancelar = usar solo en este procedimiento.")) {
+      med.speciesDoses = [...(med.speciesDoses || []), normalizeDoseRow({ species: draft.species, dose: draft.doseBase, doseUnit: draft.doseUnit, porCada: 1, unitBase: draft.baseUnit || doseRuleDenominator(draft.calculationMode), calculationMode: draft.calculationMode, indication: draft.indication || "Dosis agregada desde procedimiento", frequency: draft.frequency || "", duration: draft.duration || "", notes: draft.notes || "" })];
+      save();
+      draft.doseSource = "MEDICATION_SAVED_FROM_PROCEDURE";
+    }
+  }
   const idx = (state.draft.procedureMedUses || []).findIndex((item) => item.id === draft.id);
   if (idx >= 0) state.draft.procedureMedUses[idx] = draft; else state.draft.procedureMedUses.push(draft);
   clearProcedureManualMedForm(); renderProcedureDraftLists(); show("p_msg", `Medicamento usado guardado: ${draft.name}.`, "success");
@@ -6989,7 +7082,7 @@ function collectProcedure() {
       structuredDoses: [...(state.draft.procedureSpeciesDoses || [])],
       photos: [...state.draft.procedureCasePhotos]
     },
-    necropsy: { idAnimal: $("#p_nec_idAnimal").value.trim(), species: $("#p_nec_species").value.trim(), breed: $("#p_nec_breed").value.trim(), sex: $("#p_nec_sex").value.trim(), age: $("#p_nec_age").value.trim(), sterilized: $("#p_nec_sterilized").value.trim(), color: $("#p_nec_color").value.trim(), weight: $("#p_nec_weight").value.trim(), birthDate: $("#p_nec_birthDate").value, deathDate: $("#p_nec_deathDate").value, timeDeathNec: $("#p_nec_timeDeathNec").value.trim(), sender: $("#p_nec_sender").value.trim(), caseNumber: $("#p_nec_caseNumber").value.trim(), clinicalDx: $("#p_nec_clinicalDx").value.trim(), additionalData: $("#p_nec_additionalData").value.trim(), externalInspection: $("#p_nec_externalInspection").value.trim(), primaryIncision: $("#p_nec_primaryIncision").value.trim(), secondaryIncision: $("#p_nec_secondaryIncision").value.trim(), organExtraction: $("#p_nec_organExtraction").value.trim(), respiratory: $("#p_nec_respiratory").value.trim(), heart: $("#p_nec_heart").value.trim(), spleen: $("#p_nec_spleen").value.trim(), kidneys: $("#p_nec_kidneys").value.trim(), stomach: $("#p_nec_stomach").value.trim(), preliminaryReport: $("#p_nec_preliminaryReport").value.trim(), morphDx: $("#p_nec_morphDx").value.trim(), finalDx: $("#p_nec_finalDx").value.trim(), comments: $("#p_nec_comments").value.trim(), biblioSummary: $("#p_nec_biblioSummary").value.trim(), bibliography: $("#p_nec_bibliography").value.trim(), photos: [...state.draft.procedureNecropsyPhotos] },
+    necropsy: { idAnimal: $("#p_nec_idAnimal").value.trim(), species: $("#p_nec_species").value.trim(), breed: $("#p_nec_breed").value.trim(), sex: $("#p_nec_sex").value.trim(), age: $("#p_nec_age").value.trim(), sterilized: $("#p_nec_sterilized").value.trim(), color: $("#p_nec_color").value.trim(), weight: $("#p_nec_weight").value.trim(), birthDate: $("#p_nec_birthDate").value, deathDate: $("#p_nec_deathDate").value, timeDeathNec: $("#p_nec_timeDeathNec").value.trim(), sender: $("#p_nec_sender").value.trim(), caseNumber: $("#p_nec_caseNumber").value.trim(), clinicalDx: $("#p_nec_clinicalDx").value.trim(), additionalData: $("#p_nec_additionalData").value.trim(), externalInspection: $("#p_nec_externalInspection").value.trim(), primaryIncision: $("#p_nec_primaryIncision").value.trim(), secondaryIncision: $("#p_nec_secondaryIncision").value.trim(), organExtraction: $("#p_nec_organExtraction").value.trim(), respiratory: $("#p_nec_respiratory").value.trim(), heart: $("#p_nec_heart").value.trim(), spleen: $("#p_nec_spleen").value.trim(), kidneys: $("#p_nec_kidneys").value.trim(), stomach: $("#p_nec_stomach").value.trim(), preliminaryReport: $("#p_nec_preliminaryReport").value.trim(), morphDx: $("#p_nec_morphDx").value.trim(), finalDx: $("#p_nec_finalDx").value.trim(), comments: $("#p_nec_comments").value.trim(), biblioSummary: $("#p_nec_biblioSummary").value.trim(), bibliography: $("#p_nec_bibliography").value.trim(), samplesTaken: $("#p_nec_samplesTaken")?.value.trim() || "", systematicFindings: getNecropsyFindingsFromDom(), photos: [...state.draft.procedureNecropsyPhotos] },
     zootecnia: { activity: $("#p_zoo_activity").value.trim(), evaluation: $("#p_zoo_evaluation").value.trim(), intervention: $("#p_zoo_intervention").value.trim(), plan: $("#p_zoo_plan").value.trim(), followup: $("#p_zoo_followup").value.trim() },
     surgery: {},
     charge: { ...calculateProcedureCharge(), manual: Number($("#p_chargeManual").value || 0), reason: $("#p_chargeReason").value.trim(), status: $("#p_chargeStatus").value, notes: $("#p_chargeNotes").value.trim(), photo: state.draft.procedureChargePhoto },
@@ -7078,7 +7171,7 @@ function resetProcedure() {
 function fillProcedure(p) {
   resetProcedure();
   state.editing.procedureId = p.id;
-  Object.entries({ p_date: p.date, p_type: p.type, p_caseOwnerMode: p.ownerMode || (p.producerId ? "REGISTERED" : "UNREGISTERED"), p_unregisteredClientName: p.unregisteredClientName || p.producerName || "", p_unregisteredAnimalName: p.unregisteredAnimalName || p.identification || "", p_scope: p.scope, p_place: p.place, p_costTotal: p.charge?.base || "", p_producer: p.producerId, p_animalGroup: p.animalId, p_animalsQtyUsed: p.animalsQtyUsed, p_preventiveSubtype: p.preventiveSubtype || "", p_zoo_activity: p.zootecniaActivity || p.zootecnia?.activity || "", p_chargeStatus: p.chargeStatus, p_chargeNotes: p.chargeNotes, p_notes: p.notes, p_medicationApplicationMode: p.medicationApplicationMode || "INDIVIDUAL_ANIMAL", p_groupMedSelect: p.groupMedication?.medicationId || "", p_groupAdministrationType: p.groupMedication?.administrationType || "AGUA", p_groupDoseRule: p.groupMedication?.rule || "PER_LITER", p_groupDoseBase: p.groupMedication?.doseBase || "", p_groupDoseUnit: p.groupMedication?.doseUnit || "", p_groupTotalVolumeKg: p.groupMedication?.totalVolumeKg || "", p_groupAnimalBase: p.groupMedication?.groupAnimalId || "", p_groupDetectedSpecies: p.groupMedication?.species || "", p_cc_registeredAnimal: p.animalId || "", p_cc_animalName: p.caseClinical?.animalName || p.identification || p.unregisteredAnimalName || "", p_cc_species: p.caseClinical?.species || p.species || "", p_cc_breed: p.caseClinical?.breed || "", p_cc_sex: p.caseClinical?.sex || "", p_cc_age: p.caseClinical?.age || "", p_cc_weight: p.caseClinical?.weight || p.weight || "", p_cc_reproductiveStatus: p.caseClinical?.reproductiveStatus || "", p_cc_animalObservations: p.caseClinical?.animalObservations || "", p_cc_reason: p.caseClinical?.reason, p_cc_anamnesis: p.caseClinical?.anamnesis, p_cc_bodyCondition: p.caseClinical?.bodyCondition, p_cc_mucosa: p.caseClinical?.mucosa, p_cc_tllc: p.caseClinical?.tllc, p_cc_hydration: p.caseClinical?.hydration, p_cc_fc: p.caseClinical?.fc, p_cc_fr: p.caseClinical?.fr, p_cc_temp: p.caseClinical?.temp, p_cc_age: p.caseClinical?.age, p_cc_exam: p.caseClinical?.exam, p_cc_presumptiveDx: p.caseClinical?.presumptiveDx, p_cc_otherSigns: p.caseClinical?.otherSigns || "", p_cc_differentialDx: p.caseClinical?.differentialDx || "", p_cc_tests: p.caseClinical?.tests || "", p_cc_nextReview: p.caseClinical?.nextReview || "", p_cc_treatmentChanges: p.caseClinical?.treatmentChanges || "", p_cc_followupObservations: p.caseClinical?.followupObservations || "", p_cc_prognosis: p.caseClinical?.prognosis || "", p_cc_closeDate: p.caseClinical?.closeDate || "", p_cc_finalRecommendations: p.caseClinical?.finalRecommendations || "", p_cc_treatment: p.caseClinical?.treatment, p_cc_recommendations: p.caseClinical?.recommendations, p_cc_followup: p.caseClinical?.followup, p_cc_outcome: p.caseClinical?.outcome || "", p_cc_deathCause: p.caseClinical?.deathCause || "", p_nec_idAnimal: p.necropsy?.idAnimal, p_nec_species: p.necropsy?.species, p_nec_breed: p.necropsy?.breed, p_nec_sex: p.necropsy?.sex, p_nec_age: p.necropsy?.age, p_nec_sterilized: p.necropsy?.sterilized, p_nec_color: p.necropsy?.color, p_nec_weight: p.necropsy?.weight, p_nec_birthDate: p.necropsy?.birthDate, p_nec_deathDate: p.necropsy?.deathDate, p_nec_timeDeathNec: p.necropsy?.timeDeathNec, p_nec_sender: p.necropsy?.sender, p_nec_caseNumber: p.necropsy?.caseNumber, p_nec_clinicalDx: p.necropsy?.clinicalDx, p_nec_additionalData: p.necropsy?.additionalData, p_nec_externalInspection: p.necropsy?.externalInspection, p_nec_primaryIncision: p.necropsy?.primaryIncision, p_nec_secondaryIncision: p.necropsy?.secondaryIncision, p_nec_organExtraction: p.necropsy?.organExtraction, p_nec_respiratory: p.necropsy?.respiratory, p_nec_heart: p.necropsy?.heart, p_nec_spleen: p.necropsy?.spleen, p_nec_kidneys: p.necropsy?.kidneys, p_nec_stomach: p.necropsy?.stomach, p_nec_preliminaryReport: p.necropsy?.preliminaryReport, p_nec_morphDx: p.necropsy?.morphDx, p_nec_finalDx: p.necropsy?.finalDx, p_nec_comments: p.necropsy?.comments, p_nec_biblioSummary: p.necropsy?.biblioSummary, p_nec_bibliography: p.necropsy?.bibliography, p_zoo_evaluation: p.zootecnia?.evaluation, p_zoo_intervention: p.zootecnia?.intervention, p_zoo_plan: p.zootecnia?.plan, p_zoo_followup: p.zootecnia?.followup, p_chargeManual: p.charge?.manual, p_chargeReason: p.charge?.reason }).forEach(([k, v]) => { if ($("#" + k)) $("#" + k).value = safe(v); });
+  Object.entries({ p_date: p.date, p_type: p.type, p_caseOwnerMode: p.ownerMode || (p.producerId ? "REGISTERED" : "UNREGISTERED"), p_unregisteredClientName: p.unregisteredClientName || p.producerName || "", p_unregisteredAnimalName: p.unregisteredAnimalName || p.identification || "", p_scope: p.scope, p_place: p.place, p_costTotal: p.charge?.base || "", p_producer: p.producerId, p_animalGroup: p.animalId, p_animalsQtyUsed: p.animalsQtyUsed, p_preventiveSubtype: p.preventiveSubtype || "", p_zoo_activity: p.zootecniaActivity || p.zootecnia?.activity || "", p_chargeStatus: p.chargeStatus, p_chargeNotes: p.chargeNotes, p_notes: p.notes, p_medicationApplicationMode: p.medicationApplicationMode || "INDIVIDUAL_ANIMAL", p_groupMedSelect: p.groupMedication?.medicationId || "", p_groupAdministrationType: p.groupMedication?.administrationType || "AGUA", p_groupDoseRule: p.groupMedication?.rule || "PER_LITER", p_groupDoseBase: p.groupMedication?.doseBase || "", p_groupDoseUnit: p.groupMedication?.doseUnit || "", p_groupTotalVolumeKg: p.groupMedication?.totalVolumeKg || "", p_groupAnimalBase: p.groupMedication?.groupAnimalId || "", p_groupDetectedSpecies: p.groupMedication?.species || "", p_cc_registeredAnimal: p.animalId || "", p_cc_animalName: p.caseClinical?.animalName || p.identification || p.unregisteredAnimalName || "", p_cc_species: p.caseClinical?.species || p.species || "", p_cc_breed: p.caseClinical?.breed || "", p_cc_sex: p.caseClinical?.sex || "", p_cc_age: p.caseClinical?.age || "", p_cc_weight: p.caseClinical?.weight || p.weight || "", p_cc_reproductiveStatus: p.caseClinical?.reproductiveStatus || "", p_cc_animalObservations: p.caseClinical?.animalObservations || "", p_cc_reason: p.caseClinical?.reason, p_cc_anamnesis: p.caseClinical?.anamnesis, p_cc_bodyCondition: p.caseClinical?.bodyCondition, p_cc_mucosa: p.caseClinical?.mucosa, p_cc_tllc: p.caseClinical?.tllc, p_cc_hydration: p.caseClinical?.hydration, p_cc_fc: p.caseClinical?.fc, p_cc_fr: p.caseClinical?.fr, p_cc_temp: p.caseClinical?.temp, p_cc_age: p.caseClinical?.age, p_cc_exam: p.caseClinical?.exam, p_cc_presumptiveDx: p.caseClinical?.presumptiveDx, p_cc_otherSigns: p.caseClinical?.otherSigns || "", p_cc_differentialDx: p.caseClinical?.differentialDx || "", p_cc_tests: p.caseClinical?.tests || "", p_cc_nextReview: p.caseClinical?.nextReview || "", p_cc_treatmentChanges: p.caseClinical?.treatmentChanges || "", p_cc_followupObservations: p.caseClinical?.followupObservations || "", p_cc_prognosis: p.caseClinical?.prognosis || "", p_cc_closeDate: p.caseClinical?.closeDate || "", p_cc_finalRecommendations: p.caseClinical?.finalRecommendations || "", p_cc_treatment: p.caseClinical?.treatment, p_cc_recommendations: p.caseClinical?.recommendations, p_cc_followup: p.caseClinical?.followup, p_cc_outcome: p.caseClinical?.outcome || "", p_cc_deathCause: p.caseClinical?.deathCause || "", p_nec_idAnimal: p.necropsy?.idAnimal, p_nec_species: p.necropsy?.species, p_nec_breed: p.necropsy?.breed, p_nec_sex: p.necropsy?.sex, p_nec_age: p.necropsy?.age, p_nec_sterilized: p.necropsy?.sterilized, p_nec_color: p.necropsy?.color, p_nec_weight: p.necropsy?.weight, p_nec_birthDate: p.necropsy?.birthDate, p_nec_deathDate: p.necropsy?.deathDate, p_nec_timeDeathNec: p.necropsy?.timeDeathNec, p_nec_sender: p.necropsy?.sender, p_nec_caseNumber: p.necropsy?.caseNumber, p_nec_clinicalDx: p.necropsy?.clinicalDx, p_nec_additionalData: p.necropsy?.additionalData, p_nec_externalInspection: p.necropsy?.externalInspection, p_nec_primaryIncision: p.necropsy?.primaryIncision, p_nec_secondaryIncision: p.necropsy?.secondaryIncision, p_nec_organExtraction: p.necropsy?.organExtraction, p_nec_respiratory: p.necropsy?.respiratory, p_nec_heart: p.necropsy?.heart, p_nec_spleen: p.necropsy?.spleen, p_nec_kidneys: p.necropsy?.kidneys, p_nec_stomach: p.necropsy?.stomach, p_nec_preliminaryReport: p.necropsy?.preliminaryReport, p_nec_morphDx: p.necropsy?.morphDx, p_nec_finalDx: p.necropsy?.finalDx, p_nec_comments: p.necropsy?.comments, p_nec_biblioSummary: p.necropsy?.biblioSummary, p_nec_bibliography: p.necropsy?.bibliography, p_nec_samplesTaken: p.necropsy?.samplesTaken, p_zoo_evaluation: p.zootecnia?.evaluation, p_zoo_intervention: p.zootecnia?.intervention, p_zoo_plan: p.zootecnia?.plan, p_zoo_followup: p.zootecnia?.followup, p_chargeManual: p.charge?.manual, p_chargeReason: p.charge?.reason }).forEach(([k, v]) => { if ($("#" + k)) $("#" + k).value = safe(v); });
   renderProcedureAnimalSelect();
   state.draft.procedureAnimalEntries = ((p.animals || []).length ? p.animals : [createProcedureAnimalEntry(byId(currentAnimals(), p.animalId) || {}, { animalId: p.animalId, identification: p.identification, species: p.species, weight: p.weight, examIncluded: false })]).map((entry) => createProcedureAnimalEntry(byId(currentAnimals(), entry.animalId) || {}, { ...entry, age: entry.age || p.caseClinical?.age || "", sex: entry.sex || p.caseClinical?.sex || "", procedureReason: entry.procedureReason || p.caseClinical?.reason || "" }));
   state.draft.procedureMedUses = [...(p.inventory?.meds || [])];
@@ -7096,6 +7189,8 @@ function fillProcedure(p) {
   if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = state.draft.procedureSpeciesDoses.length ? JSON.stringify({ dosis_por_especie: groupSpeciesDoseRows(state.draft.procedureSpeciesDoses) }, null, 2) : "";
   resetProcedureFollowupMedicationForm();
   state.draft.procedureNecropsyPhotos = [...(p.necropsy?.photos || [])];
+  state.draft.procedureNecropsyFindings = mergeNecropsyFindings(p.necropsy?.systematicFindings || []);
+  renderNecropsySystematicList(state.draft.procedureNecropsyFindings);
   state.draft.procedureChargePhoto = p.charge?.photo || null;
   renderProcedureType(); renderProcedureDraftLists();
 }
@@ -7475,7 +7570,7 @@ function bindProcedures() {
   $("#p_type")?.addEventListener("change", renderProcedureType);
   $("#p_scope")?.addEventListener("change", renderProcedureType);
   $("#p_medicationApplicationMode")?.addEventListener("change", () => { toggleProcedureMedicationModeUi(); renderProcedureDraftLists(); });
-  ["p_groupMedSelect", "p_groupAnimalBase", "p_groupAdministrationType", "p_groupTotalVolumeKg", "p_groupDoseRule", "p_groupDoseBase", "p_groupDoseUnit", "p_medApplicationType", "p_medMarginProfile", "p_medMarginOverride", "p_costTotal", "p_medSelect", "p_medAdministrationType", "p_medBaseAmount", "p_medBaseUnit", "p_medCalculationRule", "p_medDoseBase", "p_medDoseUnit"].forEach((id) => {
+  ["p_groupMedSelect", "p_groupAnimalBase", "p_groupAdministrationType", "p_groupTotalVolumeKg", "p_groupDoseRule", "p_groupDoseBase", "p_groupDoseUnit", "p_medApplicationType", "p_medMarginProfile", "p_medMarginOverride", "p_costTotal", "p_medSelect", "p_medSpecies", "p_medAdministrationType", "p_medBaseAmount", "p_medBaseUnit", "p_medCalculationRule", "p_medDoseBase", "p_medDoseUnit", "p_medCalculatedTotal", "p_medDoseKg", "p_medUnitUsed", "p_medCostCharged"].forEach((id) => {
     $("#" + id)?.addEventListener("input", () => { syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
     $("#" + id)?.addEventListener("change", () => { syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
   });
@@ -7521,6 +7616,7 @@ function bindProcedures() {
   $("#p_cc_btnTake")?.addEventListener("click", () => requestPhotoInput("#p_cc_take", 'camera'));
   $("#p_cc_btnPick")?.addEventListener("click", () => requestPhotoInput("#p_cc_pick", 'gallery'));
   $("#p_cc_btnClear")?.addEventListener("click", () => { state.draft.procedureCasePhotos = []; renderProcedureDraftLists(); });
+  wireNecropsyControls();
   $("#p_nec_btnTake")?.addEventListener("click", () => requestPhotoInput("#p_nec_take", 'camera'));
   $("#p_nec_btnPick")?.addEventListener("click", () => requestPhotoInput("#p_nec_pick", 'gallery'));
   $("#p_nec_btnClear")?.addEventListener("click", () => { state.draft.procedureNecropsyPhotos = []; renderProcedureDraftLists(); });
