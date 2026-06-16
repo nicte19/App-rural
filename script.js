@@ -4160,7 +4160,7 @@ function fillProcedure(p) {
     if ($("#" + k)) $("#" + k).value = safe(v);
   });
   renderProcedureAnimalSelect();
-  state.draft.procedureMedUses = [...(p.inventory?.meds || [])];
+  state.draft.procedureMedUses = [...(p.inventory?.meds || []).filter((item) => !item.linkedAnimals?.length && !item.applicationMode && item.source !== "FOLLOWUP" && item.source !== "CLINICAL_DAY")];
   state.draft.procedureVaccineUses = [...(p.inventory?.vaccines || [])];
   state.draft.procedureSupplyUses = [...(p.inventory?.supplies || []).filter((item) => item.source !== "CLINICAL_DAY")];
   state.draft.procedureLabIds = [...(p.labIds || [])];
@@ -5985,6 +5985,29 @@ function wireNecropsyControls() {
   renderNecropsySystematicList();
 }
 
+
+function procedureManualMedRuleUi(rule = $("#p_medCalculationRule")?.value || "MANUAL") {
+  const labels = {
+    PER_LITER: ["Litros usados", "L"],
+    PER_ML: ["mL usados", "mL"],
+    PER_KG_FEED: ["Kg de alimento", "kg"],
+    PER_KG: ["Peso vivo del paciente o grupo (kg)", "kg"],
+    PER_ANIMAL: ["Número de animales", "animal"],
+    PER_PATIENT: ["Número de pacientes", "paciente"],
+    PER_GROUP: ["Número de grupos", "grupo"],
+    FIXED: ["Número de dosis o aplicaciones", "dosis"],
+    MANUAL: ["Cantidad usada manual", "otra"],
+  };
+  const [label, unit] = labels[rule] || labels.MANUAL;
+  if ($("#p_medBaseAmountLabel")) $("#p_medBaseAmountLabel").textContent = label;
+  if ($("#p_medBaseUnit") && (!$("#p_medBaseUnit").value || $("#p_medBaseUnit").value === "otra" || rule !== "MANUAL")) $("#p_medBaseUnit").value = unit;
+}
+function showProcedureManualMedEditor(show = true) {
+  const editor = $("#p_medUseEditor");
+  if (editor) editor.style.display = show ? "" : "none";
+  if (show) procedureManualMedRuleUi();
+}
+
 function getProcedureMedicationSpecies() {
   return $("#p_medSpecies")?.value.trim() || $("#p_nec_species")?.value.trim() || $("#p_cc_species")?.value.trim() || $("#p_species")?.value.trim() || "";
 }
@@ -5999,11 +6022,13 @@ function applyMedicationDoseProfileToProcedure(force = false) {
     if (force || !$("#p_medDoseBase")?.value) $("#p_medDoseBase").value = row.dose || "";
     if (force || !$("#p_medDoseUnit")?.value) $("#p_medDoseUnit").value = row.doseUnit || med.unit || "";
     if (force || !$("#p_medCalculationRule")?.value) $("#p_medCalculationRule").value = row.calculationMode || "MANUAL";
+    procedureManualMedRuleUi($("#p_medCalculationRule")?.value || row.calculationMode || "MANUAL");
     if (force || !$("#p_medBaseUnit")?.value) $("#p_medBaseUnit").value = row.unitBase === "kg alimento" ? "kg" : (row.unitBase || "kg");
     if (force || !$("#p_medAdministrationType")?.value) $("#p_medAdministrationType").value = med.route || $("#p_medAdministrationType")?.value || "Otro";
     if (help) help.textContent = `Dosis sugerida desde Medicamentos para ${species || row.species}: ${row.dose} ${row.doseUnit} por ${row.porCada || 1} ${row.unitBase || doseRuleDenominator(row.calculationMode)} · ${row.frequency || "sin frecuencia"} · ${row.duration || "sin duración"}. Todo es editable en este procedimiento.`;
   } else if (help) {
-    help.textContent = "Este medicamento no tiene dosis estructurada registrada para esta especie. Puedes elegir otra especie o capturar dosis manual solo para este procedimiento; si deseas reutilizarla, guárdala también en Medicamentos desde su ficha.";
+    help.textContent = "Este medicamento no tiene dosis registrada para esta especie. Puedes capturar cantidad usada manualmente solo para este procedimiento, guardar esa dosis también en Medicamentos o cancelar.";
+    procedureManualMedRuleUi($("#p_medCalculationRule")?.value || "MANUAL");
   }
 }
 function procedureManualMedDraftFromForm(existingId = null) {
@@ -6018,12 +6043,13 @@ function procedureManualMedDraftFromForm(existingId = null) {
   const usedQty = Number($("#p_medDoseKg")?.value || 0) || Number(converted.convertedQty || calculatedTotal || 0);
   const usedUnit = $("#p_medUnitUsed")?.value.trim() || converted.convertedUnit || med.unit || "";
   const autoCost = Number((usedQty * Number(med.unitCost || 0)).toFixed(2));
-  return { id: existingId || uid("pmed"), itemId: med.id, medicationId: med.id, name: med.brand, medicationName: med.brand, species: getProcedureMedicationSpecies(), doseSource: getMedicationDoseProfile(med, getProcedureMedicationSpecies()) ? "MEDICATION" : "PROCEDURE_MANUAL", administrationType: $("#p_medAdministrationType")?.value || "", baseAmount, baseUnit: $("#p_medBaseUnit")?.value || "", calculationMode: rule, doseBase, doseUnit: $("#p_medDoseUnit")?.value || "", theoreticalQty: calculatedTotal, theoreticalUnit: $("#p_medDoseUnit")?.value || "", calculatedTotal, qty: usedQty, totalUsedQty: usedQty, inventoryDeductionQty: usedQty, chargeableQty: usedQty, unit: usedUnit, inventoryDeductionUnit: usedUnit, unitCost: Number(med.unitCost || 0), costSuggested: autoCost, costCharged: Number($("#p_medCostCharged")?.value || autoCost), route: $("#p_medAdministrationType")?.value || med.route || "", owner: med.owner || "", frequency: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.frequency || "", duration: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.duration || "", indication: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.indication || "", notes: $("#p_medNotes")?.value.trim() || "", calculationSummary: [converted.explanation, converted.warning].filter(Boolean).join(" · "), warning: converted.warning || "" };
+  return { id: existingId || uid("pmed"), itemId: med.id, medicationId: med.id, name: med.brand, medicationName: med.brand, species: getProcedureMedicationSpecies(), doseSource: getMedicationDoseProfile(med, getProcedureMedicationSpecies()) ? "MEDICATION" : "PROCEDURE_MANUAL", administrationType: $("#p_medAdministrationType")?.value || "", baseAmount, baseUnit: $("#p_medBaseUnit")?.value || "", calculationMode: rule, doseBase, doseUnit: $("#p_medDoseUnit")?.value || "", theoreticalQty: calculatedTotal, theoreticalUnit: $("#p_medDoseUnit")?.value || "", calculatedTotal, qty: usedQty, totalUsedQty: usedQty, inventoryDeductionQty: usedQty, chargeableQty: usedQty, unit: usedUnit, inventoryDeductionUnit: usedUnit, unitCost: Number(med.unitCost || 0), costSuggested: autoCost, costCharged: Number($("#p_medCostCharged")?.value || autoCost), route: $("#p_medAdministrationType")?.value || med.route || "", owner: med.owner || "", frequency: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.frequency || "", duration: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.duration || "", indication: getMedicationDoseProfile(med, getProcedureMedicationSpecies())?.indication || "", notes: $("#p_medNotes")?.value.trim() || "", source: "PROCEDURE_MANUAL", calculationSummary: [converted.explanation, converted.warning].filter(Boolean).join(" · "), warning: converted.warning || "" };
 }
 function syncProcedureManualMedCalculation() {
   const med = byId(state.meds, $("#p_medSelect")?.value);
   if (!med) return;
   if ($("#p_medUnitUsed") && !$("#p_medUnitUsed").value) $("#p_medUnitUsed").value = med.unit || "";
+  procedureManualMedRuleUi();
   const draft = procedureManualMedDraftFromForm(state.draft.procedureMedUseEditId);
   if (!draft) return;
   if ($("#p_medCalculatedTotal")) $("#p_medCalculatedTotal").value = Number(draft.calculatedTotal || 0).toFixed(4).replace(/\.?0+$/, "");
@@ -6032,7 +6058,7 @@ function syncProcedureManualMedCalculation() {
   if ($("#p_medCostCharged") && !$("#p_medCostCharged").value) $("#p_medCostCharged").value = Number(draft.costCharged || 0).toFixed(2);
   if ($("#p_medNotes") && !$("#p_medNotes").value) $("#p_medNotes").value = draft.calculationSummary || "";
 }
-function clearProcedureManualMedForm() { ["p_medSpecies","p_medBaseAmount","p_medDoseBase","p_medCalculatedTotal","p_medDoseKg","p_medUnitUsed","p_medCostSuggested","p_medCostCharged","p_medNotes"].forEach((id)=>{ if ($("#"+id)) $("#"+id).value=""; }); state.draft.procedureMedUseEditId = null; applyMedicationDoseProfileToProcedure(true); }
+function clearProcedureManualMedForm() { ["p_medSpecies","p_medBaseAmount","p_medDoseBase","p_medCalculatedTotal","p_medDoseKg","p_medUnitUsed","p_medCostSuggested","p_medCostCharged","p_medNotes"].forEach((id)=>{ if ($("#"+id)) $("#"+id).value=""; }); if ($("#p_medSelect")) $("#p_medSelect").value = ""; state.draft.procedureMedUseEditId = null; applyMedicationDoseProfileToProcedure(true); showProcedureManualMedEditor(false); }
 function addProcedureMedUse() {
   const draft = procedureManualMedDraftFromForm(state.draft.procedureMedUseEditId);
   if (!draft) return show("p_msg", "Selecciona un medicamento de inventario.", "warning");
@@ -6045,6 +6071,20 @@ function addProcedureMedUse() {
       draft.doseSource = "MEDICATION_SAVED_FROM_PROCEDURE";
     }
   }
+  const existingSameMed = (state.draft.procedureMedUses || []).find((item) => item.itemId === draft.itemId && item.id !== draft.id);
+  if (existingSameMed && !state.draft.procedureMedUseEditId) {
+    const separate = confirm("Este medicamento ya está agregado. ¿Quieres agregarlo como una aplicación separada? Aceptar = aplicación separada; Cancelar = editar el existente.");
+    if (!separate) {
+      state.draft.procedureMedUseEditId = existingSameMed.id;
+      showProcedureManualMedEditor(true);
+      show("p_msg", "Medicamento existente cargado para editar.", "warning");
+      return;
+    }
+    const appNo = (state.draft.procedureMedUses || []).filter((item) => item.itemId === draft.itemId).length + 1;
+    draft.applicationNumber = appNo;
+    draft.name = `${draft.name} — aplicación ${appNo}`;
+    draft.medicationName = draft.name;
+  }
   const idx = (state.draft.procedureMedUses || []).findIndex((item) => item.id === draft.id);
   if (idx >= 0) state.draft.procedureMedUses[idx] = draft; else state.draft.procedureMedUses.push(draft);
   clearProcedureManualMedForm(); renderProcedureDraftLists(); show("p_msg", `Medicamento usado guardado: ${draft.name}.`, "success");
@@ -6052,12 +6092,11 @@ function addProcedureMedUse() {
 function renderProcedureMedUseList() {
   const list = $("#p_medUseList"); if (!list) return;
   const rows = state.draft.procedureMedUses || [];
-  list.innerHTML = rows.length ? rows.map((m) => `<div class="item"><h4>${esc(m.name)}</h4><div class="line"><b>Administración:</b> ${esc(m.administrationType || m.route || "")} · <b>Regla:</b> ${esc(doseRuleLabel(m.calculationMode) || m.calculationMode || "")} · <b>Dosis:</b> ${esc(m.doseBase || "")} ${esc(m.doseUnit || "")} · <b>Calculada:</b> ${esc(m.calculatedTotal || m.theoreticalQty || "")} ${esc(m.theoreticalUnit || "")} · <b>Usada real:</b> ${esc(m.qty)} ${esc(m.unit || "")} · <b>Costo:</b> ${money(m.costCharged ?? (Number(m.qty || 0) * Number(m.unitCost || 0)))}</div><div class="help">${esc(m.calculationSummary || m.notes || "")}</div><div class="actions"><button class="btn small" data-med-action="edit" data-id="${esc(m.id)}">Editar</button><button class="btn small ghost" data-med-action="duplicate" data-id="${esc(m.id)}">Duplicar</button><button class="btn small bad" data-med-action="remove" data-id="${esc(m.id)}">Eliminar</button></div></div>`).join("") : '<div class="help">Sin medicamentos usados agregados al procedimiento.</div>';
+  list.innerHTML = rows.length ? rows.map((m) => `<div class="item"><h4>${esc(m.name)}</h4><div class="line"><b>Administración:</b> ${esc(m.administrationType || m.route || "")} · <b>Regla:</b> ${esc(doseRuleLabel(m.calculationMode) || m.calculationMode || "")} · <b>Dosis:</b> ${esc(m.doseBase || "")} ${esc(m.doseUnit || "")} · <b>Calculada:</b> ${esc(m.calculatedTotal || m.theoreticalQty || "")} ${esc(m.theoreticalUnit || "")} · <b>Usada real:</b> ${esc(m.qty)} ${esc(m.unit || "")} · <b>Costo:</b> ${money(m.costCharged ?? (Number(m.qty || 0) * Number(m.unitCost || 0)))}</div><div class="help">${esc(m.calculationSummary || m.notes || "")}</div><div class="actions"><button class="btn small" data-med-action="edit" data-id="${esc(m.id)}">Editar</button><button class="btn small bad" data-med-action="remove" data-id="${esc(m.id)}">Eliminar</button></div></div>`).join("") : '<div class="help">Sin medicamentos usados agregados al procedimiento.</div>';
   list.querySelectorAll("[data-med-action]").forEach((btn) => btn.addEventListener("click", () => {
     const item = (state.draft.procedureMedUses || []).find((x) => x.id === btn.dataset.id); if (!item) return;
     if (btn.dataset.medAction === "remove") state.draft.procedureMedUses = state.draft.procedureMedUses.filter((x) => x.id !== item.id);
-    if (btn.dataset.medAction === "duplicate") state.draft.procedureMedUses.push({ ...item, id: uid("pmed") });
-    if (btn.dataset.medAction === "edit") { state.draft.procedureMedUseEditId = item.id; if ($("#p_medSelect")) $("#p_medSelect").value = item.itemId || ""; if ($("#p_medAdministrationType")) $("#p_medAdministrationType").value = item.administrationType || item.route || "Otro"; if ($("#p_medBaseAmount")) $("#p_medBaseAmount").value = item.baseAmount || ""; if ($("#p_medBaseUnit")) $("#p_medBaseUnit").value = item.baseUnit || "kg"; if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = item.calculationMode || "MANUAL"; if ($("#p_medDoseBase")) $("#p_medDoseBase").value = item.doseBase || ""; if ($("#p_medDoseUnit")) $("#p_medDoseUnit").value = item.doseUnit || item.theoreticalUnit || ""; if ($("#p_medCalculatedTotal")) $("#p_medCalculatedTotal").value = item.calculatedTotal || item.theoreticalQty || ""; if ($("#p_medDoseKg")) $("#p_medDoseKg").value = item.qty || ""; if ($("#p_medUnitUsed")) $("#p_medUnitUsed").value = item.unit || ""; if ($("#p_medCostCharged")) $("#p_medCostCharged").value = item.costCharged ?? ""; if ($("#p_medNotes")) $("#p_medNotes").value = item.notes || item.calculationSummary || ""; }
+    if (btn.dataset.medAction === "edit") { showProcedureManualMedEditor(true); state.draft.procedureMedUseEditId = item.id; if ($("#p_medSelect")) $("#p_medSelect").value = item.itemId || ""; if ($("#p_medAdministrationType")) $("#p_medAdministrationType").value = item.administrationType || item.route || "Otro"; if ($("#p_medBaseAmount")) $("#p_medBaseAmount").value = item.baseAmount || ""; if ($("#p_medBaseUnit")) $("#p_medBaseUnit").value = item.baseUnit || "kg"; if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = item.calculationMode || "MANUAL"; if ($("#p_medDoseBase")) $("#p_medDoseBase").value = item.doseBase || ""; if ($("#p_medDoseUnit")) $("#p_medDoseUnit").value = item.doseUnit || item.theoreticalUnit || ""; if ($("#p_medCalculatedTotal")) $("#p_medCalculatedTotal").value = item.calculatedTotal || item.theoreticalQty || ""; if ($("#p_medDoseKg")) $("#p_medDoseKg").value = item.qty || ""; if ($("#p_medUnitUsed")) $("#p_medUnitUsed").value = item.unit || ""; if ($("#p_medCostCharged")) $("#p_medCostCharged").value = item.costCharged ?? ""; if ($("#p_medNotes")) $("#p_medNotes").value = item.notes || item.calculationSummary || ""; }
     renderProcedureDraftLists();
   }));
 }
@@ -7166,6 +7205,7 @@ function resetProcedure() {
   state.draft.procedureClinicalDayEditId = null;
   if ($("#p_speciesDoseJson")) $("#p_speciesDoseJson").value = "";
   resetProcedureFollowupMedicationForm();
+  showProcedureManualMedEditor(false);
   renderProcedureType(); renderProcedureDraftLists(); renderProcedureAnimalSelect();
 }
 function fillProcedure(p) {
@@ -7174,7 +7214,7 @@ function fillProcedure(p) {
   Object.entries({ p_date: p.date, p_type: p.type, p_caseOwnerMode: p.ownerMode || (p.producerId ? "REGISTERED" : "UNREGISTERED"), p_unregisteredClientName: p.unregisteredClientName || p.producerName || "", p_unregisteredAnimalName: p.unregisteredAnimalName || p.identification || "", p_scope: p.scope, p_place: p.place, p_costTotal: p.charge?.base || "", p_producer: p.producerId, p_animalGroup: p.animalId, p_animalsQtyUsed: p.animalsQtyUsed, p_preventiveSubtype: p.preventiveSubtype || "", p_zoo_activity: p.zootecniaActivity || p.zootecnia?.activity || "", p_chargeStatus: p.chargeStatus, p_chargeNotes: p.chargeNotes, p_notes: p.notes, p_medicationApplicationMode: p.medicationApplicationMode || "INDIVIDUAL_ANIMAL", p_groupMedSelect: p.groupMedication?.medicationId || "", p_groupAdministrationType: p.groupMedication?.administrationType || "AGUA", p_groupDoseRule: p.groupMedication?.rule || "PER_LITER", p_groupDoseBase: p.groupMedication?.doseBase || "", p_groupDoseUnit: p.groupMedication?.doseUnit || "", p_groupTotalVolumeKg: p.groupMedication?.totalVolumeKg || "", p_groupAnimalBase: p.groupMedication?.groupAnimalId || "", p_groupDetectedSpecies: p.groupMedication?.species || "", p_cc_registeredAnimal: p.animalId || "", p_cc_animalName: p.caseClinical?.animalName || p.identification || p.unregisteredAnimalName || "", p_cc_species: p.caseClinical?.species || p.species || "", p_cc_breed: p.caseClinical?.breed || "", p_cc_sex: p.caseClinical?.sex || "", p_cc_age: p.caseClinical?.age || "", p_cc_weight: p.caseClinical?.weight || p.weight || "", p_cc_reproductiveStatus: p.caseClinical?.reproductiveStatus || "", p_cc_animalObservations: p.caseClinical?.animalObservations || "", p_cc_reason: p.caseClinical?.reason, p_cc_anamnesis: p.caseClinical?.anamnesis, p_cc_bodyCondition: p.caseClinical?.bodyCondition, p_cc_mucosa: p.caseClinical?.mucosa, p_cc_tllc: p.caseClinical?.tllc, p_cc_hydration: p.caseClinical?.hydration, p_cc_fc: p.caseClinical?.fc, p_cc_fr: p.caseClinical?.fr, p_cc_temp: p.caseClinical?.temp, p_cc_age: p.caseClinical?.age, p_cc_exam: p.caseClinical?.exam, p_cc_presumptiveDx: p.caseClinical?.presumptiveDx, p_cc_otherSigns: p.caseClinical?.otherSigns || "", p_cc_differentialDx: p.caseClinical?.differentialDx || "", p_cc_tests: p.caseClinical?.tests || "", p_cc_nextReview: p.caseClinical?.nextReview || "", p_cc_treatmentChanges: p.caseClinical?.treatmentChanges || "", p_cc_followupObservations: p.caseClinical?.followupObservations || "", p_cc_prognosis: p.caseClinical?.prognosis || "", p_cc_closeDate: p.caseClinical?.closeDate || "", p_cc_finalRecommendations: p.caseClinical?.finalRecommendations || "", p_cc_treatment: p.caseClinical?.treatment, p_cc_recommendations: p.caseClinical?.recommendations, p_cc_followup: p.caseClinical?.followup, p_cc_outcome: p.caseClinical?.outcome || "", p_cc_deathCause: p.caseClinical?.deathCause || "", p_nec_idAnimal: p.necropsy?.idAnimal, p_nec_species: p.necropsy?.species, p_nec_breed: p.necropsy?.breed, p_nec_sex: p.necropsy?.sex, p_nec_age: p.necropsy?.age, p_nec_sterilized: p.necropsy?.sterilized, p_nec_color: p.necropsy?.color, p_nec_weight: p.necropsy?.weight, p_nec_birthDate: p.necropsy?.birthDate, p_nec_deathDate: p.necropsy?.deathDate, p_nec_timeDeathNec: p.necropsy?.timeDeathNec, p_nec_sender: p.necropsy?.sender, p_nec_caseNumber: p.necropsy?.caseNumber, p_nec_clinicalDx: p.necropsy?.clinicalDx, p_nec_additionalData: p.necropsy?.additionalData, p_nec_externalInspection: p.necropsy?.externalInspection, p_nec_primaryIncision: p.necropsy?.primaryIncision, p_nec_secondaryIncision: p.necropsy?.secondaryIncision, p_nec_organExtraction: p.necropsy?.organExtraction, p_nec_respiratory: p.necropsy?.respiratory, p_nec_heart: p.necropsy?.heart, p_nec_spleen: p.necropsy?.spleen, p_nec_kidneys: p.necropsy?.kidneys, p_nec_stomach: p.necropsy?.stomach, p_nec_preliminaryReport: p.necropsy?.preliminaryReport, p_nec_morphDx: p.necropsy?.morphDx, p_nec_finalDx: p.necropsy?.finalDx, p_nec_comments: p.necropsy?.comments, p_nec_biblioSummary: p.necropsy?.biblioSummary, p_nec_bibliography: p.necropsy?.bibliography, p_nec_samplesTaken: p.necropsy?.samplesTaken, p_zoo_evaluation: p.zootecnia?.evaluation, p_zoo_intervention: p.zootecnia?.intervention, p_zoo_plan: p.zootecnia?.plan, p_zoo_followup: p.zootecnia?.followup, p_chargeManual: p.charge?.manual, p_chargeReason: p.charge?.reason }).forEach(([k, v]) => { if ($("#" + k)) $("#" + k).value = safe(v); });
   renderProcedureAnimalSelect();
   state.draft.procedureAnimalEntries = ((p.animals || []).length ? p.animals : [createProcedureAnimalEntry(byId(currentAnimals(), p.animalId) || {}, { animalId: p.animalId, identification: p.identification, species: p.species, weight: p.weight, examIncluded: false })]).map((entry) => createProcedureAnimalEntry(byId(currentAnimals(), entry.animalId) || {}, { ...entry, age: entry.age || p.caseClinical?.age || "", sex: entry.sex || p.caseClinical?.sex || "", procedureReason: entry.procedureReason || p.caseClinical?.reason || "" }));
-  state.draft.procedureMedUses = [...(p.inventory?.meds || [])];
+  state.draft.procedureMedUses = [...(p.inventory?.meds || []).filter((item) => !item.linkedAnimals?.length && !item.applicationMode && item.source !== "FOLLOWUP" && item.source !== "CLINICAL_DAY")];
   state.draft.procedureVaccineUses = [...(p.inventory?.vaccines || [])];
   state.draft.procedureSupplyUses = [...(p.inventory?.supplies || []).filter((item) => item.source !== "CLINICAL_DAY")];
   state.draft.procedureLabIds = [...(p.labIds || [])];
@@ -7571,8 +7611,8 @@ function bindProcedures() {
   $("#p_scope")?.addEventListener("change", renderProcedureType);
   $("#p_medicationApplicationMode")?.addEventListener("change", () => { toggleProcedureMedicationModeUi(); renderProcedureDraftLists(); });
   ["p_groupMedSelect", "p_groupAnimalBase", "p_groupAdministrationType", "p_groupTotalVolumeKg", "p_groupDoseRule", "p_groupDoseBase", "p_groupDoseUnit", "p_medApplicationType", "p_medMarginProfile", "p_medMarginOverride", "p_costTotal", "p_medSelect", "p_medSpecies", "p_medAdministrationType", "p_medBaseAmount", "p_medBaseUnit", "p_medCalculationRule", "p_medDoseBase", "p_medDoseUnit", "p_medCalculatedTotal", "p_medDoseKg", "p_medUnitUsed", "p_medCostCharged"].forEach((id) => {
-    $("#" + id)?.addEventListener("input", () => { syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
-    $("#" + id)?.addEventListener("change", () => { syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
+    $("#" + id)?.addEventListener("input", () => { procedureManualMedRuleUi(); syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
+    $("#" + id)?.addEventListener("change", () => { procedureManualMedRuleUi(); syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
   });
   $("#p_preventiveSubtype")?.addEventListener("change", renderProcedureType);
   $("#p_zoo_activity")?.addEventListener("change", renderProcedureDraftLists);
@@ -7608,7 +7648,9 @@ function bindProcedures() {
     await navigator.clipboard?.writeText?.(example);
     show("p_msg", "Ejemplo de dosis JSON copiado y pegado.", "success");
   });
-    $("#p_addMedUse")?.addEventListener("click", addProcedureMedUse);
+    $("#p_startMedUse")?.addEventListener("click", () => { clearProcedureManualMedForm(); showProcedureManualMedEditor(true); });
+  $("#p_cancelMedUse")?.addEventListener("click", () => { clearProcedureManualMedForm(); renderProcedureDraftLists(); });
+  $("#p_addMedUse")?.addEventListener("click", addProcedureMedUse);
   $("#p_addVaccineUse")?.addEventListener("click", addProcedureVaccineUse);
   $("#p_addSupplyUse")?.addEventListener("click", addProcedureSupplyUse);
   $("#lab_add")?.addEventListener("click", addLab);
