@@ -4045,7 +4045,7 @@ function collectProcedure() {
     ownerMode: isUnregisteredClinicalCase() ? "UNREGISTERED" : "REGISTERED",
     unregisteredClientName: $("#p_unregisteredClientName")?.value.trim() || "",
     unregisteredAnimalName: $("#p_unregisteredAnimalName")?.value.trim() || "",
-    animalId: isUnregisteredClinicalCase() ? "" : (($("#p_type")?.value || "") === "CASO_CLINICO" ? ($("#p_cc_registeredAnimal")?.value || "") : $("#p_animalGroup").value),
+    animalId: isUnregisteredClinicalCase() ? "" : (($("#p_type")?.value || "") === "CASO_CLINICO" ? ($("#p_cc_registeredAnimal")?.value || "") : (($("#p_scope")?.value || "INDIVIDUAL") === "GRUPAL" ? ($("#p_groupAnimalBase")?.value || "") : $("#p_animalGroup").value)),
     animalsQtyUsed: Number($("#p_animalsQtyUsed").value || 0),
     species: $("#p_species").value.trim(),
     identification: $("#p_identification").value.trim(),
@@ -5317,6 +5317,21 @@ function syncProcedureAnimalSummary(entry) {
   syncProcedureAnimalManualDoseFlags(entry);
   return entry;
 }
+function animalRegisteredQuantity(animal = {}) {
+  return Number(animal.quantity ?? animal.cantidad ?? animal.total ?? animal.count ?? 0) || 0;
+}
+function selectedProcedureSpeciesAnimal() {
+  const animals = currentAnimals();
+  const scope = $("#p_scope")?.value || "INDIVIDUAL";
+  const groupSelected = byId(animals, $("#p_groupAnimalBase")?.value || "");
+  const individualSelected = byId(animals, $("#p_animalGroup")?.value || "");
+  return scope === "GRUPAL" ? (groupSelected || individualSelected) : (individualSelected || groupSelected);
+}
+function updateProcedureProducerAnimalTotal() {
+  const selectedAnimal = selectedProcedureSpeciesAnimal();
+  if ($("#p_totalProducerAnimals")) $("#p_totalProducerAnimals").value = selectedAnimal ? animalRegisteredQuantity(selectedAnimal) : "";
+  if ($("#p_groupDetectedSpecies")) $("#p_groupDetectedSpecies").value = selectedAnimal?.species || "";
+}
 function renderProcedureAnimalSelect() {
   const prod = byId(
     state.producers,
@@ -5337,9 +5352,7 @@ function renderProcedureAnimalSelect() {
     target.innerHTML = options;
     target.value = animals.some((animal) => animal.id === prev) ? prev : "";
   });
-  if ($("#p_totalProducerAnimals")) $("#p_totalProducerAnimals").value = animals.length;
-  const selectedGroupAnimal = byId(animals, groupSel?.value || "");
-  if ($("#p_groupDetectedSpecies")) $("#p_groupDetectedSpecies").value = selectedGroupAnimal?.species || "";
+  updateProcedureProducerAnimalTotal();
 }
 function ensureProcedureAnimalEntriesForScope() {
   if (!state.draft.procedureAnimalEntries) state.draft.procedureAnimalEntries = [];
@@ -5507,19 +5520,20 @@ function toggleProcedureMedicationModeUi() {
   if (modeQuestion) modeQuestion.style.display = showModeQuestion ? "" : "none";
   if (!showModeQuestion && $("#p_medicationApplicationMode")) $("#p_medicationApplicationMode").value = "INDIVIDUAL_ANIMAL";
   const preventive = $("#p_type")?.value === "PREVENTIVA";
+  const groupScope = ($("#p_scope")?.value || "INDIVIDUAL") === "GRUPAL";
   if (individualControls) individualControls.style.display = (group || preventive) ? "none" : "";
   if (groupBlock) groupBlock.style.display = showModeQuestion && group ? "" : "none";
   if (showModeQuestion) {
-    if (individualAnimalControls) individualAnimalControls.style.display = group ? "none" : "";
-    if (groupAnimalBaseWrap) groupAnimalBaseWrap.style.display = group ? "" : "none";
-    if (groupDetectedSpeciesWrap) groupDetectedSpeciesWrap.style.display = group ? "" : "none";
-    if (animalsCards) animalsCards.style.display = group ? "none" : "";
+    if (individualAnimalControls) individualAnimalControls.style.display = (group || groupScope) ? "none" : "";
+    if (groupAnimalBaseWrap) groupAnimalBaseWrap.style.display = (group || groupScope) ? "" : "none";
+    if (groupDetectedSpeciesWrap) groupDetectedSpeciesWrap.style.display = (group || groupScope) ? "" : "none";
+    if (animalsCards) animalsCards.style.display = (group || groupScope) ? "none" : "";
     if (group && (state.draft.procedureAnimalEntries || []).length) state.draft.procedureAnimalEntries = [];
   } else {
-    if (individualAnimalControls) individualAnimalControls.style.display = "";
-    if (groupAnimalBaseWrap) groupAnimalBaseWrap.style.display = "none";
-    if (groupDetectedSpeciesWrap) groupDetectedSpeciesWrap.style.display = "none";
-    if (animalsCards) animalsCards.style.display = "";
+    if (individualAnimalControls) individualAnimalControls.style.display = groupScope ? "none" : "";
+    if (groupAnimalBaseWrap) groupAnimalBaseWrap.style.display = groupScope ? "" : "none";
+    if (groupDetectedSpeciesWrap) groupDetectedSpeciesWrap.style.display = groupScope ? "" : "none";
+    if (animalsCards) animalsCards.style.display = groupScope ? "none" : "";
   }
   const helper = $("#p_animalsHelper");
   if (helper && preventive) {
@@ -7280,8 +7294,9 @@ function collectProcedure() {
     notes: item.notes || "",
     owner: byId(state.meds, item.medicationId)?.owner || "",
   }));
-  const groupIdentification = groupMedication?.groupAnimalLabel || "";
-  const groupSpecies = groupMedication?.species || "";
+  const selectedGroupProcedureAnimal = selectedProcedureSpeciesAnimal();
+  const groupIdentification = groupMedication?.groupAnimalLabel || animalLabel(selectedGroupProcedureAnimal || {}) || "";
+  const groupSpecies = groupMedication?.species || selectedGroupProcedureAnimal?.species || "";
   return {
     id: state.editing.procedureId || uid("proc"),
     date: $("#p_date").value,
@@ -7293,10 +7308,10 @@ function collectProcedure() {
     ownerMode: isUnregisteredClinicalCase() ? "UNREGISTERED" : "REGISTERED",
     unregisteredClientName: $("#p_unregisteredClientName")?.value.trim() || "",
     unregisteredAnimalName: $("#p_unregisteredAnimalName")?.value.trim() || "",
-    animalId: isUnregisteredClinicalCase() ? "" : (($("#p_type")?.value || "") === "CASO_CLINICO" ? ($("#p_cc_registeredAnimal")?.value || "") : $("#p_animalGroup").value),
+    animalId: isUnregisteredClinicalCase() ? "" : (($("#p_type")?.value || "") === "CASO_CLINICO" ? ($("#p_cc_registeredAnimal")?.value || "") : (($("#p_scope")?.value || "INDIVIDUAL") === "GRUPAL" ? ($("#p_groupAnimalBase")?.value || "") : $("#p_animalGroup").value)),
     animalsQtyUsed: Number($("#p_animalsQtyUsed").value || animals.length || 0),
-    species: primary.species || (medicationApplicationMode === "GROUP_WATER_FEED" ? groupSpecies : ""),
-    identification: primary.identification || (medicationApplicationMode === "GROUP_WATER_FEED" ? groupIdentification : ""),
+    species: primary.species || ((medicationApplicationMode === "GROUP_WATER_FEED" || ($("#p_scope")?.value || "INDIVIDUAL") === "GRUPAL") ? groupSpecies : ""),
+    identification: primary.identification || ((medicationApplicationMode === "GROUP_WATER_FEED" || ($("#p_scope")?.value || "INDIVIDUAL") === "GRUPAL") ? groupIdentification : ""),
     weight: primary.weightRecordedKg || "",
     temperature: primary.exam?.temperature || "",
     preventiveSubtype: $("#p_preventiveSubtype")?.value || "",
@@ -7367,7 +7382,8 @@ function saveProcedure() {
   if (p.type === "CASO_CLINICO" && p.ownerMode === "UNREGISTERED" && !p.unregisteredClientName) return show("p_err", "Captura el nombre de la persona atendida para el caso clínico sin productor registrado.", "error");
   if (p.type === "PREVENTIVA" && !p.preventiveSubtype) return show("p_err", "Selecciona el subtipo de medicina preventiva.", "error");
   if (p.type === "ZOOTECNIA" && !p.zootecniaActivity) return show("p_err", "Captura la actividad flexible de asesoría clínica / zootécnica.", "error");
-  if (p.medicationApplicationMode !== "GROUP_WATER_FEED" && !p.animals.length) return show("p_err", "Agrega al menos un animal tratado dentro del procedimiento.", "error");
+  if (p.scope === "INDIVIDUAL" && p.medicationApplicationMode !== "GROUP_WATER_FEED" && !p.animals.length) return show("p_err", "Agrega al menos un animal tratado dentro del procedimiento.", "error");
+  if (p.scope === "GRUPAL" && Number(p.animalsQtyUsed || 0) <= 0) return show("p_err", "En procedimiento grupal captura un número válido de animales atendidos.", "error");
   if (p.medicationApplicationMode === "GROUP_WATER_FEED") {
     if (!p.groupMedication?.medicationId) return show("p_err", "En aplicación grupal selecciona un medicamento.", "error");
     if (Number(p.animalsQtyUsed || 0) <= 0) return show("p_err", "En aplicación grupal captura a cuántos animales aplica.", "error");
@@ -7386,7 +7402,7 @@ function saveProcedure() {
   }
   if (["CASO_CLINICO", "NECROPSIA"].includes(p.type) && p.scope !== "INDIVIDUAL") p.scope = "INDIVIDUAL";
   if (p.type === "NECROPSIA" && !p.animalId) return show("p_err", "Este procedimiento requiere un animal individual.", "error");
-  if (p.scope === "GRUPAL" && p.medicationApplicationMode !== "GROUP_WATER_FEED" && p.animalsQtyUsed && p.animals.length !== p.animalsQtyUsed) return show("p_err", "La cantidad capturada no coincide con los animales individuales agregados.", "error");
+  if (p.scope === "INDIVIDUAL" && p.medicationApplicationMode !== "GROUP_WATER_FEED" && p.animalsQtyUsed && p.animals.length !== p.animalsQtyUsed) return show("p_err", "La cantidad capturada no coincide con los animales individuales agregados.", "error");
   const idx = state.procedures.findIndex((x) => x.id === p.id);
   const previous = idx >= 0 ? state.procedures[idx] : null;
   const validationProblems = validateProcedureAnimalEntries(p.animals || [], previous);
@@ -7442,7 +7458,7 @@ function resetProcedure() {
 function fillProcedure(p) {
   resetProcedure();
   state.editing.procedureId = p.id;
-  Object.entries({ p_date: p.date, p_type: p.type, p_caseOwnerMode: p.ownerMode || (p.producerId ? "REGISTERED" : "UNREGISTERED"), p_unregisteredClientName: p.unregisteredClientName || p.producerName || "", p_unregisteredAnimalName: p.unregisteredAnimalName || p.identification || "", p_scope: p.scope, p_place: p.place, p_costTotal: p.charge?.base || "", p_producer: p.producerId, p_animalGroup: p.animalId, p_animalsQtyUsed: p.animalsQtyUsed, p_preventiveSubtype: p.preventiveSubtype || "", p_zoo_activity: p.zootecniaActivity || p.zootecnia?.activity || "", p_chargeStatus: p.chargeStatus, p_chargeNotes: p.chargeNotes, p_notes: p.notes, p_medicationApplicationMode: p.medicationApplicationMode || "INDIVIDUAL_ANIMAL", p_groupMedSelect: p.groupMedication?.medicationId || "", p_groupAdministrationType: p.groupMedication?.administrationType || "AGUA", p_groupDoseRule: p.groupMedication?.rule || "PER_LITER", p_groupDoseBase: p.groupMedication?.doseBase || "", p_groupDoseUnit: p.groupMedication?.doseUnit || "", p_groupTotalVolumeKg: p.groupMedication?.totalVolumeKg || "", p_groupAnimalBase: p.groupMedication?.groupAnimalId || "", p_groupDetectedSpecies: p.groupMedication?.species || "", p_cc_registeredAnimal: p.animalId || "", p_cc_animalName: p.caseClinical?.animalName || p.identification || p.unregisteredAnimalName || "", p_cc_species: p.caseClinical?.species || p.species || "", p_cc_breed: p.caseClinical?.breed || "", p_cc_sex: p.caseClinical?.sex || "", p_cc_age: p.caseClinical?.age || "", p_cc_weight: p.caseClinical?.weight || p.weight || "", p_cc_reproductiveStatus: p.caseClinical?.reproductiveStatus || "", p_cc_animalObservations: p.caseClinical?.animalObservations || "", p_cc_reason: p.caseClinical?.reason, p_cc_anamnesis: p.caseClinical?.anamnesis, p_cc_bodyCondition: p.caseClinical?.bodyCondition, p_cc_mucosa: p.caseClinical?.mucosa, p_cc_tllc: p.caseClinical?.tllc, p_cc_hydration: p.caseClinical?.hydration, p_cc_fc: p.caseClinical?.fc, p_cc_fr: p.caseClinical?.fr, p_cc_temp: p.caseClinical?.temp, p_cc_age: p.caseClinical?.age, p_cc_exam: p.caseClinical?.exam, p_cc_presumptiveDx: p.caseClinical?.presumptiveDx, p_cc_otherSigns: p.caseClinical?.otherSigns || "", p_cc_differentialDx: p.caseClinical?.differentialDx || "", p_cc_tests: p.caseClinical?.tests || "", p_cc_nextReview: p.caseClinical?.nextReview || "", p_cc_treatmentChanges: p.caseClinical?.treatmentChanges || "", p_cc_followupObservations: p.caseClinical?.followupObservations || "", p_cc_prognosis: p.caseClinical?.prognosis || "", p_cc_closeDate: p.caseClinical?.closeDate || "", p_cc_finalRecommendations: p.caseClinical?.finalRecommendations || "", p_cc_treatment: p.caseClinical?.treatment, p_cc_recommendations: p.caseClinical?.recommendations, p_cc_followup: p.caseClinical?.followup, p_cc_outcome: p.caseClinical?.outcome || "", p_cc_deathCause: p.caseClinical?.deathCause || "", p_nec_idAnimal: p.necropsy?.idAnimal, p_nec_species: p.necropsy?.species, p_nec_breed: p.necropsy?.breed, p_nec_sex: p.necropsy?.sex, p_nec_age: p.necropsy?.age, p_nec_sterilized: p.necropsy?.sterilized, p_nec_color: p.necropsy?.color, p_nec_weight: p.necropsy?.weight, p_nec_birthDate: p.necropsy?.birthDate, p_nec_deathDate: p.necropsy?.deathDate, p_nec_timeDeathNec: p.necropsy?.timeDeathNec, p_nec_sender: p.necropsy?.sender, p_nec_caseNumber: p.necropsy?.caseNumber, p_nec_clinicalDx: p.necropsy?.clinicalDx, p_nec_additionalData: p.necropsy?.additionalData, p_nec_externalInspection: p.necropsy?.externalInspection, p_nec_primaryIncision: p.necropsy?.primaryIncision, p_nec_secondaryIncision: p.necropsy?.secondaryIncision, p_nec_organExtraction: p.necropsy?.organExtraction, p_nec_respiratory: p.necropsy?.respiratory, p_nec_heart: p.necropsy?.heart, p_nec_spleen: p.necropsy?.spleen, p_nec_kidneys: p.necropsy?.kidneys, p_nec_stomach: p.necropsy?.stomach, p_nec_preliminaryReport: p.necropsy?.preliminaryReport, p_nec_morphDx: p.necropsy?.morphDx, p_nec_finalDx: p.necropsy?.finalDx, p_nec_comments: p.necropsy?.comments, p_nec_biblioSummary: p.necropsy?.biblioSummary, p_nec_bibliography: p.necropsy?.bibliography, p_nec_samplesTaken: p.necropsy?.samplesTaken, p_zoo_evaluation: p.zootecnia?.evaluation, p_zoo_intervention: p.zootecnia?.intervention, p_zoo_plan: p.zootecnia?.plan, p_zoo_followup: p.zootecnia?.followup, p_chargeManual: p.charge?.manual, p_chargeReason: p.charge?.reason }).forEach(([k, v]) => { if ($("#" + k)) $("#" + k).value = safe(v); });
+  Object.entries({ p_date: p.date, p_type: p.type, p_caseOwnerMode: p.ownerMode || (p.producerId ? "REGISTERED" : "UNREGISTERED"), p_unregisteredClientName: p.unregisteredClientName || p.producerName || "", p_unregisteredAnimalName: p.unregisteredAnimalName || p.identification || "", p_scope: p.scope, p_place: p.place, p_costTotal: p.charge?.base || "", p_producer: p.producerId, p_animalGroup: p.animalId, p_animalsQtyUsed: p.animalsQtyUsed, p_preventiveSubtype: p.preventiveSubtype || "", p_zoo_activity: p.zootecniaActivity || p.zootecnia?.activity || "", p_chargeStatus: p.chargeStatus, p_chargeNotes: p.chargeNotes, p_notes: p.notes, p_medicationApplicationMode: p.medicationApplicationMode || "INDIVIDUAL_ANIMAL", p_groupMedSelect: p.groupMedication?.medicationId || "", p_groupAdministrationType: p.groupMedication?.administrationType || "AGUA", p_groupDoseRule: p.groupMedication?.rule || "PER_LITER", p_groupDoseBase: p.groupMedication?.doseBase || "", p_groupDoseUnit: p.groupMedication?.doseUnit || "", p_groupTotalVolumeKg: p.groupMedication?.totalVolumeKg || "", p_groupAnimalBase: p.groupMedication?.groupAnimalId || (p.scope === "GRUPAL" ? p.animalId : ""), p_groupDetectedSpecies: p.groupMedication?.species || "", p_cc_registeredAnimal: p.animalId || "", p_cc_animalName: p.caseClinical?.animalName || p.identification || p.unregisteredAnimalName || "", p_cc_species: p.caseClinical?.species || p.species || "", p_cc_breed: p.caseClinical?.breed || "", p_cc_sex: p.caseClinical?.sex || "", p_cc_age: p.caseClinical?.age || "", p_cc_weight: p.caseClinical?.weight || p.weight || "", p_cc_reproductiveStatus: p.caseClinical?.reproductiveStatus || "", p_cc_animalObservations: p.caseClinical?.animalObservations || "", p_cc_reason: p.caseClinical?.reason, p_cc_anamnesis: p.caseClinical?.anamnesis, p_cc_bodyCondition: p.caseClinical?.bodyCondition, p_cc_mucosa: p.caseClinical?.mucosa, p_cc_tllc: p.caseClinical?.tllc, p_cc_hydration: p.caseClinical?.hydration, p_cc_fc: p.caseClinical?.fc, p_cc_fr: p.caseClinical?.fr, p_cc_temp: p.caseClinical?.temp, p_cc_age: p.caseClinical?.age, p_cc_exam: p.caseClinical?.exam, p_cc_presumptiveDx: p.caseClinical?.presumptiveDx, p_cc_otherSigns: p.caseClinical?.otherSigns || "", p_cc_differentialDx: p.caseClinical?.differentialDx || "", p_cc_tests: p.caseClinical?.tests || "", p_cc_nextReview: p.caseClinical?.nextReview || "", p_cc_treatmentChanges: p.caseClinical?.treatmentChanges || "", p_cc_followupObservations: p.caseClinical?.followupObservations || "", p_cc_prognosis: p.caseClinical?.prognosis || "", p_cc_closeDate: p.caseClinical?.closeDate || "", p_cc_finalRecommendations: p.caseClinical?.finalRecommendations || "", p_cc_treatment: p.caseClinical?.treatment, p_cc_recommendations: p.caseClinical?.recommendations, p_cc_followup: p.caseClinical?.followup, p_cc_outcome: p.caseClinical?.outcome || "", p_cc_deathCause: p.caseClinical?.deathCause || "", p_nec_idAnimal: p.necropsy?.idAnimal, p_nec_species: p.necropsy?.species, p_nec_breed: p.necropsy?.breed, p_nec_sex: p.necropsy?.sex, p_nec_age: p.necropsy?.age, p_nec_sterilized: p.necropsy?.sterilized, p_nec_color: p.necropsy?.color, p_nec_weight: p.necropsy?.weight, p_nec_birthDate: p.necropsy?.birthDate, p_nec_deathDate: p.necropsy?.deathDate, p_nec_timeDeathNec: p.necropsy?.timeDeathNec, p_nec_sender: p.necropsy?.sender, p_nec_caseNumber: p.necropsy?.caseNumber, p_nec_clinicalDx: p.necropsy?.clinicalDx, p_nec_additionalData: p.necropsy?.additionalData, p_nec_externalInspection: p.necropsy?.externalInspection, p_nec_primaryIncision: p.necropsy?.primaryIncision, p_nec_secondaryIncision: p.necropsy?.secondaryIncision, p_nec_organExtraction: p.necropsy?.organExtraction, p_nec_respiratory: p.necropsy?.respiratory, p_nec_heart: p.necropsy?.heart, p_nec_spleen: p.necropsy?.spleen, p_nec_kidneys: p.necropsy?.kidneys, p_nec_stomach: p.necropsy?.stomach, p_nec_preliminaryReport: p.necropsy?.preliminaryReport, p_nec_morphDx: p.necropsy?.morphDx, p_nec_finalDx: p.necropsy?.finalDx, p_nec_comments: p.necropsy?.comments, p_nec_biblioSummary: p.necropsy?.biblioSummary, p_nec_bibliography: p.necropsy?.bibliography, p_nec_samplesTaken: p.necropsy?.samplesTaken, p_zoo_evaluation: p.zootecnia?.evaluation, p_zoo_intervention: p.zootecnia?.intervention, p_zoo_plan: p.zootecnia?.plan, p_zoo_followup: p.zootecnia?.followup, p_chargeManual: p.charge?.manual, p_chargeReason: p.charge?.reason }).forEach(([k, v]) => { if ($("#" + k)) $("#" + k).value = safe(v); });
   renderProcedureAnimalSelect();
   state.draft.procedureAnimalEntries = ((p.animals || []).length ? p.animals : [createProcedureAnimalEntry(byId(currentAnimals(), p.animalId) || {}, { animalId: p.animalId, identification: p.identification, species: p.species, weight: p.weight, examIncluded: false })]).map((entry) => createProcedureAnimalEntry(byId(currentAnimals(), entry.animalId) || {}, { ...entry, age: entry.age || p.caseClinical?.age || "", sex: entry.sex || p.caseClinical?.sex || "", procedureReason: entry.procedureReason || p.caseClinical?.reason || "" }));
   state.draft.procedureMedUses = [
@@ -7854,7 +7870,12 @@ function bindProcedures() {
   $("#p_zoo_activity")?.addEventListener("change", renderProcedureDraftLists);
   $("#p_linkLabDecision")?.addEventListener("change", renderProcedureType);
   $("#p_animalGroup")?.addEventListener("change", () => {
+    updateProcedureProducerAnimalTotal();
     if (($("#p_scope")?.value || "INDIVIDUAL") === "INDIVIDUAL") ensureProcedureAnimalEntriesForScope();
+    renderProcedureDraftLists();
+  });
+  $("#p_groupAnimalBase")?.addEventListener("change", () => {
+    updateProcedureProducerAnimalTotal();
     renderProcedureDraftLists();
   });
   $("#p_addGroupAnimal")?.addEventListener("click", addProcedureAnimalEntry);
