@@ -2511,17 +2511,52 @@ function doseUnitOptions(selected = "") {
   const custom = value && !units.some((unit) => canonicalUnit(unit) === value) ? `<option value="${esc(value)}" selected>${esc(value)}</option>` : "";
   return `<option value="">— Unidad —</option>${options}${custom}`;
 }
+function medicationSpeciesDosePrompt(source = "") {
+  return `Analiza el siguiente texto de medicamento veterinario y extrae exclusivamente las dosis estructuradas por especie. Devuelve únicamente JSON válido con la llave dosis_por_especie. Cada elemento debe incluir: especie, cantidad, unidad, por_cada, unidad_base, regla_compatible, frecuencia, duracion, indicacion y observaciones. No inventes dosis. Si un dato no aparece, usa null o string vacío. Conserva advertencias importantes en observaciones. No devuelvas explicación, solo JSON. Texto fuente: ${source}`;
+}
+function parsePossiblyWrappedJson(value = "") {
+  const raw = safe(value).trim();
+  if (!raw) return {};
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = (fenced ? fenced[1] : raw).trim();
+  try { return JSON.parse(candidate); } catch (_) {
+    const startObj = candidate.indexOf("{");
+    const endObj = candidate.lastIndexOf("}");
+    const startArr = candidate.indexOf("[");
+    const endArr = candidate.lastIndexOf("]");
+    if (startObj >= 0 && endObj > startObj) return JSON.parse(candidate.slice(startObj, endObj + 1));
+    if (startArr >= 0 && endArr > startArr) return JSON.parse(candidate.slice(startArr, endArr + 1));
+    throw new Error("JSON inválido. Pega JSON válido, aunque venga dentro de texto o bloque ```json.");
+  }
+}
+function normalizeDoseRule(value = "", unitBase = "") {
+  const text = safe(value).trim().toLowerCase();
+  if (["per_liter", "por litro", "por l", "l"].includes(text)) return "PER_LITER";
+  if (["per_ml", "por ml", "ml"].includes(text)) return "PER_ML";
+  if (["per_kg_feed", "por kg alimento", "por kg de alimento", "kg alimento"].includes(text)) return "PER_KG_FEED";
+  if (["per_animal", "por animal", "animal"].includes(text)) return "PER_ANIMAL";
+  if (["per_patient", "por paciente", "paciente"].includes(text)) return "PER_PATIENT";
+  if (["fixed", "dosis fija", "fija"].includes(text)) return "FIXED";
+  if (["manual"].includes(text)) return "MANUAL";
+  const base = safe(unitBase).trim().toLowerCase();
+  if (["l", "litro", "litros"].includes(base)) return "PER_LITER";
+  if (base === "ml") return "PER_ML";
+  if (base.includes("alimento")) return "PER_KG_FEED";
+  if (["animal", "paciente"].includes(base)) return "PER_ANIMAL";
+  return value || "PER_KG";
+}
 function normalizeDoseRow(raw = {}, speciesFallback = "") {
-  const calculationMode = raw.calculationMode || raw.modo_calculo || raw.regla || (raw.unidad_base === "animal" ? "PER_ANIMAL" : raw.unidad_base === "L" || raw.unidad_base === "litro" ? "PER_LITER" : raw.unidad_base === "kg alimento" ? "PER_KG_FEED" : "PER_KG");
-  const porCada = Number(raw.porCada ?? raw.por_cada ?? raw.perEvery ?? raw.base ?? (calculationMode === "PER_ANIMAL" ? 1 : 1)) || 1;
-  const unitBase = raw.unitBase || raw.unidad_base || (calculationMode === "PER_ANIMAL" ? "animal" : calculationMode === "PER_LITER" ? "L" : calculationMode === "PER_KG_FEED" ? "kg alimento" : "kg");
+  const unitBaseHint = raw.unitBase || raw.unidad_base || raw.baseUnit || raw["unidad base"] || "";
+  const calculationMode = normalizeDoseRule(raw.calculationMode || raw.modo_calculo || raw.regla || raw.compatibleRule || raw.regla_compatible || raw["regla compatible"] || "", unitBaseHint);
+  const porCada = Number(raw.porCada ?? raw.por_cada ?? raw.perEvery ?? raw.perQuantity ?? raw.base ?? (calculationMode === "PER_ANIMAL" ? 1 : 1)) || 1;
+  const unitBase = unitBaseHint || (calculationMode === "PER_ANIMAL" ? "animal" : calculationMode === "PER_LITER" ? "L" : calculationMode === "PER_KG_FEED" ? "kg alimento" : "kg");
   return {
     species: safe(raw.species ?? raw.especie ?? speciesFallback).trim(),
     dose: Number(raw.dose ?? raw.cantidad ?? raw.quantity ?? raw.amount ?? 0) || 0,
     doseUnit: canonicalUnit(raw.doseUnit ?? raw.unidad ?? raw.unit ?? ""),
     porCada: Number(raw.porCada ?? raw.por_cada ?? raw.perQuantity ?? raw["por cada"] ?? porCada) || 1,
     unitBase: raw.unitBase || raw.unidad_base || raw.baseUnit || raw["unidad base"] || unitBase,
-    calculationMode: raw.calculationMode || raw.compatibleRule || raw.regla_compatible || raw["regla compatible"] || calculationMode,
+    calculationMode,
     indication: safe(raw.indication ?? raw.indicacion ?? raw.indicación ?? "").trim(),
     route: safe(raw.route ?? raw.via ?? raw.vía ?? "").trim(),
     frequency: safe(raw.frequency ?? raw.frecuencia ?? "").trim(),
@@ -2530,13 +2565,26 @@ function normalizeDoseRow(raw = {}, speciesFallback = "") {
   };
 }
 function flattenSpeciesDoseJson(payload = {}) {
-  const source = Array.isArray(payload) ? payload : (payload.dosis_por_especie || payload.speciesDoses || payload.dosesBySpecies || []);
-  if (!Array.isArray(source)) throw new Error("El JSON debe incluir un arreglo dosis_por_especie.");
-  return source.flatMap((group) => {
+  const hasSpanishKey = payload && Object.prototype.hasOwnProperty.call(payload, "dosis_por_especie");
+  const hasEnglishKey = payload && Object.prototype.hasOwnProperty.call(payload, "dosesBySpecies");
+  let source = Array.isArray(payload) ? payload : (hasSpanishKey ? payload.dosis_por_especie : (hasEnglishKey ? payload.dosesBySpecies : payload.speciesDoses));
+  if (!Array.isArray(payload) && !hasSpanishKey && !hasEnglishKey && !payload.speciesDoses) {
+    throw new Error("El JSON no contiene dosis por especie. Debe incluir la llave dosis_por_especie o dosesBySpecies.");
+  }
+  if (source && !Array.isArray(source)) source = [source];
+  if (!Array.isArray(source)) throw new Error("El JSON no contiene dosis por especie. Debe incluir la llave dosis_por_especie o dosesBySpecies.");
+  const skipped = [];
+  const rows = source.flatMap((group, index) => {
     const species = group.especie || group.species || "";
     const doses = Array.isArray(group.dosis || group.doses) ? (group.dosis || group.doses) : [group];
-    return doses.map((dose) => normalizeDoseRow(dose, species));
-  }).filter((row) => row.species || row.dose || row.doseUnit);
+    return doses.map((dose) => normalizeDoseRow(dose, species)).filter((row) => {
+      if (row.species) return true;
+      skipped.push(index + 1);
+      return false;
+    });
+  }).filter((row) => row.species || row.dose || row.doseUnit || row.indication || row.notes);
+  rows.skippedWithoutSpecies = skipped.length;
+  return rows;
 }
 function groupSpeciesDoseRows(rows = []) {
   const map = new Map();
@@ -2565,7 +2613,7 @@ function speciesDoseSummary(row = {}) {
   return `${n.species}: ${n.indication ? `${n.indication} · ` : ""}${n.dose} ${n.doseUnit}/${n.porCada || 1} ${n.unitBase || doseRuleDenominator(n.calculationMode)}${n.frequency ? ` · ${n.frequency}` : ""}${n.duration ? ` · ${n.duration}` : ""}${n.notes ? ` · ${n.notes}` : ""}`;
 }
 function speciesDoseJsonExample() {
-  return JSON.stringify({ dosis_por_especie: [{ especie: "Bovinos", dosis: [{ indicacion: "Infecciones susceptibles", cantidad: 10000, unidad: "U.I.", por_cada: 50, unidad_base: "kg", frecuencia: "cada 24 h", duracion: "3 días", observaciones: "Ajustar según criterio clínico" }, { indicacion: "Soporte terapéutico", cantidad: 1, unidad: "mL", por_cada: 25, unidad_base: "kg", frecuencia: "dosis única", duracion: "1 aplicación", observaciones: "" }] }, { especie: "Perros", dosis: [{ indicacion: "Tratamiento de referencia", cantidad: 0.5, unidad: "mL", por_cada: 10, unidad_base: "kg", frecuencia: "cada 12 h", duracion: "5 días", observaciones: "" }] }] }, null, 2);
+  return JSON.stringify({ dosis_por_especie: [{ especie: "Aves", cantidad: 2, unidad: "g", por_cada: 1, unidad_base: "L", regla_compatible: "Por litro", frecuencia: "cada 24 h", duracion: "3 días", indicacion: "Infecciones susceptibles", observaciones: "Usar según criterio clínico" }, { especie: "Bovinos", cantidad: 1, unidad: "mL", por_cada: 20, unidad_base: "kg", regla_compatible: "Por kg de peso vivo", frecuencia: "cada 24 h", duracion: "3 días", indicacion: "Infecciones susceptibles", observaciones: "" }, { especie: "Perros", cantidad: 10, unidad: "mg", por_cada: 1, unidad_base: "kg", regla_compatible: "Por kg de peso vivo", frecuencia: "cada 12 h", duracion: "5 días", indicacion: "Infecciones susceptibles", observaciones: "" }] }, null, 2);
 }
 
 function getMedicationSpeciesDoseRows() {
@@ -2803,7 +2851,7 @@ function saveMed() {
       return;
     }
   }
-  const doseErrors = validateSpeciesDoseRows(med.speciesDoses || []);
+  const doseErrors = validateSpeciesDoseRows(med.speciesDoses || []).filter((msg) => /captura especie|por cada|unidad base/.test(msg));
   if (doseErrors.length) {
     show("m_err", doseErrors[0], "error");
     return;
@@ -3068,28 +3116,43 @@ function bindMeds() {
     });
     renderMedicationSpeciesDoseRows(rows);
   });
+  $("#m_makeSpeciesDosePrompt")?.addEventListener("click", () => {
+    const source = $("#m_speciesDoseSource")?.value.trim() || "";
+    if ($("#m_speciesDosePrompt")) $("#m_speciesDosePrompt").value = medicationSpeciesDosePrompt(source);
+    show("m_speciesDoseStatus", "Prompt específico de dosis por especie generado.", "success");
+  });
+  $("#m_copySpeciesDosePrompt")?.addEventListener("click", async () => {
+    const prompt = $("#m_speciesDosePrompt")?.value || medicationSpeciesDosePrompt($("#m_speciesDoseSource")?.value.trim() || "");
+    if ($("#m_speciesDosePrompt")) $("#m_speciesDosePrompt").value = prompt;
+    await navigator.clipboard?.writeText?.(prompt);
+    show("m_speciesDoseStatus", "Prompt de dosis copiado.", "success");
+  });
+  $("#m_openSpeciesDoseChatGPT")?.addEventListener("click", () =>
+    window.open("https://chatgpt.com/", "_blank", "noopener"),
+  );
 
   $("#m_applySpeciesDoseJson")?.addEventListener("click", () => {
     try {
-      const payload = JSON.parse($("#m_speciesDoseJson")?.value || "{}");
+      const payload = parsePossiblyWrappedJson($("#m_speciesDoseJson")?.value || "{}");
       const rows = flattenSpeciesDoseJson(payload);
-      const result = applySpeciesDoseRowsSafely(rows, "ai_status", payload);
+      const result = applySpeciesDoseRowsSafely(rows, "m_speciesDoseStatus", payload);
       if (result.applied) {
-        show("ai_status", `JSON de dosis aplicado: ${rows.length} dosis ${result.mode === "append" ? "agregadas sin borrar las existentes" : "reemplazadas por confirmación"}.`, "success");
+        const skipped = rows.skippedWithoutSpecies ? ` Advertencia: ${rows.skippedWithoutSpecies} dosis sin especie no se agregaron.` : "";
+        show("m_speciesDoseStatus", `JSON de dosis aplicado: ${rows.length} dosis ${result.mode === "append" ? "agregadas sin borrar las existentes" : "reemplazadas por confirmación"}.${skipped}`, rows.skippedWithoutSpecies ? "warning" : "success");
       }
     } catch (error) {
-      show("ai_status", error.message || "JSON de dosis inválido.", "error");
+      show("m_speciesDoseStatus", error.message || "JSON de dosis inválido.", "error");
     }
   });
   $("#m_copySpeciesDoseJsonExample")?.addEventListener("click", async () => {
     const example = speciesDoseJsonExample();
     if ($("#m_speciesDoseJson")) $("#m_speciesDoseJson").value = example;
     await navigator.clipboard?.writeText?.(example);
-    show("ai_status", "Ejemplo de dosis JSON copiado y pegado.", "success");
+    show("m_speciesDoseStatus", "Ejemplo de dosis JSON copiado y pegado.", "success");
   });
   $("#ai_fillFromJson")?.addEventListener("click", () => {
     try {
-      const j = JSON.parse($("#ai_result").value);
+      const j = parsePossiblyWrappedJson($("#ai_result").value);
       const stats = { fields: 0, skipped: 0 };
       Object.entries({
         m_use: [j.use, "Uso"],
@@ -7632,7 +7695,7 @@ function bindProcedures() {
 
   $("#p_applySpeciesDoseJson")?.addEventListener("click", () => {
     try {
-      const rows = flattenSpeciesDoseJson(JSON.parse($("#p_speciesDoseJson")?.value || "{}"));
+      const rows = flattenSpeciesDoseJson(parsePossiblyWrappedJson($("#p_speciesDoseJson")?.value || "{}"));
       const errors = validateSpeciesDoseRows(rows);
       if (errors.length) throw new Error(errors[0]);
       state.draft.procedureSpeciesDoses = rows;
