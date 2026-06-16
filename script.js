@@ -5506,7 +5506,8 @@ function toggleProcedureMedicationModeUi() {
   const animalsCards = $("#p_groupAnimalList");
   if (modeQuestion) modeQuestion.style.display = showModeQuestion ? "" : "none";
   if (!showModeQuestion && $("#p_medicationApplicationMode")) $("#p_medicationApplicationMode").value = "INDIVIDUAL_ANIMAL";
-  if (individualControls) individualControls.style.display = group ? "none" : "";
+  const preventive = $("#p_type")?.value === "PREVENTIVA";
+  if (individualControls) individualControls.style.display = (group || preventive) ? "none" : "";
   if (groupBlock) groupBlock.style.display = showModeQuestion && group ? "" : "none";
   if (showModeQuestion) {
     if (individualAnimalControls) individualAnimalControls.style.display = group ? "none" : "";
@@ -5521,7 +5522,9 @@ function toggleProcedureMedicationModeUi() {
     if (animalsCards) animalsCards.style.display = "";
   }
   const helper = $("#p_animalsHelper");
-  if (helper && showModeQuestion) {
+  if (helper && preventive) {
+    helper.textContent = "Medicina preventiva: define especie/grupo, número de animales, peso si aplica y observaciones. Los productos se agregan solo en la sección única de productos usados.";
+  } else if (helper && showModeQuestion) {
     helper.textContent = group
       ? "Modo grupal activo: captura total de animales y selecciona un grupo/animal del productor(a). La especie, regla y dosis se detectan automáticamente para calcular en bloque único (agua/alimento)."
       : "Modo individual activo: selecciona un animal y usa “Agregar animal al procedimiento” para crear su tarjeta clínica individual.";
@@ -5913,6 +5916,7 @@ function renderProcedureAnimalCards() {
   const entries = state.draft.procedureAnimalEntries || [];
   const groupMode = isGroupMedicationMode();
   const isClinicalCase = $("#p_type")?.value === "CASO_CLINICO";
+  const isPreventive = $("#p_type")?.value === "PREVENTIVA";
   if (shouldShowMedicationModeQuestion() && groupMode) {
     box.innerHTML = "";
     return;
@@ -5965,15 +5969,15 @@ function renderProcedureAnimalCards() {
         <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
           <label><input data-field="examIncluded" type="checkbox" ${entry.examIncluded ? "checked" : ""}> Examen físico general</label>
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-            ${!groupMode ? `<button class="btn small" type="button" data-action="add-medication">➕ ${(entry.medicationsApplied || []).length ? "Agregar otro medicamento/vacuna" : "Agregar medicamento/vacuna"}</button>` : ""}
-            ${!groupMode ? `<button class="btn small" type="button" data-action="add-supply">➕ ${(entry.suppliesApplied || []).length ? "Agregar otro insumo" : "Agregar insumo"}</button>` : ""}
+            ${!groupMode && !isPreventive ? `<button class="btn small" type="button" data-action="add-medication">➕ ${(entry.medicationsApplied || []).length ? "Agregar otro medicamento/vacuna" : "Agregar medicamento/vacuna"}</button>` : ""}
+            ${!groupMode && !isPreventive ? `<button class="btn small" type="button" data-action="add-supply">➕ ${(entry.suppliesApplied || []).length ? "Agregar otro insumo" : "Agregar insumo"}</button>` : ""}
             <button class="btn small bad" type="button" data-action="remove">${isClinicalCase ? "Quitar animal" : "Quitar"}</button>
           </div>
         </div>
       </div>
       ${tapeFormula ? `<div class="grid cols-3"><div><label>Perímetro torácico</label><input data-field="chestGirth" type="number" min="0" step="0.01" value="${esc(entry.chestGirth)}"></div><div><label>Largo del cuerpo</label><input data-field="bodyLength" type="number" min="0" step="0.01" value="${esc(entry.bodyLength)}"></div><div><label>Fórmula usada</label><div class="help">(PT² × LC) / 10838 = ${esc((entry.estimatedWeight || 0).toFixed(2))} kg</div></div></div>` : ""}
       ${manualTapeWeight ? `<div class="help">Para caballos y vacas con cinta especial se captura manualmente el peso final estimado; no se usa fórmula automática.</div>` : ""}
-      ${groupMode ? "" : `<div class="grid cols-4">
+      ${groupMode || isPreventive ? "" : `<div class="grid cols-4">
         <div><label>Medicamento del sistema</label><select data-field="medicationId">${medOptions}</select></div>
         <div><label>Vacuna del sistema</label><select data-field="vaccineId">${vaccineOptions}</select></div>
         <div><label>Dosis total requerida</label><input type="text" value="${esc(entry.theoreticalDoseTotal ? `${Number(entry.theoreticalDoseTotal).toFixed(2)} ${entry.doseUnit || ""}` : "Sin cálculo")} " disabled></div>
@@ -5999,7 +6003,7 @@ function renderProcedureAnimalCards() {
       ${entry.manualDoseAdjusted ? `<div class="help"><b>⚠️ Ajuste manual:</b> sugerida ${Number(entry.suggestedDoseQty || 0).toFixed(2)} ${esc(entry.suggestedDoseUnit || "")} · final ${Number(entry.convertedDoseQty || 0).toFixed(2)} ${esc(entry.convertedDoseUnit || "")}</div>` : `<div class="help"><b>Dosis final:</b> sin ajuste manual (coincide con la sugerencia automática).</div>`}
       ${isClinicalCase ? `<div class="help"><b>Flujo clínico:</b> selecciona medicamento → revisa cálculo automático → ajusta cantidad final si hace falta → pulsa <b>Agregar medicamento</b> para conservarlo y abrir otro registro.</div>` : ""}
       <div class="help"><b>Cálculo explicado:</b> ${esc(entry.conversionExplanation || "Sin cálculo automático disponible todavía.")}</div>`}
-      ${!groupMode ? `<div class="item" style="margin-top:8px;"><b>Medicamentos/vacunas aplicados a este animal:</b>${(entry.medicationsApplied || []).length || (entry.vaccinesApplied || []).length
+      ${!groupMode && !isPreventive ? `<div class="item" style="margin-top:8px;"><b>Medicamentos/vacunas aplicados a este animal:</b>${(entry.medicationsApplied || []).length || (entry.vaccinesApplied || []).length
         ? `<ul style="margin:8px 0 0 18px;">${[...(entry.medicationsApplied || []).map((med) => `<li>${esc(med.medicationName || "Medicamento")} → ${Number(med.finalAppliedAmount || 0).toFixed(2)} ${esc(med.finalUnit || "")} · descuento ${Number(med.inventoryDiscount || 0).toFixed(2)} ${esc(med.inventoryDiscountUnit || "")} · sugerido ${money(med.costSuggested || (Number(med.inventoryDiscount || 0) * Number(byId(state.meds, med.medicationId)?.unitCost || 0)))} · cobrado ${money(med.priceCharged ?? med.costSuggested ?? 0)} · ${esc(med.notes || "Sin observaciones")} <button class="btn small ghost" type="button" data-action="edit-medication" data-med-id="${esc(med.id)}">Editar</button> <button class="btn small bad" type="button" data-action="remove-medication" data-med-id="${esc(med.id)}">Eliminar</button></li>`), ...(entry.vaccinesApplied || []).map((vac) => `<li>${esc(vac.name || "Vacuna")} → 1 animal · sugerido ${money(vac.costSuggested ?? vac.unitCost ?? 0)} · cobrado ${money(vac.priceCharged ?? vac.costSuggested ?? vac.unitCost ?? 0)} <button class="btn small bad" type="button" data-action="remove-vaccine" data-vaccine-id="${esc(vac.id)}">Eliminar</button></li>`)].join("")}</ul>`
         : '<div class="help">Aún no hay medicamentos/vacunas agregados.</div>'}
       </div>
@@ -6017,9 +6021,9 @@ function renderProcedureAnimalCards() {
           : '<div class="help">Aún no hay insumos agregados.</div>'}
       </div>` : ""}
       ${groupMode ? `<div class="help">Modo grupal: esta tarjeta solo mantiene referencia del animal y datos clínicos.</div>` : ""}
-      ${!groupMode && (entry.medicationWarning || medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning) ? `<div class="error inline-error" style="display:block;">${esc([entry.medicationWarning, medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning].filter(Boolean).join(" · "))}</div>` : ""}
+      ${!groupMode && !isPreventive && (entry.medicationWarning || medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning) ? `<div class="error inline-error" style="display:block;">${esc([entry.medicationWarning, medicationExpiryInfo(byId(state.meds, entry.medicationId)?.expiry).warning].filter(Boolean).join(" · "))}</div>` : ""}
       ${entry.examIncluded ? `<div class="grid cols-2"><div><label>Temperatura (°C)</label><input data-field="exam.temperature" type="number" step="0.1" value="${esc(entry.exam?.temperature || "")}"></div><div><label>Hallazgos examen</label><input data-field="exam.findings" type="text" value="${esc(entry.exam?.findings || "")}"></div></div>` : ""}
-      <div class="help">${groupMode ? "Ficha clínica por animal para referencia del procedimiento grupal." : "Ficha clínica rápida por animal: peso y método, medicamento/vacuna, dosis base por especie, cantidad calculada y descuento de inventario."}</div>
+      <div class="help">${isPreventive ? "Grupo/animal para medicina preventiva: registra especie, número, peso y observaciones. Los productos usados se capturan únicamente en la lista única de productos." : groupMode ? "Ficha clínica por animal para referencia del procedimiento grupal." : "Ficha clínica rápida por animal: peso y método, medicamento/vacuna, dosis base por especie, cantidad calculada y descuento de inventario."}</div>
     </div>`;
   }).join("");
   box.querySelectorAll("[data-proc-animal]").forEach((card) => {
@@ -6165,9 +6169,17 @@ function procedureManualMedRuleUi(rule = $("#p_medCalculationRule")?.value || "M
     FIXED: ["Número de dosis o aplicaciones", "dosis"],
     MANUAL: ["Cantidad usada manual", "otra"],
   };
+  const type = getProcedureProductType();
   const [label, unit] = labels[rule] || labels.MANUAL;
-  if ($("#p_medBaseAmountLabel")) $("#p_medBaseAmountLabel").textContent = label;
+  if ($("#p_medBaseAmountLabel")) $("#p_medBaseAmountLabel").textContent = type === "INSUMO" ? "Cantidad usada" : label;
   if ($("#p_medBaseUnit") && (!$("#p_medBaseUnit").value || $("#p_medBaseUnit").value === "otra" || rule !== "MANUAL")) $("#p_medBaseUnit").value = unit;
+  ["p_medSpecies", "p_medDoseProfile", "p_medAdministrationType", "p_medCalculationRule", "p_medDoseBase", "p_medDoseUnit", "p_medCalculatedTotal"].forEach((id) => {
+    const wrap = $("#" + id)?.closest("div");
+    if (!wrap) return;
+    const hideForSupply = type === "INSUMO" && id !== "p_medCalculatedTotal";
+    const hideForVaccine = type === "VACUNA" && id === "p_medDoseProfile";
+    wrap.style.display = hideForSupply || hideForVaccine ? "none" : "";
+  });
 }
 function showProcedureManualMedEditor(show = true) {
   const editor = $("#p_medUseEditor");
@@ -6235,7 +6247,7 @@ function addProcedureMedUse() {
   const draft = procedureManualMedDraftFromForm(state.draft.procedureMedUseEditId);
   if (!draft) return show("p_msg", "Selecciona un medicamento de inventario.", "warning");
   if (!(Number(draft.qty || 0) > 0)) return show("p_msg", "Captura la cantidad usada real para descontar inventario.", "warning");
-  if (draft.doseSource === "PROCEDURE_MANUAL" && draft.species && draft.doseBase > 0) {
+  if (draft.productType === "MEDICAMENTO" && draft.doseSource === "PROCEDURE_MANUAL" && draft.species && draft.doseBase > 0) {
     const med = byId(state.meds, draft.itemId);
     if (med && confirm("Este medicamento no tiene dosis estructurada registrada para esta especie. ¿Guardar también esta dosis manual en Medicamentos para usarla después? Aceptar = guardar también; Cancelar = usar solo en este procedimiento.")) {
       med.speciesDoses = [...(med.speciesDoses || []), normalizeDoseRow({ species: draft.species, dose: draft.doseBase, doseUnit: draft.doseUnit, porCada: 1, unitBase: draft.baseUnit || doseRuleDenominator(draft.calculationMode), calculationMode: draft.calculationMode, indication: draft.indication || "Dosis agregada desde procedimiento", frequency: draft.frequency || "", duration: draft.duration || "", notes: draft.notes || "" })];
@@ -6264,7 +6276,8 @@ function addProcedureMedUse() {
 function renderProcedureMedUseList() {
   const list = $("#p_medUseList"); if (!list) return;
   const rows = state.draft.procedureMedUses || [];
-  list.innerHTML = (state.draft.procedureMedUseEditId ? '<div class="help">Nuevo medicamento/vacuna en edición.</div>' : '') + (rows.length ? rows.map((m) => `<div class="item"><h4>${esc(m.name)}</h4><div class="line"><b>Tipo:</b> ${esc(m.productType || "MEDICAMENTO")} · <b>Especie/grupo:</b> ${esc(m.species || "")} · <b>Administración:</b> ${esc(m.administrationType || m.route || "")} · <b>Regla:</b> ${esc(doseRuleLabel(m.calculationMode) || m.calculationMode || "")} · <b>Dosis sugerida:</b> ${esc(m.doseBase || "")} ${esc(m.doseUnit || "")} · <b>Base usada:</b> ${esc(m.baseAmount || "")} ${esc(m.baseUnit || "")} · <b>Calculada:</b> ${esc(m.calculatedTotal || m.theoreticalQty || "")} ${esc(m.theoreticalUnit || "")} · <b>Usada real:</b> ${esc(m.qty)} ${esc(m.unit || "")} · <b>Costo final:</b> ${money(m.costCharged ?? (Number(m.qty || 0) * Number(m.unitCost || 0)))}</div><div class="help">${esc(m.calculationSummary || m.notes || "")}</div><div class="actions"><button class="btn small" data-med-action="edit" data-id="${esc(m.id)}">Editar</button><button class="btn small bad" data-med-action="remove" data-id="${esc(m.id)}">Eliminar</button><button class="btn small" data-med-action="duplicate" data-id="${esc(m.id)}">Duplicar</button></div></div>`).join("") : '<div class="help">Sin medicamentos o vacunas usados agregados.</div>');
+  const emptyLabel = ($("#p_type")?.value === "PREVENTIVA") ? "Sin productos usados agregados." : "Sin medicamentos o vacunas usados agregados.";
+  list.innerHTML = (state.draft.procedureMedUseEditId ? '<div class="help">Nuevo medicamento/vacuna en edición.</div>' : '') + (rows.length ? rows.map((m) => `<div class="item"><h4>${esc(m.name)}</h4><div class="line"><b>Tipo:</b> ${esc(m.productType || "MEDICAMENTO")} · <b>Especie/grupo:</b> ${esc(m.species || "")} · <b>Administración:</b> ${esc(m.administrationType || m.route || "")} · <b>Regla:</b> ${esc(doseRuleLabel(m.calculationMode) || m.calculationMode || "")} · <b>Dosis sugerida:</b> ${esc(m.doseBase || "")} ${esc(m.doseUnit || "")} · <b>Base usada:</b> ${esc(m.baseAmount || "")} ${esc(m.baseUnit || "")} · <b>Calculada:</b> ${esc(m.calculatedTotal || m.theoreticalQty || "")} ${esc(m.theoreticalUnit || "")} · <b>Usada real:</b> ${esc(m.qty)} ${esc(m.unit || "")} · <b>Costo final:</b> ${money(m.costCharged ?? (Number(m.qty || 0) * Number(m.unitCost || 0)))}</div><div class="help">${esc(m.calculationSummary || m.notes || "")}</div><div class="actions"><button class="btn small" data-med-action="edit" data-id="${esc(m.id)}">Editar</button><button class="btn small bad" data-med-action="remove" data-id="${esc(m.id)}">Eliminar</button><button class="btn small" data-med-action="duplicate" data-id="${esc(m.id)}">Duplicar</button></div></div>`).join("") : `<div class="help">${emptyLabel}</div>`);
   list.querySelectorAll("[data-med-action]").forEach((btn) => btn.addEventListener("click", () => {
     const item = (state.draft.procedureMedUses || []).find((x) => x.id === btn.dataset.id); if (!item) return;
     if (btn.dataset.medAction === "remove") state.draft.procedureMedUses = state.draft.procedureMedUses.filter((x) => x.id !== item.id);
@@ -6825,7 +6838,30 @@ function applyRegisteredClinicalAnimalToForm() {
   };
   Object.entries(values).forEach(([id, value]) => { if ($("#" + id)) $("#" + id).value = value || ""; });
 }
+
+function normalizePreventiveProductUses() {
+  if (($("#p_type")?.value || "") !== "PREVENTIVA") return;
+  const migratedSupplies = (state.draft.procedureSupplyUses || []).map((item) => ({
+    ...item,
+    id: item.id || uid("pmed"),
+    productType: "INSUMO",
+    supplyId: item.supplyId || item.itemId || "",
+    itemId: item.itemId || item.supplyId || "",
+    name: item.name || "Insumo",
+    unit: item.unit || (item.type === "NON_DISPOSABLE" ? "uso" : "pieza"),
+    costSuggested: item.costSuggested ?? Number(item.qty || 0) * Number(item.unitCost || 0),
+    costCharged: item.costCharged ?? item.priceCharged ?? item.costSuggested ?? Number(item.qty || 0) * Number(item.unitCost || 0),
+    inventoryDeductionQty: item.inventoryDeductionQty || item.qty || 0,
+    source: "PROCEDURE_MANUAL",
+  }));
+  if (migratedSupplies.length) {
+    const existingKeys = new Set((state.draft.procedureMedUses || []).map((item) => item.id));
+    state.draft.procedureMedUses = [...(state.draft.procedureMedUses || []), ...migratedSupplies.filter((item) => !existingKeys.has(item.id))];
+    state.draft.procedureSupplyUses = [];
+  }
+}
 function renderProcedureDraftLists() {
+  normalizePreventiveProductUses();
   renderClinicalDayDraftLists();
   renderProcedureFollowupMedicationDraft();
   renderProcedureAnimalCards();
@@ -7179,6 +7215,7 @@ function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) 
   });
 }
 function collectProcedure() {
+  normalizePreventiveProductUses();
   let animals = (state.draft.procedureAnimalEntries || []).map((entry) => {
     const cloned = syncProcedureAnimalSummary({ ...entry, exam: { ...(entry.exam || {}) } });
     normalizeEntryMedicationApplied(cloned);
