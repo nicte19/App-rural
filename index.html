@@ -1856,9 +1856,9 @@
               <details open>
                 <summary>2. Insumos y cálculo automático del cobro</summary>
                 <div class="inner grid">
-                  <div class="grid cols-3">
+                  <div class="grid cols-4">
                     <div>
-                      <label for="lab_supplySelectStandalone">Insumo</label>
+                      <label for="lab_supplySelectStandalone">Insumo del inventario</label>
                       <select id="lab_supplySelectStandalone"></select>
                     </div>
                     <div>
@@ -1866,7 +1866,23 @@
                       <input id="lab_supplyQtyStandalone" type="number" min="0" step="0.01" />
                     </div>
                     <div>
-                      <label for="lab_supplyNotesStandalone">Notas</label>
+                      <label for="lab_supplyUnitStandalone">Unidad usada</label>
+                      <input id="lab_supplyUnitStandalone" type="text" />
+                    </div>
+                    <div>
+                      <label for="lab_supplyUnitCostStandalone">Costo unitario del inventario</label>
+                      <input id="lab_supplyUnitCostStandalone" type="number" min="0" step="0.01" readonly />
+                    </div>
+                    <div>
+                      <label for="lab_supplyCostSuggestedStandalone">Costo sugerido automático</label>
+                      <input id="lab_supplyCostSuggestedStandalone" type="number" min="0" step="0.01" readonly />
+                    </div>
+                    <div>
+                      <label for="lab_supplyCostChargedStandalone">Costo final cobrado</label>
+                      <input id="lab_supplyCostChargedStandalone" type="number" min="0" step="0.01" />
+                    </div>
+                    <div>
+                      <label for="lab_supplyNotesStandalone">Observaciones</label>
                       <input id="lab_supplyNotesStandalone" type="text" />
                     </div>
                   </div>
