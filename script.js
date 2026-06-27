@@ -6277,10 +6277,11 @@ function syncProcedureManualMedCalculation() {
   if ($("#p_medCalculatedTotal")) $("#p_medCalculatedTotal").value = Number(draft.calculatedTotal || 0).toFixed(4).replace(/\.?0+$/, "");
   if ($("#p_medDoseKg") && !$("#p_medDoseKg").value) $("#p_medDoseKg").value = Number(draft.qty || 0).toFixed(4).replace(/\.?0+$/, "");
   if ($("#p_medCostSuggested")) $("#p_medCostSuggested").value = Number(draft.costSuggested || 0).toFixed(2);
-  if ($("#p_medCostCharged") && !$("#p_medCostCharged").value) $("#p_medCostCharged").value = Number(draft.costCharged || 0).toFixed(2);
+  const chargedInput = $("#p_medCostCharged");
+  if (chargedInput && (!chargedInput.dataset.manual || !chargedInput.value)) chargedInput.value = Number(draft.costCharged || 0).toFixed(2);
   if ($("#p_medNotes") && !$("#p_medNotes").value) $("#p_medNotes").value = draft.calculationSummary || "";
 }
-function clearProcedureManualMedForm() { ["p_medSpecies","p_medBaseAmount","p_medDoseBase","p_medCalculatedTotal","p_medDoseKg","p_medUnitUsed","p_medCostSuggested","p_medCostCharged","p_medNotes"].forEach((id)=>{ if ($("#"+id)) $("#"+id).value=""; }); if ($("#p_medSelect")) $("#p_medSelect").value = ""; state.draft.procedureMedUseEditId = null; applyMedicationDoseProfileToProcedure(true); showProcedureManualMedEditor(false); }
+function clearProcedureManualMedForm() { ["p_medSpecies","p_medBaseAmount","p_medDoseBase","p_medCalculatedTotal","p_medDoseKg","p_medUnitUsed","p_medCostSuggested","p_medCostCharged","p_medNotes"].forEach((id)=>{ if ($("#"+id)) { $("#"+id).value=""; delete $("#"+id).dataset.manual; } }); if ($("#p_medSelect")) $("#p_medSelect").value = ""; state.draft.procedureMedUseEditId = null; applyMedicationDoseProfileToProcedure(true); showProcedureManualMedEditor(false); }
 function addProcedureMedUse() {
   const draft = procedureManualMedDraftFromForm(state.draft.procedureMedUseEditId);
   if (!draft) return show("p_msg", "Selecciona un medicamento de inventario.", "warning");
@@ -6320,7 +6321,7 @@ function renderProcedureMedUseList() {
     const item = (state.draft.procedureMedUses || []).find((x) => x.id === btn.dataset.id); if (!item) return;
     if (btn.dataset.medAction === "remove") state.draft.procedureMedUses = state.draft.procedureMedUses.filter((x) => x.id !== item.id);
     if (btn.dataset.medAction === "duplicate") { const copy = { ...item, id: uid("pmed"), applicationNumber: (Number(item.applicationNumber || 1) + 1), name: `${(item.name || "Producto").replace(/ — aplicación \d+$/, "")} — aplicación ${(Number(item.applicationNumber || 1) + 1)}` }; state.draft.procedureMedUses.push(copy); }
-    if (btn.dataset.medAction === "edit") { showProcedureManualMedEditor(true); state.draft.procedureMedUseEditId = item.id; if ($("#p_productType")) $("#p_productType").value = item.productType || "MEDICAMENTO"; populateProcedureProductSelect(); if ($("#p_medSelect")) $("#p_medSelect").value = item.itemId || ""; if ($("#p_medSpecies")) $("#p_medSpecies").value = item.species || ""; if ($("#p_medAdministrationType")) $("#p_medAdministrationType").value = item.administrationType || item.route || "Otro"; if ($("#p_medBaseAmount")) $("#p_medBaseAmount").value = item.baseAmount || ""; if ($("#p_medBaseUnit")) $("#p_medBaseUnit").value = item.baseUnit || "kg"; syncProcedureDoseProfileOptions(); if ($("#p_medDoseProfile")) $("#p_medDoseProfile").value = item.structuredDoseIndex || ""; if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = item.calculationMode || "MANUAL"; if ($("#p_medDoseBase")) $("#p_medDoseBase").value = item.doseBase || ""; if ($("#p_medDoseUnit")) $("#p_medDoseUnit").value = item.doseUnit || item.theoreticalUnit || ""; if ($("#p_medCalculatedTotal")) $("#p_medCalculatedTotal").value = item.calculatedTotal || item.theoreticalQty || ""; if ($("#p_medDoseKg")) $("#p_medDoseKg").value = item.qty || ""; if ($("#p_medUnitUsed")) $("#p_medUnitUsed").value = item.unit || ""; if ($("#p_medCostCharged")) $("#p_medCostCharged").value = item.costCharged ?? ""; if ($("#p_medNotes")) $("#p_medNotes").value = item.notes || item.calculationSummary || ""; }
+    if (btn.dataset.medAction === "edit") { showProcedureManualMedEditor(true); state.draft.procedureMedUseEditId = item.id; if ($("#p_productType")) $("#p_productType").value = item.productType || "MEDICAMENTO"; populateProcedureProductSelect(); if ($("#p_medSelect")) $("#p_medSelect").value = item.itemId || ""; if ($("#p_medSpecies")) $("#p_medSpecies").value = item.species || ""; if ($("#p_medAdministrationType")) $("#p_medAdministrationType").value = item.administrationType || item.route || "Otro"; if ($("#p_medBaseAmount")) $("#p_medBaseAmount").value = item.baseAmount || ""; if ($("#p_medBaseUnit")) $("#p_medBaseUnit").value = item.baseUnit || "kg"; syncProcedureDoseProfileOptions(); if ($("#p_medDoseProfile")) $("#p_medDoseProfile").value = item.structuredDoseIndex || ""; if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = item.calculationMode || "MANUAL"; if ($("#p_medDoseBase")) $("#p_medDoseBase").value = item.doseBase || ""; if ($("#p_medDoseUnit")) $("#p_medDoseUnit").value = item.doseUnit || item.theoreticalUnit || ""; if ($("#p_medCalculatedTotal")) $("#p_medCalculatedTotal").value = item.calculatedTotal || item.theoreticalQty || ""; if ($("#p_medDoseKg")) $("#p_medDoseKg").value = item.qty || ""; if ($("#p_medUnitUsed")) $("#p_medUnitUsed").value = item.unit || ""; if ($("#p_medCostSuggested")) $("#p_medCostSuggested").value = item.costSuggested ?? (Number(item.qty || 0) * Number(item.unitCost || 0)); if ($("#p_medCostCharged")) { $("#p_medCostCharged").value = item.costCharged ?? item.priceCharged ?? item.costSuggested ?? ""; $("#p_medCostCharged").dataset.manual = "1"; } if ($("#p_medNotes")) $("#p_medNotes").value = item.notes || item.calculationSummary || ""; }
     renderProcedureDraftLists();
   }));
 }
@@ -7752,7 +7753,23 @@ function toggleLabProcedureLink() {
   if (!showWrap && $("#lab_linkProcedureSelect")) $("#lab_linkProcedureSelect").value = "";
 }
 function renderLabSupplyList() {
-  renderSimpleList("#lab_supplyUseListStandalone", state.draft.labSupplyUses || [], (item) => `${item.name} · ${item.qty} ${item.type === "NON_DISPOSABLE" ? "usos" : "pzas"} · ${money(Number(item.qty || 0) * Number(item.unitCost || 0))}`);
+  const box = $("#lab_supplyUseListStandalone");
+  if (!box) return;
+  const rows = state.draft.labSupplyUses || [];
+  box.innerHTML = rows.length ? rows.map((item) => `<div class="item"><div class="line"><b>${esc(item.name)}</b> · ${Number(item.qty || 0).toFixed(2)} ${esc(item.unit || (item.type === "NON_DISPOSABLE" ? "usos" : "pzas"))} · unitario ${money(item.unitCost || 0)} · sugerido ${money(item.costSuggested ?? Number(item.qty || 0) * Number(item.unitCost || 0))} · cobrado ${money(item.costCharged ?? item.priceCharged ?? item.costSuggested ?? 0)}</div><div class="help">${esc(item.notes || "Sin observaciones")}</div><div class="actions"><button class="btn small" type="button" data-lab-supply-edit="${esc(item.id)}">Editar</button><button class="btn small bad" type="button" data-lab-supply-remove="${esc(item.id)}">Eliminar</button></div></div>`).join("") : '<div class="help">Sin insumos agregados.</div>';
+  box.querySelectorAll("[data-lab-supply-remove]").forEach((btn) => btn.addEventListener("click", () => { state.draft.labSupplyUses = (state.draft.labSupplyUses || []).filter((item) => item.id !== btn.dataset.labSupplyRemove); renderLabSupplyList(); updateLabTotals(); }));
+  box.querySelectorAll("[data-lab-supply-edit]").forEach((btn) => btn.addEventListener("click", () => {
+    const item = (state.draft.labSupplyUses || []).find((row) => row.id === btn.dataset.labSupplyEdit);
+    if (!item) return;
+    state.draft.labSupplyUseEditId = item.id;
+    if ($("#lab_supplySelectStandalone")) $("#lab_supplySelectStandalone").value = item.itemId || "";
+    if ($("#lab_supplyQtyStandalone")) $("#lab_supplyQtyStandalone").value = item.qty || "";
+    if ($("#lab_supplyUnitStandalone")) $("#lab_supplyUnitStandalone").value = item.unit || "";
+    if ($("#lab_supplyUnitCostStandalone")) $("#lab_supplyUnitCostStandalone").value = item.unitCost ?? "";
+    if ($("#lab_supplyCostSuggestedStandalone")) $("#lab_supplyCostSuggestedStandalone").value = item.costSuggested ?? "";
+    if ($("#lab_supplyCostChargedStandalone")) { $("#lab_supplyCostChargedStandalone").value = item.costCharged ?? item.priceCharged ?? item.costSuggested ?? ""; $("#lab_supplyCostChargedStandalone").dataset.manual = "1"; }
+    if ($("#lab_supplyNotesStandalone")) $("#lab_supplyNotesStandalone").value = item.notes || "";
+  }));
 }
 function renderLabImagePreview() {
   const box = $("#lab_imagesPreview");
@@ -7771,7 +7788,7 @@ function calculateLabCharge() {
   const unitCost = Number($("#lab_costPerAnimal")?.value || 0);
   const animalCount = (state.draft.labSelectedAnimalIds || []).length;
   const subtotal = unitCost * animalCount;
-  const supplies = (state.draft.labSupplyUses || []).reduce((acc, item) => acc + Number(item.qty || 0) * Number(item.unitCost || 0), 0);
+  const supplies = (state.draft.labSupplyUses || []).reduce((acc, item) => acc + Number(item.costCharged ?? item.priceCharged ?? item.costSuggested ?? (Number(item.qty || 0) * Number(item.unitCost || 0))), 0);
   return { unitCost, animalCount, subtotal, supplies, total: subtotal + supplies };
 }
 function updateLabTotals() {
@@ -7781,15 +7798,35 @@ function updateLabTotals() {
   if ($("#lab_suppliesTotal")) $("#lab_suppliesTotal").value = money(breakdown.supplies);
   if ($("#lab_totalFinal")) $("#lab_totalFinal").value = money(breakdown.total);
 }
+function syncLabSupplyStandaloneCost({ preserveCharged = false } = {}) {
+  const supply = byId(state.supplies, $("#lab_supplySelectStandalone")?.value);
+  const qty = Number($("#lab_supplyQtyStandalone")?.value || 0);
+  const unitCost = Number(supply ? supplyDisplayCost(supply) : 0);
+  const suggested = Number((qty * unitCost).toFixed(2));
+  if ($("#lab_supplyUnitStandalone") && !$("#lab_supplyUnitStandalone").value) $("#lab_supplyUnitStandalone").value = supply ? (supply.unit || (supply.type === "NON_DISPOSABLE" ? "uso" : "pieza")) : "";
+  if ($("#lab_supplyUnitCostStandalone")) $("#lab_supplyUnitCostStandalone").value = unitCost ? unitCost.toFixed(2) : "";
+  if ($("#lab_supplyCostSuggestedStandalone")) $("#lab_supplyCostSuggestedStandalone").value = suggested.toFixed(2);
+  const charged = $("#lab_supplyCostChargedStandalone");
+  if (charged && (!preserveCharged || !charged.dataset.manual)) charged.value = suggested.toFixed(2);
+}
 function addLabSupplyUseStandalone() {
   const supply = byId(state.supplies, $("#lab_supplySelectStandalone")?.value);
   const qty = Number($("#lab_supplyQtyStandalone")?.value || 0);
   if (!supply || !qty) return show("lab_msgStandalone", "Selecciona insumo y cantidad.", "warning");
-  if (supply.type === "DISPOSABLE" && qty > supplyRemaining(supply)) return show("lab_errStandalone", "No hay disponibilidad suficiente del insumo seleccionado.", "error");
+  const previousLab = state.editing.labTestId ? byId(state.labTests, state.editing.labTestId) : null;
+  const editingDraftQty = (state.draft.labSupplyUses || []).filter((item) => item.itemId === supply.id && item.id !== state.draft.labSupplyUseEditId).reduce((acc, item) => acc + Number(item.qty || 0), 0);
+  const available = Number(supplyRemaining(supply) || 0) + previousInventoryQty(previousLab, "supplies", supply.id) - editingDraftQty;
+  if (supply.type === "DISPOSABLE" && qty > available + 0.0001) return show("lab_errStandalone", `No hay disponibilidad suficiente del insumo seleccionado. Disponible: ${available.toFixed(2)}.`, "error");
   state.draft.labSupplyUses = state.draft.labSupplyUses || [];
-  state.draft.labSupplyUses.push({ id: uid("lsup"), itemId: supply.id, name: supply.name, qty, notes: $("#lab_supplyNotesStandalone")?.value.trim() || "", type: supply.type, unitCost: supplyDisplayCost(supply) });
-  $("#lab_supplyQtyStandalone").value = "";
-  $("#lab_supplyNotesStandalone").value = "";
+  const unitCost = Number($("#lab_supplyUnitCostStandalone")?.value || supplyDisplayCost(supply));
+  const costSuggested = Number($("#lab_supplyCostSuggestedStandalone")?.value || (qty * unitCost).toFixed(2));
+  const costCharged = Number($("#lab_supplyCostChargedStandalone")?.value || costSuggested || 0);
+  const row = { id: state.draft.labSupplyUseEditId || uid("lsup"), itemId: supply.id, name: supply.name, qty, unit: $("#lab_supplyUnitStandalone")?.value.trim() || supply.unit || (supply.type === "NON_DISPOSABLE" ? "uso" : "pieza"), notes: $("#lab_supplyNotesStandalone")?.value.trim() || "", type: supply.type, unitCost, costSuggested, costCharged, priceCharged: costCharged };
+  const idx = state.draft.labSupplyUses.findIndex((item) => item.id === row.id);
+  if (idx >= 0) state.draft.labSupplyUses[idx] = row; else state.draft.labSupplyUses.push(row);
+  state.draft.labSupplyUseEditId = null;
+  ["lab_supplyQtyStandalone","lab_supplyUnitStandalone","lab_supplyUnitCostStandalone","lab_supplyCostSuggestedStandalone","lab_supplyCostChargedStandalone","lab_supplyNotesStandalone"].forEach((id) => { if ($("#" + id)) { $("#" + id).value = ""; delete $("#" + id).dataset.manual; } });
+  if ($("#lab_supplySelectStandalone")) $("#lab_supplySelectStandalone").value = "";
   renderLabSupplyList();
   updateLabTotals();
 }
@@ -7851,6 +7888,7 @@ function resetLabStandalone() {
   state.editing.labTestId = null;
   state.draft.labImages = [];
   state.draft.labSupplyUses = [];
+  state.draft.labSupplyUseEditId = null;
   state.draft.labSelectedAnimalIds = [];
   $("#labStandaloneForm")?.reset();
   toggleLabProcedureLink();
@@ -7886,7 +7924,7 @@ function deleteLabStandalone(lab) {
   renderAll();
 }
 function labWordHtml(lab) {
-  return `<section><h1>Prueba de laboratorio: ${esc(lab.type)}</h1><p><b>Productor(a):</b> ${esc(producerName(lab.producerId) || lab.producerName || "")}</p><p><b>Animales:</b> ${esc((lab.animals || []).map((animal) => animal.label).join(", ") || lab.animal || "")}</p><p><b>Fecha toma de muestra:</b> ${esc(lab.sampleDate || lab.date || "")}</p><p><b>Fecha de resultados:</b> ${esc(lab.resultDate || "")}</p><p><b>Procedimiento vinculado:</b> ${esc(lab.linkedProcedureId || "Sin vínculo")}</p><h2>Resumen</h2>${objectEntriesTable({ tipo_prueba: lab.type, productor: producerName(lab.producerId) || lab.producerName || "", animales: (lab.animals || []).map((animal) => animal.label).join(", "), fecha_toma_muestra: lab.sampleDate || lab.date || "", fecha_resultados: lab.resultDate || "", costo_unitario: money(lab.charge?.unitCost), numero_animales: lab.charge?.animalCount, subtotal_pruebas: money(lab.charge?.subtotal), total_insumos: money(lab.charge?.supplies), total_final: money(lab.charge?.total), estado_registro: lab.status || "", estado_cobro: lab.chargeStatus || "", notas_cobro: lab.chargeNotes || "", resultado: lab.results || lab.result || "", interpretacion: lab.interpretation || "", observaciones: lab.notes || "", procedimiento_vinculado: lab.linkedProcedureId || "" })}<h2>Insumos</h2><table><tr><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(lab.inventory?.supplies || []).map((item) => `<tr><td>${esc(item.name)}</td><td>${esc(item.qty)}</td><td>${money(Number(item.qty || 0) * Number(item.unitCost || 0))}</td><td>${esc(item.notes || "")}</td></tr>`).join("")}</table>${(lab.images || (lab.file ? [lab.file] : [])).map((src, index) => imageHtml(src, `Imagen laboratorio ${index + 1}`)).join("")}</section>`;
+  return `<section><h1>Prueba de laboratorio: ${esc(lab.type)}</h1><p><b>Productor(a):</b> ${esc(producerName(lab.producerId) || lab.producerName || "")}</p><p><b>Animales:</b> ${esc((lab.animals || []).map((animal) => animal.label).join(", ") || lab.animal || "")}</p><p><b>Fecha toma de muestra:</b> ${esc(lab.sampleDate || lab.date || "")}</p><p><b>Fecha de resultados:</b> ${esc(lab.resultDate || "")}</p><p><b>Procedimiento vinculado:</b> ${esc(lab.linkedProcedureId || "Sin vínculo")}</p><h2>Resumen</h2>${objectEntriesTable({ tipo_prueba: lab.type, productor: producerName(lab.producerId) || lab.producerName || "", animales: (lab.animals || []).map((animal) => animal.label).join(", "), fecha_toma_muestra: lab.sampleDate || lab.date || "", fecha_resultados: lab.resultDate || "", costo_unitario: money(lab.charge?.unitCost), numero_animales: lab.charge?.animalCount, subtotal_pruebas: money(lab.charge?.subtotal), total_insumos: money(lab.charge?.supplies), total_final: money(lab.charge?.total), estado_registro: lab.status || "", estado_cobro: lab.chargeStatus || "", notas_cobro: lab.chargeNotes || "", resultado: lab.results || lab.result || "", interpretacion: lab.interpretation || "", observaciones: lab.notes || "", procedimiento_vinculado: lab.linkedProcedureId || "" })}<h2>Insumos</h2><table><tr><th>Nombre</th><th>Cantidad</th><th>Costo</th><th>Notas</th></tr>${(lab.inventory?.supplies || []).map((item) => `<tr><td>${esc(item.name)}</td><td>${esc(item.qty)}</td><td>${money(item.costCharged ?? item.priceCharged ?? item.costSuggested ?? (Number(item.qty || 0) * Number(item.unitCost || 0)))}</td><td>${esc(item.notes || "")}</td></tr>`).join("")}</table>${(lab.images || (lab.file ? [lab.file] : [])).map((src, index) => imageHtml(src, `Imagen laboratorio ${index + 1}`)).join("")}</section>`;
 }
 function labSummaryHtml() {
   return `<h1>Pruebas de laboratorio</h1>${state.labTests.map(labWordHtml).join('<div style="page-break-after:always"></div>')}`;
@@ -7965,9 +8003,16 @@ function bindProcedures() {
   $("#p_scope")?.addEventListener("change", renderProcedureType);
   $("#p_medicationApplicationMode")?.addEventListener("change", () => { toggleProcedureMedicationModeUi(); renderProcedureDraftLists(); });
   ["p_productType", "p_groupMedSelect", "p_groupAnimalBase", "p_groupAdministrationType", "p_groupTotalVolumeKg", "p_groupDoseRule", "p_groupDoseBase", "p_groupDoseUnit", "p_medApplicationType", "p_medMarginProfile", "p_medMarginOverride", "p_costTotal", "p_medSelect", "p_medDoseProfile", "p_medSpecies", "p_medAdministrationType", "p_medBaseAmount", "p_medBaseUnit", "p_medCalculationRule", "p_medDoseBase", "p_medDoseUnit", "p_medCalculatedTotal", "p_medDoseKg", "p_medUnitUsed", "p_medCostCharged"].forEach((id) => {
-    $("#" + id)?.addEventListener("input", () => { if (id === "p_productType") populateProcedureProductSelect(); if (["p_medSelect", "p_medSpecies", "p_productType"].includes(id)) syncProcedureDoseProfileOptions(); procedureManualMedRuleUi(); applyMedicationDoseProfileToProcedure(id === "p_medDoseProfile"); syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
-    $("#" + id)?.addEventListener("change", () => { if (id === "p_productType") populateProcedureProductSelect(); if (["p_medSelect", "p_medSpecies", "p_productType"].includes(id)) syncProcedureDoseProfileOptions(); procedureManualMedRuleUi(); applyMedicationDoseProfileToProcedure(id === "p_medDoseProfile"); syncProcedureManualMedCalculation(); renderProcedureDraftLists(); });
+    const handler = () => { if (id === "p_medCostCharged") $("#p_medCostCharged").dataset.manual = "1"; if (id === "p_productType") populateProcedureProductSelect(); if (["p_medSelect", "p_medSpecies", "p_productType"].includes(id)) { const charged = $("#p_medCostCharged"); if (charged) delete charged.dataset.manual; syncProcedureDoseProfileOptions(); } procedureManualMedRuleUi(); applyMedicationDoseProfileToProcedure(id === "p_medDoseProfile"); syncProcedureManualMedCalculation(); renderProcedureDraftLists(); };
+    $("#" + id)?.addEventListener("input", handler);
+    $("#" + id)?.addEventListener("change", handler);
   });
+  ["lab_supplySelectStandalone", "lab_supplyQtyStandalone", "lab_supplyUnitStandalone"].forEach((id) => {
+    const handler = () => { if (id === "lab_supplySelectStandalone") { const charged = $("#lab_supplyCostChargedStandalone"); if (charged) delete charged.dataset.manual; } syncLabSupplyStandaloneCost({ preserveCharged: true }); };
+    $("#" + id)?.addEventListener("input", handler);
+    $("#" + id)?.addEventListener("change", handler);
+  });
+  $("#lab_supplyCostChargedStandalone")?.addEventListener("input", () => { $("#lab_supplyCostChargedStandalone").dataset.manual = "1"; });
   $("#p_preventiveSubtype")?.addEventListener("change", renderProcedureType);
   $("#p_zoo_activity")?.addEventListener("change", renderProcedureDraftLists);
   $("#p_linkLabDecision")?.addEventListener("change", renderProcedureType);
