@@ -2311,6 +2311,16 @@
                         <div><label for="p_cc_dayDuration">Duración</label><input id="p_cc_dayDuration" type="text" /></div>
                         <div><label for="p_cc_dayMedObs">Observaciones del medicamento</label><input id="p_cc_dayMedObs" type="text" /></div>
                       </div>
+                      <div class="grid cols-3">
+                        <div><label for="p_cc_dayTheoreticalDose">Dosis total teórica calculada</label><input id="p_cc_dayTheoreticalDose" type="number" min="0" step="0.0001" /></div>
+                        <div><label for="p_cc_dayAdminDose">Dosis administrable real</label><input id="p_cc_dayAdminDose" type="number" min="0" step="0.0001" /></div>
+                        <div><label for="p_cc_dayAdminUnit">Unidad administrable real</label><input id="p_cc_dayAdminUnit" type="text" placeholder="mL, tabletas, g..." /></div>
+                      </div>
+                      <div class="grid cols-3">
+                        <div><label for="p_cc_dayMedCostSuggested">Costo sugerido automático</label><input id="p_cc_dayMedCostSuggested" type="number" min="0" step="0.01" /></div>
+                        <div><label for="p_cc_dayMedCostCharged">Costo final cobrado</label><input id="p_cc_dayMedCostCharged" type="number" min="0" step="0.01" /></div>
+                        <div><label for="p_cc_dayCalcNote">Nota del cálculo</label><input id="p_cc_dayCalcNote" type="text" /></div>
+                      </div>
                       <div class="row"><button class="btn small" type="button" id="p_cc_addDayMedication">➕ Agregar medicamento</button></div>
                       <div class="list" id="p_cc_dayMedicationDraftList"></div>
                       <h4>Insumo del día</h4>
@@ -2319,6 +2329,12 @@
                         <div><label for="p_cc_daySupplySelect">Insumos utilizados</label><select id="p_cc_daySupplySelect"></select></div>
                         <div><label for="p_cc_daySupplyName">Uso externo/no inventariado</label><input id="p_cc_daySupplyName" type="text" placeholder="Solo si eliges uso externo" disabled /></div>
                         <div><label for="p_cc_daySupplyQty">Cantidad de insumos</label><input id="p_cc_daySupplyQty" type="number" min="0" step="0.01" /></div>
+                        <div><label for="p_cc_daySupplyUnit">Unidad usada</label><input id="p_cc_daySupplyUnit" type="text" placeholder="pieza, uso..." /></div>
+                      </div>
+                      <div class="grid cols-4">
+                        <div><label for="p_cc_daySupplyUnitCost">Costo unitario del inventario</label><input id="p_cc_daySupplyUnitCost" type="number" min="0" step="0.01" /></div>
+                        <div><label for="p_cc_daySupplyCostSuggested">Costo sugerido automático</label><input id="p_cc_daySupplyCostSuggested" type="number" min="0" step="0.01" /></div>
+                        <div><label for="p_cc_daySupplyCostCharged">Costo final cobrado</label><input id="p_cc_daySupplyCostCharged" type="number" min="0" step="0.01" /></div>
                         <div><label for="p_cc_daySupplyObs">Observaciones del insumo</label><input id="p_cc_daySupplyObs" type="text" /></div>
                       </div>
                       <div class="help" id="p_cc_daySupplyInfo">Selecciona un insumo para ver categoría, existencia, unidad, costo y pertenencia.</div>
