@@ -2187,6 +2187,15 @@
                       <div><label for="p_medBaseUnit">Unidad del volumen/cantidad base</label><select id="p_medBaseUnit"><option value="L">L</option><option value="mL">mL</option><option value="kg">kg</option><option value="g">g</option><option value="animal">animal</option><option value="paciente">paciente</option><option value="dosis">dosis</option><option value="otra">otra</option></select></div>
                     </div>
                     <div class="help" id="p_medSuggestedDose">Selecciona medicamento y especie para traer la dosis estructurada desde Medicamentos. Si no existe, podrás usar una dosis manual solo para este procedimiento o guardarla también en Medicamentos.</div>
+                    <div class="item" id="p_medDosingReferenceCard" style="display:none;">
+                      <h4>Dosificación registrada en Medicamentos</h4>
+                      <div class="help" id="p_medDosingReferenceText"></div>
+                      <div class="row">
+                        <button class="btn small ghost" type="button" id="p_copyMedicationDosingReference">Copiar texto</button>
+                        <button class="btn small" type="button" id="p_useMedicationDosingReference">Usar como base para dosis manual</button>
+                        <button class="btn small ghost" type="button" id="p_referenceSaveManualDoseToMedication">Guardar como dosis estructurada por especie</button>
+                      </div>
+                    </div>
                     <div class="grid cols-4">
                       <div><label for="p_medCalculationRule">Regla de cálculo usada</label><select id="p_medCalculationRule"><option value="PER_LITER">Por litro</option><option value="PER_ML">Por mL</option><option value="PER_KG_FEED">Por kg de alimento</option><option value="PER_KG">Por kg de peso vivo</option><option value="PER_PATIENT">Por paciente</option><option value="PER_ANIMAL">Por animal</option><option value="PER_GROUP">Por grupo</option><option value="PER_DOSE">Por dosis</option><option value="FIXED">Dosis fija</option><option value="MANUAL">Manual</option></select></div>
                       <div><label for="p_medDoseBase">Dosis sugerida / editable</label><input id="p_medDoseBase" type="number" min="0" step="0.0001" /></div>
@@ -2330,6 +2339,14 @@
                         <div><label for="p_cc_dayMedRoute">Vía del medicamento</label><input id="p_cc_dayMedRoute" type="text" disabled /></div>
                       </div>
                       <div class="help" id="p_cc_dayMedInfo">Selecciona un medicamento para ver nombre comercial, sustancia activa, existencia, unidad, costo, pertenencia y dosis.</div>
+                      <div class="item" id="p_cc_dayDosingReferenceCard" style="display:none;">
+                        <h4>Dosificación registrada en Medicamentos</h4>
+                        <div class="help" id="p_cc_dayDosingReferenceText"></div>
+                        <div class="row">
+                          <button class="btn small ghost" type="button" id="p_cc_copyMedicationDosingReference">Copiar texto</button>
+                          <button class="btn small" type="button" id="p_cc_useMedicationDosingReference">Usar como base para dosis manual</button>
+                        </div>
+                      </div>
                       <div class="grid cols-4">
                         <div><label for="p_cc_dayIndication">Indicación</label><input id="p_cc_dayIndication" type="text" /></div>
                         <div><label for="p_cc_dayDoseQty">Cantidad usada / dosis</label><input id="p_cc_dayDoseQty" type="number" min="0" step="0.0001" /></div>

@@ -6256,15 +6256,44 @@ function showProcedureManualMedEditor(show = true) {
 function getProcedureMedicationSpecies() {
   return $("#p_medSpecies")?.value.trim() || $("#p_nec_species")?.value.trim() || $("#p_cc_species")?.value.trim() || $("#p_species")?.value.trim() || "";
 }
+function medicationDosingReferenceText(med = {}) {
+  return [
+    med?.clinical?.dosing,
+    med?.dosificacion_es,
+    med?.dosificacionES,
+    med?.dosing_es,
+    med?.dosingEs,
+    med?.dosing,
+    med?.dosis_texto,
+    med?.dosageText,
+    med?.fichaFarmacologica?.dosing,
+  ].find((value) => String(value || "").trim())?.trim() || "";
+}
+function renderMedicationDosingReference({ med, hasStructuredDose = false, selectedManual = true, cardId, textId }) {
+  const card = $("#" + cardId);
+  const box = $("#" + textId);
+  if (!card || !box) return;
+  if (!med || !selectedManual) {
+    card.style.display = "none";
+    box.textContent = "";
+    return;
+  }
+  const text = medicationDosingReferenceText(med);
+  card.style.display = "";
+  box.textContent = text || (hasStructuredDose
+    ? "No hay dosificación en texto registrada para este medicamento. Puedes capturar manualmente la dosis del procedimiento."
+    : "No hay dosis por especie vinculada ni dosificación en texto registrada para este medicamento.");
+}
 function applyMedicationDoseProfileToProcedure(force = false) {
   const type = getProcedureProductType();
   const med = byProcedureProductId($("#p_medSelect")?.value, type);
   const species = getProcedureMedicationSpecies();
-  const profile = type === "MEDICAMENTO" && med ? getSelectedProcedureDoseProfile(med, species) : null;
+  const selectedProfileValue = $("#p_medDoseProfile")?.value || "";
+  const profile = type === "MEDICAMENTO" && med && selectedProfileValue !== "" ? getSelectedProcedureDoseProfile(med, species) : null;
   const help = $("#p_medSuggestedDose");
-  if (!med) { if (help) help.textContent = "Selecciona producto y especie/grupo para calcular medicamento, vacuna o insumo."; return; }
-  if (type === "VACUNA") { if ($("#p_medDoseBase")) $("#p_medDoseBase").value = $("#p_medDoseBase").value || 1; if ($("#p_medDoseUnit")) $("#p_medDoseUnit").value = $("#p_medDoseUnit").value || "dosis"; if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = $("#p_medCalculationRule").value || "PER_ANIMAL"; procedureManualMedRuleUi("PER_ANIMAL"); if ($("#p_medUnitUsed") && !$("#p_medUnitUsed").value) $("#p_medUnitUsed").value = procedureProductUnit(med, type); if (help) help.textContent = "Vacuna: regla sugerida 1 dosis por animal. Captura número de animales/dosis; todo es editable."; return; }
-  if (type === "INSUMO") { if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = "MANUAL"; procedureManualMedRuleUi("MANUAL"); if ($("#p_medUnitUsed") && !$("#p_medUnitUsed").value) $("#p_medUnitUsed").value = procedureProductUnit(med, type); if (help) help.textContent = "Insumo: captura cantidad usada real. Todo es editable."; return; }
+  if (!med) { renderMedicationDosingReference({ med: null, cardId: "p_medDosingReferenceCard", textId: "p_medDosingReferenceText" }); if (help) help.textContent = "Selecciona producto y especie/grupo para calcular medicamento, vacuna o insumo."; return; }
+  if (type === "VACUNA") { renderMedicationDosingReference({ med: null, cardId: "p_medDosingReferenceCard", textId: "p_medDosingReferenceText" }); if ($("#p_medDoseBase")) $("#p_medDoseBase").value = $("#p_medDoseBase").value || 1; if ($("#p_medDoseUnit")) $("#p_medDoseUnit").value = $("#p_medDoseUnit").value || "dosis"; if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = $("#p_medCalculationRule").value || "PER_ANIMAL"; procedureManualMedRuleUi("PER_ANIMAL"); if ($("#p_medUnitUsed") && !$("#p_medUnitUsed").value) $("#p_medUnitUsed").value = procedureProductUnit(med, type); if (help) help.textContent = "Vacuna: regla sugerida 1 dosis por animal. Captura número de animales/dosis; todo es editable."; return; }
+  if (type === "INSUMO") { renderMedicationDosingReference({ med: null, cardId: "p_medDosingReferenceCard", textId: "p_medDosingReferenceText" }); if ($("#p_medCalculationRule")) $("#p_medCalculationRule").value = "MANUAL"; procedureManualMedRuleUi("MANUAL"); if ($("#p_medUnitUsed") && !$("#p_medUnitUsed").value) $("#p_medUnitUsed").value = procedureProductUnit(med, type); if (help) help.textContent = "Insumo: captura cantidad usada real. Todo es editable."; return; }
   if (profile) {
     const row = normalizeDoseRow(profile, species);
     if (force || !$("#p_medDoseBase")?.value) $("#p_medDoseBase").value = row.dose || "";
@@ -6277,10 +6306,12 @@ function applyMedicationDoseProfileToProcedure(force = false) {
     if (force || !$("#p_medAdministrationType")?.value) $("#p_medAdministrationType").value = med.route || $("#p_medAdministrationType")?.value || "Otro";
     if (help) help.textContent = `Dosis vinculada: ${linkedDosePhrase(row)} · ${row.frequency || "sin frecuencia"} · ${row.duration || "sin duración"} · ${row.indication || "sin indicación"}. Todo es editable en este procedimiento.`;
     renderProcedureManualDoseCard(false);
+    renderMedicationDosingReference({ med, hasStructuredDose: true, selectedManual: $("#p_medDoseProfile")?.value === "", cardId: "p_medDosingReferenceCard", textId: "p_medDosingReferenceText" });
   } else if (help) {
     help.textContent = "No hay dosis por especie vinculada para este medicamento y esta especie.";
     renderProcedureManualDoseCard(true);
     procedureManualMedRuleUi($("#p_medCalculationRule")?.value || "MANUAL");
+    renderMedicationDosingReference({ med, hasStructuredDose: false, selectedManual: true, cardId: "p_medDosingReferenceCard", textId: "p_medDosingReferenceText" });
   }
 }
 function procedureManualDoseText() {
@@ -6317,6 +6348,20 @@ function saveManualProcedureDoseToMedication() {
   saveState();
   syncProcedureDoseProfileOptions();
   show("p_msg", `Dosis guardada en Medicamentos: ${linkedDosePhrase(row)}.`, "success");
+}
+async function copyMedicationDosingReference(textId, messageTarget = "p_msg") {
+  const text = $("#" + textId)?.textContent.trim() || "";
+  if (!text || text.startsWith("No hay ")) return show(messageTarget, "No hay dosificación en texto registrada para copiar.", "warning");
+  await navigator.clipboard?.writeText(text);
+  show(messageTarget, "Dosificación registrada en Medicamentos copiada.", "success");
+}
+function useMedicationDosingReferenceAsManualBase(textId, targetId, messageTarget = "p_msg") {
+  const text = $("#" + textId)?.textContent.trim() || "";
+  const target = $("#" + targetId);
+  if (!text || text.startsWith("No hay ")) return show(messageTarget, "No hay dosificación en texto registrada para usar como base.", "warning");
+  if (target) target.value = target.value ? `${target.value}\n${text}` : text;
+  renderProcedureManualDoseCard(true);
+  show(messageTarget, "Texto agregado como referencia editable de la dosis manual.", "success");
 }
 function procedureManualMedDraftFromForm(existingId = null) {
   const productType = getProcedureProductType();
@@ -6473,8 +6518,13 @@ function syncClinicalDayDoseOptions(med) {
 }
 function applyClinicalDoseSelection() {
   const doseSelect = $("#p_cc_dayDoseSelect");
-  if (!doseSelect || doseSelect.value === "") return;
-  const rows = JSON.parse(doseSelect.dataset.doses || "[]");
+  const med = byId(state.meds, $("#p_cc_dayMedSelect")?.value || "");
+  const rows = JSON.parse(doseSelect?.dataset.doses || "[]");
+  if (!doseSelect || doseSelect.value === "") {
+    renderMedicationDosingReference({ med, hasStructuredDose: rows.length > 0, selectedManual: true, cardId: "p_cc_dayDosingReferenceCard", textId: "p_cc_dayDosingReferenceText" });
+    return;
+  }
+  renderMedicationDosingReference({ med, hasStructuredDose: rows.length > 0, selectedManual: false, cardId: "p_cc_dayDosingReferenceCard", textId: "p_cc_dayDosingReferenceText" });
   const row = normalizeDoseRow(rows[Number(doseSelect.value)] || {});
   if ($("#p_cc_dayIndication")) $("#p_cc_dayIndication").value = row.indication || "";
   if ($("#p_cc_dayDoseQty")) $("#p_cc_dayDoseQty").value = row.dose || "";
@@ -6543,7 +6593,11 @@ function syncClinicalDayMedicationSelection() {
     if (rows.length && $("#p_cc_dayDoseSelect")) {
       $("#p_cc_dayDoseSelect").value = "0";
       applyClinicalDoseSelection();
+    } else {
+      renderMedicationDosingReference({ med, hasStructuredDose: false, selectedManual: true, cardId: "p_cc_dayDosingReferenceCard", textId: "p_cc_dayDosingReferenceText" });
     }
+  } else {
+    renderMedicationDosingReference({ med: null, cardId: "p_cc_dayDosingReferenceCard", textId: "p_cc_dayDosingReferenceText" });
   }
   ["p_cc_dayAdminDose", "p_cc_dayMedCostCharged"].forEach((id) => { const el = $("#" + id); if (el) delete el.dataset.manual; });
   syncClinicalDayMedicationCalculation();
@@ -8118,6 +8172,11 @@ function bindProcedures() {
   $("#p_linkLabDecision")?.addEventListener("change", renderProcedureType);
   $("#p_newProcedure")?.addEventListener("click", () => { resetProcedure(); showProcedureManualMedEditor(true); $("#procedureForm")?.scrollIntoView({ behavior: "smooth", block: "start" }); show("p_msg", "Nuevo procedimiento listo para capturar.", "success"); });
   $("#p_copyManualDose")?.addEventListener("click", async () => { const text = procedureManualDoseText(); if (!text) return show("p_msg", "Captura primero una dosis manual.", "warning"); await navigator.clipboard?.writeText(text); show("p_msg", "Dosis manual copiada.", "success"); });
+  $("#p_copyMedicationDosingReference")?.addEventListener("click", () => copyMedicationDosingReference("p_medDosingReferenceText"));
+  $("#p_useMedicationDosingReference")?.addEventListener("click", () => useMedicationDosingReferenceAsManualBase("p_medDosingReferenceText", "p_medNotes"));
+  $("#p_referenceSaveManualDoseToMedication")?.addEventListener("click", saveManualProcedureDoseToMedication);
+  $("#p_cc_copyMedicationDosingReference")?.addEventListener("click", () => copyMedicationDosingReference("p_cc_dayDosingReferenceText"));
+  $("#p_cc_useMedicationDosingReference")?.addEventListener("click", () => useMedicationDosingReferenceAsManualBase("p_cc_dayDosingReferenceText", "p_cc_dayMedObs"));
   $("#p_saveManualDoseToMedication")?.addEventListener("click", saveManualProcedureDoseToMedication);
   $("#p_useManualDoseOnly")?.addEventListener("click", () => { renderProcedureManualDoseCard(false); show("p_msg", "La dosis manual se usará solo en este procedimiento.", "success"); });
   $("#p_animalGroup")?.addEventListener("change", () => {
