@@ -1997,6 +1997,10 @@
       <main style="grid-template-columns:1.1fr .9fr;">
         <section class="card">
           <h2>🩺 Procedimientos veterinarios</h2>
+          <div class="row" style="margin-bottom:12px;">
+            <button class="btn primary" type="button" id="p_newProcedure">+ Agregar nuevo procedimiento</button>
+            <div class="help">Crea un bloque nuevo sin modificar los procedimientos guardados ni los productos usados existentes.</div>
+          </div>
           <div class="content">
 
             <form id="procedureForm" autocomplete="off">
@@ -2187,7 +2191,18 @@
                       <div><label for="p_medCalculationRule">Regla de cálculo usada</label><select id="p_medCalculationRule"><option value="PER_LITER">Por litro</option><option value="PER_ML">Por mL</option><option value="PER_KG_FEED">Por kg de alimento</option><option value="PER_KG">Por kg de peso vivo</option><option value="PER_PATIENT">Por paciente</option><option value="PER_ANIMAL">Por animal</option><option value="PER_GROUP">Por grupo</option><option value="PER_DOSE">Por dosis</option><option value="FIXED">Dosis fija</option><option value="MANUAL">Manual</option></select></div>
                       <div><label for="p_medDoseBase">Dosis sugerida / editable</label><input id="p_medDoseBase" type="number" min="0" step="0.0001" /></div>
                       <div><label for="p_medDoseUnit">Unidad dosis</label><select id="p_medDoseUnit"><option value="mg">mg</option><option value="g">g</option><option value="mL">mL</option><option value="gotas">gotas</option><option value="tabletas">tabletas</option><option value="U.I.">UI</option><option value="%">%</option><option value="otra">otra</option></select></div>
+                      <div><label for="p_medPorCada">Por cada</label><input id="p_medPorCada" type="number" min="0.0001" step="0.0001" value="1" /></div>
+                      <div><label for="p_medUnitBaseDose">Unidad base</label><select id="p_medUnitBaseDose"><option value="kg">kg</option><option value="L">L</option><option value="mL">mL</option><option value="kg alimento">kg alimento</option><option value="animal">animal</option><option value="paciente">paciente</option><option value="dosis">dosis</option><option value="otra">otra</option></select></div>
                       <div><label for="p_medCalculatedTotal">Cantidad total calculada</label><input id="p_medCalculatedTotal" type="number" min="0" step="0.0001" /></div>
+                    </div>
+                    <div class="item" id="p_manualDoseCard" style="display:none;">
+                      <h4>Dosis manual capturada</h4>
+                      <div class="help" id="p_manualDoseText">Sin dosis manual capturada todavía.</div>
+                      <div class="row">
+                        <button class="btn small ghost" type="button" id="p_copyManualDose">Copiar dosis</button>
+                        <button class="btn small" type="button" id="p_saveManualDoseToMedication">Guardar esta dosis en la ficha del medicamento</button>
+                        <button class="btn small ghost" type="button" id="p_useManualDoseOnly">Usar solo en este procedimiento</button>
+                      </div>
                     </div>
                     <div class="grid cols-4">
                       <div><label for="p_medDoseKg">Cantidad usada real</label><input id="p_medDoseKg" type="number" min="0" step="0.0001" /></div>
@@ -2634,10 +2649,17 @@
                     </div>
                   </div>
                   <div class="grid cols-4">
-                    <div><label for="lab_type">Tipo de prueba</label><input id="lab_type" type="text" /></div>
+                    <div><label for="lab_type">Tipo de prueba</label><select id="lab_type"><option value="">— Selecciona —</option><option>Hemograma</option><option>Bioquímica sanguínea</option><option>Coproparasitoscópico</option><option>Citología</option><option>Histopatología</option><option>Bacteriología</option><option>Cultivo</option><option>Antibiograma</option><option>Micología</option><option>Virología</option><option>PCR</option><option>Serología</option><option>Urianálisis</option><option>Raspado cutáneo</option><option>Prueba rápida</option><option>Otro</option></select></div>
+                    <div><label for="lab_name">Nombre del estudio / prueba nueva</label><input id="lab_name" type="text" placeholder="Ej. Hemograma + frotis" /></div>
+                    <div><label for="lab_sampleType">Tipo de muestra</label><input id="lab_sampleType" type="text" placeholder="Sangre, heces, tejido..." /></div>
                     <div><label for="lab_date">Fecha</label><input id="lab_date" type="date" /></div>
+                    <div><label for="lab_resultDate">Fecha de resultado</label><input id="lab_resultDate" type="date" /></div>
+                    <div><label for="lab_responsible">Laboratorio / responsable</label><input id="lab_responsible" type="text" /></div>
                     <div><label for="lab_animal">Animal</label><input id="lab_animal" type="text" /></div>
                     <div><label for="lab_result">Resultado</label><input id="lab_result" type="text" /></div>
+                    <div><label for="lab_relatedTo">Relación con diagnóstico/tratamiento/evolución</label><input id="lab_relatedTo" type="text" /></div>
+                    <div><label for="lab_costSuggested">Costo sugerido</label><input id="lab_costSuggested" type="number" min="0" step="0.01" /></div>
+                    <div><label for="lab_costCharged">Costo final cobrado</label><input id="lab_costCharged" type="number" min="0" step="0.01" /></div>
                   </div>
                   <div class="grid cols-2">
                     <div><label for="lab_interpretation">Interpretación</label><textarea id="lab_interpretation"></textarea></div>
