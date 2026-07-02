@@ -8491,22 +8491,60 @@ function jsonValue(obj, keys = []) {
   return undefined;
 }
 function normalizeJsonName(value = "") {
-  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/[\.,;:()\[\]{}\/\\_-]+/g, " ").replace(/\s+/g, " ");
 }
-function findMedicationFromJson(item = {}) {
+function levenshteinDistance(a = "", b = "") {
+  const left = normalizeJsonName(a), right = normalizeJsonName(b);
+  if (left === right) return 0;
+  if (!left) return right.length;
+  if (!right) return left.length;
+  const row = Array.from({ length: right.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= left.length; i += 1) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const tmp = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (left[i - 1] === right[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return row[right.length];
+}
+function textSimilarity(a = "", b = "") {
+  const left = normalizeJsonName(a), right = normalizeJsonName(b);
+  const max = Math.max(left.length, right.length);
+  if (!max) return 1;
+  return Math.max(0, 1 - (levenshteinDistance(left, right) / max));
+}
+function medicationJsonName(item = {}) {
+  return jsonValue(item, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
+}
+function medicationJsonMatch(item = {}) {
   const id = jsonValue(item, ["medicamento_id", "medication_id", "id_medicamento", "id"]);
-  const name = jsonValue(item, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
+  const name = medicationJsonName(item);
   if (id) {
     const byExactId = byId(state.meds, String(id));
-    if (byExactId) return byExactId;
+    if (byExactId) return { med: byExactId, score: 1, level: "exact", reason: "id" };
   }
-  if (name) {
-    const exact = state.meds.find((m) => String(m.brand || "") === String(name));
-    if (exact) return exact;
-    const normalized = normalizeJsonName(name);
-    return state.meds.find((m) => normalizeJsonName(m.brand) === normalized) || null;
-  }
-  return null;
+  if (!name) return { med: null, score: 0, level: "none", suggestions: [] };
+  const exact = state.meds.find((m) => String(m.brand || "") === String(name)) || state.meds.find((m) => normalizeJsonName(m.brand) === normalizeJsonName(name));
+  if (exact) return { med: exact, score: 1, level: "exact", reason: "name" };
+  const concentration = normalizeJsonName(jsonValue(item, ["concentracion", "concentración", "concentration"]) || "");
+  const active = normalizeJsonName(jsonValue(item, ["principio_activo", "sustancia_activa", "active", "activeIngredient"]) || "");
+  const scored = (state.meds || []).map((m) => {
+    let score = textSimilarity(name, m.brand || "");
+    if (active && normalizeJsonName(m.active || m.activeIngredient || "").includes(active)) score = Math.min(1, score + 0.08);
+    if (concentration && normalizeJsonName([m.concentration, m.presentation, m.brand].filter(Boolean).join(" ")).includes(concentration)) score = Math.min(1, score + 0.07);
+    return { med: m, score };
+  }).sort((a, b) => b.score - a.score).slice(0, 5);
+  const best = scored[0];
+  if (best?.score >= 0.85) return { med: best.med, score: best.score, level: "high", suggestions: scored };
+  if (best?.score >= 0.60) return { med: null, score: best.score, level: "medium", suggestions: scored };
+  return { med: null, score: best?.score || 0, level: "low", suggestions: scored };
+}
+function findMedicationFromJson(item = {}) {
+  const match = medicationJsonMatch(item);
+  return ["exact", "high"].includes(match.level) ? match.med : null;
 }
 function findSupplyFromJson(item = {}) {
   const id = jsonValue(item, ["insumo_id", "supply_id", "id_insumo", "id"]);
@@ -8523,6 +8561,55 @@ function findSupplyFromJson(item = {}) {
   }
   return null;
 }
+
+function supplyJsonName(item = {}) {
+  return jsonValue(item, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
+}
+function jsonCostValue(item = {}, finalFirst = true) {
+  const finalCost = jsonValue(item, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]);
+  const suggested = jsonValue(item, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]);
+  return finalFirst ? (finalCost ?? suggested) : (suggested ?? finalCost);
+}
+function ensureAutoSupplyFromJson(item = {}, source = "JSON/procedimiento") {
+  const existing = findSupplyFromJson(item);
+  if (existing) return { supply: existing, created: false, message: "" };
+  const name = supplyJsonName(item);
+  if (!name || jsonValue(item, ["omitir", "omit", "insumo_omitido"]) || jsonValue(item, ["uso_externo_no_inventariado", "uso_externo", "externo", "external", "not_in_inventory"])) return { supply: null, created: false, message: "" };
+  const unit = jsonValue(item, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]) || "pieza";
+  const unitCost = Number(jsonValue(item, ["costo_unitario", "costo_unitario_inventario", "precio_unitario", "unit_cost", "unitCost"]) || 0);
+  const finalCharged = jsonCostValue(item, true);
+  const suggested = jsonCostValue(item, false);
+  const supply = {
+    id: uid("sup"),
+    type: "DISPOSABLE",
+    name: String(name).trim(),
+    category: "Pendiente de clasificar",
+    status: "activo",
+    active: true,
+    unit,
+    acquired: new Date().toISOString().slice(0, 10),
+    owner: "SERVICIOS",
+    donated: "NO",
+    presentation: unit,
+    qty: 0,
+    price: 0,
+    unitCost,
+    costSuggested: suggested ?? "",
+    costCharged: finalCharged ?? "",
+    costUse: unitCost,
+    notes: `Creado automáticamente desde ${source}. Se registró como usado, sin existencia restante.`,
+    observations: `Creado automáticamente desde ${source}. Se registró como usado, sin existencia restante.`,
+    creado_automaticamente: true,
+    automaticallyCreated: true,
+    autoCreatedSource: source,
+    ticket: null,
+  };
+  state.supplies.unshift(supply);
+  item.insumo_id = supply.id;
+  item.insumo_nombre = supply.name;
+  return { supply, created: true, message: `El insumo ‘${supply.name}’ no existía en inventario. Se agregó automáticamente a Insumos con existencia 0${finalCharged !== undefined ? ` y costo final cobrado de ${money(finalCharged)}` : ""} porque fue usado en este procedimiento.` };
+}
+
 function asJsonArray(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
@@ -8557,6 +8644,19 @@ function clinicalJsonDayCounts(source = {}) {
     supplies: days.reduce((acc, d) => acc + clinicalJsonSupplyItems(d).length, 0),
   };
 }
+
+function collectUnresolvedClinicalJsonMedications(parsed = {}) {
+  const map = new Map();
+  normalizeClinicalJsonDays(parsed).forEach((day, dayIndex) => clinicalJsonMedicationItems(day).forEach((item) => {
+    const name = medicationJsonName(item);
+    const match = medicationJsonMatch(item);
+    if (name && !findMedicationFromJson(item) && !jsonValue(item, ["omitir", "omit", "medicamento_omitido"]) && !jsonValue(item, ["uso_externo_no_inventariado", "uso_externo", "externo", "external", "not_in_inventory"])) {
+      map.set(normalizeJsonName(name), { name, item, dayIndex, match });
+    }
+  }));
+  return Array.from(map.values());
+}
+
 function collectUnknownClinicalJsonSupplies(parsed = {}) {
   const map = new Map();
   normalizeClinicalJsonDays(parsed).forEach((day) => clinicalJsonSupplyItems(day).forEach((item) => {
@@ -8606,6 +8706,7 @@ function medicationJsonValidationMessages(m = {}, dayIndex = 0, itemIndex = 0) {
   const messages = [];
   const name = jsonValue(m, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
   const label = name || `Medicamento sin nombre (${clinicalJsonPath("med", dayIndex, itemIndex, "medicamento_nombre")})`;
+  const match = medicationJsonMatch(m);
   const inv = findMedicationFromJson(m);
   const structured = jsonValue(m, ["dosis_estructurada", "dosis", "dosis_usada", "dosis_manual", "dosis_registrada", "structured_dose"]) || {};
   const theoreticalRaw = jsonValue(m, ["dosis_total_teorica", "dosis_total", "total_activo", "cantidad_total_teorica", "theoretical_total_dose"]);
@@ -8619,7 +8720,12 @@ function medicationJsonValidationMessages(m = {}, dayIndex = 0, itemIndex = 0) {
   const base = jsonValue(structured, ["unidad_base", "base", "unidad_por_cada", "baseUnit", "base_unit"]) ?? jsonValue(m, ["unidad_base", "base", "unidad_por_cada"]);
   const cost = jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]) ?? jsonValue(m, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]);
   if (!name) messages.push({ item: label, text: `No se pudo agregar el medicamento del día porque falta el campo medicamento_nombre en el JSON. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "medicamento_nombre")}. Completa “Medicamento administrado” o corrige el JSON.`, pending: true });
-  else if (!inv) messages.push({ item: label, text: `No se encontró en inventario el medicamento: ${name}. Puedes vincularlo manualmente, marcarlo como uso externo/no inventariado o corregir el nombre en el JSON. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "medicamento_nombre")}.`, pending: true });
+  else if (!inv) {
+    const dateText = `día ${dayIndex + 1}`;
+    const suggestions = (match.suggestions || []).filter((row) => row.score >= 0.45).map((row) => `‘${row.med.brand}’`).join(", ");
+    if (match.level === "medium") messages.push({ item: label, text: `No se encontró exactamente el medicamento ‘${name}’ del ${dateText}. Posibles coincidencias: ${suggestions || "sin coincidencias útiles"}. Elige una opción: agregar nuevo medicamento manualmente, escoger un medicamento existente, marcar como uso externo/no inventariado u omitir este medicamento.`, pending: true });
+    else messages.push({ item: label, text: `No se encontró el medicamento ‘${name}’ en inventario del ${dateText}. Opciones: agregar nuevo medicamento manualmente, escoger medicamento existente, marcar como uso externo/no inventariado u omitir este medicamento.`, pending: true });
+  } else if (match.level === "high") messages.push({ item: label, text: `El medicamento ‘${name}’ no se encontró exactamente, pero se vinculó automáticamente con ‘${inv.brand}’ por coincidencia de nombre (${Math.round(match.score * 100)}%).`, pending: false });
   if (!qty && !unit && !hasManualDose) messages.push({ item: label, text: `El medicamento ${label} se cargó, pero no trae dosis estructurada ni dosis manual. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada")}. Puedes completarla manualmente.`, pending: true });
   if (!qty) messages.push({ item: label, text: `El medicamento ${label} no tiene cantidad de dosis. Falta dosis_estructurada.cantidad o cantidad_dosis. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.cantidad")}. Completa “Cantidad”.`, pending: true });
   if (!unit) messages.push({ item: label, text: `El medicamento ${label} no tiene unidad de dosis. Falta dosis_estructurada.unidad. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.unidad")}. Completa “Unidad”.`, pending: true });
@@ -8639,7 +8745,7 @@ function supplyJsonValidationMessages(i = {}, dayIndex = 0, itemIndex = 0) {
   const unit = jsonValue(i, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]);
   const cost = jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]) ?? jsonValue(i, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]);
   if (!name) messages.push({ item: label, text: `No se pudo agregar el insumo porque falta el campo insumo_nombre en el JSON. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "insumo_nombre")}. Completa “Insumo” o corrige el JSON.`, pending: true });
-  else if (!inv) messages.push({ item: label, text: `No se encontró en inventario el insumo: ${name}. Puedes agregarlo al inventario, vincularlo con un insumo existente o marcarlo como uso externo/no inventariado. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "insumo_nombre")}.`, pending: true });
+  else if (!inv) messages.push({ item: label, text: `El insumo ‘${name}’ no existía en inventario. Se agregará automáticamente a Insumos con existencia 0 porque fue usado en este procedimiento. Ruta: ${clinicalJsonPath("supply", dayIndex, itemIndex, "insumo_nombre")}.`, pending: false });
   if (!qty) messages.push({ item: label, text: `El insumo ${label} se cargó, pero falta cantidad_usada. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "cantidad_usada")}. Completa “Cantidad de insumos”.`, pending: true });
   if (!unit) messages.push({ item: label, text: `El insumo ${label} se cargó, pero falta unidad_usada. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "unidad_usada")}. Completa “Unidad”.`, pending: true });
   if (cost === undefined) messages.push({ item: label, text: `El insumo ${label} se cargó, pero no trae costo_final_cobrado ni costo_sugerido. El costo queda pendiente para edición manual. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "costo_final_cobrado")}.`, pending: true });
@@ -8653,7 +8759,7 @@ function clinicalJsonValidationSummary(parsed = {}) {
     clinicalJsonMedicationItems(day).forEach((med, medIndex) => medicationWarnings.push(...medicationJsonValidationMessages(med, dayIndex, medIndex)));
     clinicalJsonSupplyItems(day).forEach((sup, supIndex) => supplyWarnings.push(...supplyJsonValidationMessages(sup, dayIndex, supIndex)));
   });
-  return { medicationWarnings, supplyWarnings, pendingMeds: new Set(medicationWarnings.map((w) => w.item)).size, pendingSupplies: new Set(supplyWarnings.map((w) => w.item)).size };
+  return { medicationWarnings, supplyWarnings, pendingMeds: new Set(medicationWarnings.filter((w) => w.pending).map((w) => w.item)).size, pendingSupplies: new Set(supplyWarnings.filter((w) => w.pending).map((w) => w.item)).size };
 }
 function clinicalJsonResultMessage(stats, parsed = {}, prefix = "JSON aplicado con advertencias") {
   const summary = clinicalJsonValidationSummary(parsed);
@@ -8722,8 +8828,10 @@ function previewSectionJson(section) {
         const supplies = clinicalJsonSupplyItems(day);
         return `<div class="item"><b>${esc(jsonValue(day, ["fecha", "date"]) || "Día sin fecha")}</b><div>Medicamentos: ${meds.length}</div><ul>${meds.map((m) => `<li>${esc(jsonValue(m, ["medicamento_nombre", "nombre_medicamento", "medicationName", "medication_name", "nombre", "name", "medicamento"]) || "Medicamento sin nombre")}</li>`).join("")}</ul><div>Insumos: ${supplies.length}</div><ul>${supplies.map((i) => `<li>${esc(jsonValue(i, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"]) || "Insumo sin nombre")}</li>`).join("")}</ul></div>`;
       }).join("")}`;
+      const unresolvedMeds = collectUnresolvedClinicalJsonMedications(parsed);
+      if (unresolvedMeds.length) detailHtml += `<div class="card"><h4>Medicamentos no resueltos</h4>${unresolvedMeds.map((row) => { const suggestions = (row.match.suggestions || []).filter((x) => x.score >= 0.45).map((x) => `${esc(x.med.brand)} (${Math.round(x.score * 100)}%)`).join(" · "); return `<div class="item"><b>${esc(row.name)}</b><div class="help">No se encontró en inventario el medicamento “${esc(row.name)}” del día ${row.dayIndex + 1}.${suggestions ? ` Posibles coincidencias: ${suggestions}.` : ""} Opciones: agregar nuevo medicamento manualmente, escoger un medicamento existente, marcar como uso externo/no inventariado u omitir este medicamento. No se creará automáticamente.</div></div>`; }).join("")}</div>`;
       const unknownSupplies = collectUnknownClinicalJsonSupplies(parsed);
-      if (unknownSupplies.length) detailHtml += `<div class="card"><h4>Insumos no encontrados en inventario</h4>${unknownSupplies.map((row) => `<div class="item"><b>${esc(row.name)}</b><div class="help">El insumo “${esc(row.name)}” no existe en inventario.</div><div class="actions"><button class="btn small" type="button" data-json-supply-action="add" data-json-supply-name="${esc(row.name)}">Agregar insumo al inventario</button><button class="btn small ghost" type="button" data-json-supply-action="link" data-json-supply-name="${esc(row.name)}">Vincular con existente</button><button class="btn small ghost" type="button" data-json-supply-action="external" data-json-supply-name="${esc(row.name)}">Usar externo/no inventariado</button><button class="btn small bad" type="button" data-json-supply-action="omit" data-json-supply-name="${esc(row.name)}">Omitir este insumo</button></div></div>`).join("")}</div>`;
+      if (unknownSupplies.length) detailHtml += `<div class="card"><h4>Insumos no encontrados en inventario</h4>${unknownSupplies.map((row) => `<div class="item"><b>${esc(row.name)}</b><div class="help">El insumo “${esc(row.name)}” no existe en inventario. Al aplicar el JSON se agregará automáticamente a Insumos con existencia 0 porque fue usado en este procedimiento.</div></div>`).join("")}</div>`;
     }
     box.innerHTML = `${baseWarning}<b>Se llenará:</b><ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${detailHtml}${clinicalExtra}<b>No se modificará:</b><ul><li>Productor(a)</li><li>Fecha base del procedimiento</li><li>Tipo de procedimiento</li><li>Lugar / comunidad</li><li>Modo del procedimiento</li><li>Estado de cobro</li><li>Notas generales</li></ul>`;
     bindUnknownClinicalJsonSupplyActions(box, parsed, section);
@@ -8761,6 +8869,7 @@ function applySectionJsonDirect(section) {
       sectionJsonMessage(section, "El JSON es válido, pero no contiene datos compatibles para medicación e insumos por día.", true);
       return;
     }
+    saveState();
     renderProcedureDraftLists();
     sectionJsonMessage(section, clinicalJsonResultMessage(stats, parsed));
     return;
@@ -8777,6 +8886,7 @@ function applySectionJsonWithMode(section, mode = "merge") {
       sectionJsonMessage(section, "El JSON es válido, pero no contiene medicamentos o insumos compatibles para esta sección.", true);
       return;
     }
+    saveState();
     renderProcedureDraftLists();
     sectionJsonMessage(section, clinicalJsonResultMessage(stats, parsed, "JSON aplicado solo en esta sección con advertencias"));
     return;
@@ -8834,8 +8944,9 @@ function clinicalMedicationDuplicateKey(m = {}) { return JSON.stringify([m.itemI
 function clinicalSupplyDuplicateKey(s = {}) { return JSON.stringify([s.itemId || normalizeJsonName(s.name)]); }
 function clinicalDayDuplicateKey(day = {}) { return JSON.stringify({ date: day.date || "", meds: (day.medications || []).map(clinicalMedicationDuplicateKey).sort(), supplies: (day.supplies || []).map(clinicalSupplyDuplicateKey).sort() }); }
 function normalizeJsonClinicalMedication(m) {
+  const match = medicationJsonMatch(m);
   const inv = findMedicationFromJson(m);
-  const name = jsonValue(m, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
+  const name = medicationJsonName(m);
   const structured = jsonValue(m, ["dosis_estructurada", "dosis", "dosis_usada", "dosis_manual", "dosis_registrada", "structured_dose"]) || {};
   const theoreticalRaw = jsonValue(m, ["dosis_total_teorica", "dosis_total", "total_activo", "cantidad_total_teorica", "theoretical_total_dose"]);
   const adminRaw = jsonValue(m, ["cantidad_administrable", "dosis_administrable", "administrable", "cantidad_real", "cantidad_usada_real", "administered_amount"]);
@@ -8845,7 +8956,7 @@ function normalizeJsonClinicalMedication(m) {
     return null;
   }
   const externalFlag = jsonValue(m, ["uso_externo_no_inventariado", "uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
-  const noInventoryWarning = !inv ? "Este medicamento no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : "Vinculado a inventario";
+  const noInventoryWarning = !inv ? `No se encontró en inventario el medicamento ‘${name || "sin nombre"}’. Agrega nuevo medicamento manualmente, escoge uno existente, marca como uso externo/no inventariado u omite este medicamento.` : (match.level === "high" ? `El medicamento ‘${name}’ no se encontró exactamente, pero se vinculó automáticamente con ‘${inv.brand}’ por coincidencia de nombre (${Math.round(match.score * 100)}%).` : "Vinculado a inventario");
   const indicatedDoseQty = jsonValue(structured, ["cantidad", "cantidad_dosis", "dosis_cantidad", "quantity"]) ?? jsonValue(m, ["cantidad", "cantidad_dosis"]);
   const indicatedDoseUnit = jsonValue(structured, ["unidad", "unidad_dosis", "unit"]) ?? jsonValue(m, ["unidad", "unidad_dosis"]);
   const administeredQty = jsonValue(admin, ["cantidad", "quantity"]);
@@ -8854,12 +8965,13 @@ function normalizeJsonClinicalMedication(m) {
 }
 function normalizeJsonClinicalSupply(i) {
   if (jsonValue(i, ["omitir", "omit", "insumo_omitido"])) return null;
-  const inv = findSupplyFromJson(i);
-  const name = jsonValue(i, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
   const externalFlag = jsonValue(i, ["uso_externo_no_inventariado", "uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
+  const auto = ensureAutoSupplyFromJson(i, "JSON/procedimiento");
+  const inv = externalFlag ? findSupplyFromJson(i) : auto.supply;
+  const name = supplyJsonName(i);
   const qty = jsonValue(i, ["cantidad_usada", "cantidad", "cantidad_insumos", "numero", "número", "quantity_used", "qty"]);
   const unitCost = jsonValue(i, ["costo_unitario", "costo_unitario_inventario", "precio_unitario", "unit_cost", "unitCost"]);
-  return { id: uid("ccsup"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, uso_externo_no_inventariado: Boolean(externalFlag) || !inv, name: inv?.name || name || "Uso externo/no inventariado", qty, unit: jsonValue(i, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]) || inv?.unit || "", unitCost: unitCost ?? (inv ? supplyDisplayCost(inv) : ""), costSuggested: jsonValue(i, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), observations: jsonValue(i, ["observaciones", "notas", "observaciones_insumo", "observations", "notes"]) || (!inv ? "Este insumo no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : ""), type: inv?.type || "EXTERNAL", owner: inv?.owner || "" };
+  return { id: uid("ccsup"), itemId: inv?.id || "", external: Boolean(externalFlag), uso_externo_no_inventariado: Boolean(externalFlag), name: inv?.name || name || "Uso externo/no inventariado", qty, unit: jsonValue(i, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]) || inv?.unit || "", unitCost: unitCost ?? (inv ? supplyDisplayCost(inv) : ""), costSuggested: jsonValue(i, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), observations: jsonValue(i, ["observaciones", "notas", "observaciones_insumo", "observations", "notes"]) || auto.message || "", type: inv?.type || "DISPOSABLE", owner: inv?.owner || "" };
 }
 function applyAdviceSectionJson(a, mode) { Object.entries({ p_zoo_activity:a.tipo_asesoria, p_zoo_evaluation:[a.descripcion, ...(a.problemas_detectados || [])].filter(Boolean).join("\n"), p_zoo_intervention:[...(a.recomendaciones || []), ...(a.medicamentos_usados || []), ...(a.vacunas_usadas || []), ...(a.insumos_usados || [])].filter(Boolean).join("\n"), p_zoo_plan:a.plan_accion, p_zoo_followup:a.observaciones }).forEach(([id, v]) => setIfAllowed(id, v, mode)); }
 function applyNecropsySectionJson(n, mode) {
