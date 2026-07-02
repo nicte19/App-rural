@@ -7105,13 +7105,13 @@ function validateClinicalDayInventory(p, previous) {
   (p.inventory?.supplies || []).filter((item) => item.source === "CLINICAL_DAY").forEach((item) => supplyTotals.set(item.itemId, Number((Number(supplyTotals.get(item.itemId) || 0) + Number(item.qty || 0)).toFixed(4))));
   medTotals.forEach((required, itemId) => {
     const med = byId(state.meds, itemId);
-    if (!med) return problems.push("No se encontró un medicamento de día clínico seleccionado.");
+    if (!med) return problems.push(`No se encontró en inventario el medicamento de día clínico con ID: ${itemId || "sin ID"}. Puedes vincularlo manualmente, marcarlo como uso externo/no inventariado o corregir el nombre/ID en el JSON.`);
     const available = Number(medRemaining(med) || 0) + previousInventoryQty(previous, "meds", med.id);
     if (required > available + 0.0001) problems.push(`No hay stock suficiente de ${med.brand} para día clínico. Disponible: ${available.toFixed(2)} ${med.unit || ""}. Requerido: ${required.toFixed(2)} ${med.unit || ""}.`);
   });
   supplyTotals.forEach((required, itemId) => {
     const sup = byId(state.supplies, itemId);
-    if (!sup) return problems.push("No se encontró un insumo de día clínico seleccionado.");
+    if (!sup) return problems.push(`No se encontró en inventario el insumo de día clínico con ID: ${itemId || "sin ID"}. Puedes agregarlo al inventario, vincularlo con un insumo existente o marcarlo como uso externo/no inventariado.`);
     if (sup.type === "NON_DISPOSABLE") return;
     const available = Number(supplyRemaining(sup) || 0) + previousInventoryQty(previous, "supplies", sup.id);
     if (required > available + 0.0001) problems.push(`No hay existencia suficiente de ${sup.name}. Disponible: ${available.toFixed(2)} piezas. Requerido: ${required.toFixed(2)}.`);
@@ -8598,6 +8598,72 @@ function bindUnknownClinicalJsonSupplyActions(box, parsed, section) {
   }));
 }
 
+function clinicalJsonPath(kind, dayIndex, itemIndex, fieldPath) {
+  const collection = kind === "med" ? "medicamentos" : "insumos";
+  return `caso_clinico.medicacion_insumos_por_dia[${dayIndex}].${collection}[${itemIndex}]${fieldPath ? `.${fieldPath}` : ""}`;
+}
+function medicationJsonValidationMessages(m = {}, dayIndex = 0, itemIndex = 0) {
+  const messages = [];
+  const name = jsonValue(m, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
+  const label = name || `Medicamento sin nombre (${clinicalJsonPath("med", dayIndex, itemIndex, "medicamento_nombre")})`;
+  const inv = findMedicationFromJson(m);
+  const structured = jsonValue(m, ["dosis_estructurada", "dosis", "dosis_usada", "dosis_manual", "dosis_registrada", "structured_dose"]) || {};
+  const theoreticalRaw = jsonValue(m, ["dosis_total_teorica", "dosis_total", "total_activo", "cantidad_total_teorica", "theoretical_total_dose"]);
+  const adminRaw = jsonValue(m, ["cantidad_administrable", "dosis_administrable", "administrable", "cantidad_real", "cantidad_usada_real", "administered_amount"]);
+  const theoretical = theoreticalRaw && typeof theoreticalRaw === "object" ? theoreticalRaw : { cantidad: theoreticalRaw };
+  const admin = adminRaw && typeof adminRaw === "object" ? adminRaw : { cantidad: adminRaw };
+  const hasManualDose = jsonValue(m, ["dosis_manual", "dosis_registrada", "dosis_texto", "dosis"]) || jsonValue(admin, ["cantidad", "quantity"]) || jsonValue(theoretical, ["cantidad", "quantity"]);
+  const qty = jsonValue(structured, ["cantidad", "cantidad_dosis", "dosis_cantidad", "quantity"]) ?? jsonValue(m, ["cantidad", "cantidad_dosis"]);
+  const unit = jsonValue(structured, ["unidad", "unidad_dosis", "unit"]) ?? jsonValue(m, ["unidad", "unidad_dosis"]);
+  const per = jsonValue(structured, ["por_cada", "cada", "por", "perQuantity", "per_quantity"]) ?? jsonValue(m, ["por_cada", "cada", "por"]);
+  const base = jsonValue(structured, ["unidad_base", "base", "unidad_por_cada", "baseUnit", "base_unit"]) ?? jsonValue(m, ["unidad_base", "base", "unidad_por_cada"]);
+  const cost = jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]) ?? jsonValue(m, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]);
+  if (!name) messages.push({ item: label, text: `No se pudo agregar el medicamento del día porque falta el campo medicamento_nombre en el JSON. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "medicamento_nombre")}. Completa “Medicamento administrado” o corrige el JSON.`, pending: true });
+  else if (!inv) messages.push({ item: label, text: `No se encontró en inventario el medicamento: ${name}. Puedes vincularlo manualmente, marcarlo como uso externo/no inventariado o corregir el nombre en el JSON. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "medicamento_nombre")}.`, pending: true });
+  if (!qty && !unit && !hasManualDose) messages.push({ item: label, text: `El medicamento ${label} se cargó, pero no trae dosis estructurada ni dosis manual. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada")}. Puedes completarla manualmente.`, pending: true });
+  if (!qty) messages.push({ item: label, text: `El medicamento ${label} no tiene cantidad de dosis. Falta dosis_estructurada.cantidad o cantidad_dosis. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.cantidad")}. Completa “Cantidad”.`, pending: true });
+  if (!unit) messages.push({ item: label, text: `El medicamento ${label} no tiene unidad de dosis. Falta dosis_estructurada.unidad. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.unidad")}. Completa “Unidad”.`, pending: true });
+  if (!per) messages.push({ item: label, text: `El medicamento ${label} no tiene base de cálculo completa. Falta dosis_estructurada.por_cada. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.por_cada")}. Completa “Por cada”.`, pending: true });
+  if (!base) messages.push({ item: label, text: `El medicamento ${label} no tiene unidad base. Falta dosis_estructurada.unidad_base, por ejemplo kg, animal o L. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.unidad_base")}. Completa “Unidad base”.`, pending: true });
+  if (inv && !jsonValue(admin, ["cantidad", "quantity"]) && (!inv.concentration && !inv.equivalence && !inv.concentrationQty)) messages.push({ item: label, text: `El medicamento ${label} se cargó, pero no se pudo convertir a presentación real porque falta concentración o equivalencia en inventario. Revisa el inventario o completa la dosis administrable manualmente.`, pending: true });
+  if (cost === undefined) messages.push({ item: label, text: `El medicamento ${label} se cargó, pero no trae costo_final_cobrado ni costo_sugerido. El costo queda pendiente para edición manual. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "costo_final_cobrado")}.`, pending: true });
+  return messages;
+}
+function supplyJsonValidationMessages(i = {}, dayIndex = 0, itemIndex = 0) {
+  if (jsonValue(i, ["omitir", "omit", "insumo_omitido"])) return [];
+  const messages = [];
+  const name = jsonValue(i, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
+  const label = name || `Insumo sin nombre (${clinicalJsonPath("supply", dayIndex, itemIndex, "insumo_nombre")})`;
+  const inv = findSupplyFromJson(i);
+  const qty = jsonValue(i, ["cantidad_usada", "cantidad", "cantidad_insumos", "numero", "número", "quantity_used", "qty"]);
+  const unit = jsonValue(i, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]);
+  const cost = jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]) ?? jsonValue(i, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]);
+  if (!name) messages.push({ item: label, text: `No se pudo agregar el insumo porque falta el campo insumo_nombre en el JSON. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "insumo_nombre")}. Completa “Insumo” o corrige el JSON.`, pending: true });
+  else if (!inv) messages.push({ item: label, text: `No se encontró en inventario el insumo: ${name}. Puedes agregarlo al inventario, vincularlo con un insumo existente o marcarlo como uso externo/no inventariado. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "insumo_nombre")}.`, pending: true });
+  if (!qty) messages.push({ item: label, text: `El insumo ${label} se cargó, pero falta cantidad_usada. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "cantidad_usada")}. Completa “Cantidad de insumos”.`, pending: true });
+  if (!unit) messages.push({ item: label, text: `El insumo ${label} se cargó, pero falta unidad_usada. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "unidad_usada")}. Completa “Unidad”.`, pending: true });
+  if (cost === undefined) messages.push({ item: label, text: `El insumo ${label} se cargó, pero no trae costo_final_cobrado ni costo_sugerido. El costo queda pendiente para edición manual. Ruta esperada: ${clinicalJsonPath("supply", dayIndex, itemIndex, "costo_final_cobrado")}.`, pending: true });
+  return messages;
+}
+function clinicalJsonValidationSummary(parsed = {}) {
+  const days = normalizeClinicalJsonDays(parsed);
+  const medicationWarnings = [], supplyWarnings = [];
+  days.forEach((day, dayIndex) => {
+    if (!jsonValue(day, ["fecha", "date", "dia", "día", "fecha_medicacion", "fecha_seguimiento"])) medicationWarnings.push({ item: `Día ${dayIndex + 1}`, text: `No se pudo agregar el medicamento porque no existe un día de medicación/seguimiento asociado. Falta fecha o bloque medicacion_insumos_por_dia. Ruta esperada: caso_clinico.medicacion_insumos_por_dia[${dayIndex}].fecha.`, pending: true });
+    clinicalJsonMedicationItems(day).forEach((med, medIndex) => medicationWarnings.push(...medicationJsonValidationMessages(med, dayIndex, medIndex)));
+    clinicalJsonSupplyItems(day).forEach((sup, supIndex) => supplyWarnings.push(...supplyJsonValidationMessages(sup, dayIndex, supIndex)));
+  });
+  return { medicationWarnings, supplyWarnings, pendingMeds: new Set(medicationWarnings.map((w) => w.item)).size, pendingSupplies: new Set(supplyWarnings.map((w) => w.item)).size };
+}
+function clinicalJsonResultMessage(stats, parsed = {}, prefix = "JSON aplicado con advertencias") {
+  const summary = clinicalJsonValidationSummary(parsed);
+  const hasWarnings = summary.medicationWarnings.length || summary.supplyWarnings.length;
+  const medHtml = summary.medicationWarnings.length ? `\n\nMedicamentos:\n${summary.medicationWarnings.map((w) => `* ${w.text}`).join("\n")}` : "";
+  const supplyHtml = summary.supplyWarnings.length ? `\n\nInsumos:\n${summary.supplyWarnings.map((w) => `* ${w.text}`).join("\n")}` : "";
+  const loaded = `\n\nSe cargaron correctamente:\n* ${stats.daysAdded || 0} día(s) de medicación\n* ${stats.medsAdded || 0} medicamento(s)\n* ${stats.suppliesAdded || 0} insumo(s)`;
+  const pending = hasWarnings ? `\n\nPendientes de revisar:\n* ${summary.pendingMeds} medicamento(s)\n* ${summary.pendingSupplies} insumo(s)` : "";
+  return `${hasWarnings ? prefix : "JSON aplicado correctamente."}${medHtml}${supplyHtml}${loaded}${pending}`;
+}
 function validateSectionJson(section, announce = false) {
   try {
     const parsed = parseSectionJsonInput(section);
@@ -8622,7 +8688,7 @@ function previewSectionJson(section) {
     const counts = clinicalJsonDayCounts(parsed);
     const days = normalizeClinicalJsonDays(parsed);
     const missing = new Set();
-    const warnings = [];
+    const validation = clinicalJsonValidationSummary(parsed);
     if (c.animal_atendido) items.push("Animal atendido");
     if (c.evaluacion_clinica) items.push("Evaluación clínica");
     if (counts.days) items.push(`${counts.days} día(s) de medicación / seguimiento`);
@@ -8634,18 +8700,13 @@ function previewSectionJson(section) {
         if (!jsonValue(med, ["frecuencia", "frequency"])) missing.add("Frecuencia");
         if (!jsonValue(med, ["duracion", "duración", "duration"])) missing.add("Duración");
         if (!jsonValue(med, ["observaciones", "observations", "notes"])) missing.add("Observaciones del medicamento");
-        if (!findMedicationFromJson(med) && jsonValue(med, ["medicamento_nombre", "nombre_medicamento", "medicationName", "medication_name", "nombre", "name", "medicamento"])) warnings.push("Este medicamento no existe en inventario.");
-        const structured = med.dosis_estructurada || med.structured_dose || {};
-        const theoretical = med.dosis_total_teorica || med.theoretical_total_dose || {};
-        const admin = med.cantidad_administrable || med.dosis_administrable || med.administered_amount || {};
-        if (!jsonValue(med, ["medicamento_nombre", "nombre_medicamento", "medicationName", "medication_name", "nombre", "name", "medicamento"]) && (structured.cantidad || theoretical.cantidad || admin.cantidad)) warnings.push("Hay una dosis sin medicamento asociado. Revisa o completa manualmente.");
       });
       clinicalJsonSupplyItems(day).forEach((sup) => {
         if (!jsonValue(sup, ["observaciones", "observations", "notes"])) missing.add("Observaciones del insumo");
-        if (!findSupplyFromJson(sup) && jsonValue(sup, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"])) warnings.push(`El insumo “${jsonValue(sup, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"])}” no existe en inventario.`);
       });
     });
-    clinicalExtra = `${missing.size ? `<b>Campos sin información:</b><ul>${Array.from(missing).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}${warnings.length ? `<b>Advertencias:</b><ul>${[...new Set(warnings)].map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
+    const warnings = [...validation.medicationWarnings, ...validation.supplyWarnings].map((w) => w.text);
+    clinicalExtra = `${missing.size ? `<b>Campos sin información:</b><ul>${Array.from(missing).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}${warnings.length ? `<b>Advertencias específicas:</b><ul>${[...new Set(warnings)].map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
   }
   if (section === "necropsy") { const n = normalizeNecropsySectionPayload(parsed.necropsia || {}); const counts = {}; (n.reporte_sistematico || []).forEach((row) => { counts[row.sistema || "Personalizado"] = (counts[row.sistema || "Personalizado"] || 0) + 1; }); items.push("Necropsia sistemática"); ["Datos generales", "Sistema respiratorio", "Sistema cardiovascular", "Sistema digestivo completo", "Sistema urinario"].forEach((name) => items.push(`${name}: ${counts[name] || 0} campos/órganos`)); items.push(`Muestras: ${Array.isArray(n.muestras) ? n.muestras.length : 0}`); items.push(`Diagnósticos: ${Array.isArray(n.diagnosticos_macroscopicos) ? n.diagnosticos_macroscopicos.length : 0}`); }
   if (section === "advice") items.push("Asesoría clínica/técnica");
@@ -8701,7 +8762,7 @@ function applySectionJsonDirect(section) {
       return;
     }
     renderProcedureDraftLists();
-    sectionJsonMessage(section, `JSON aplicado correctamente. Se fusionó: ${stats.daysAdded} día(s) de medicación, ${stats.medsAdded} medicamento(s), ${stats.suppliesAdded} insumo(s).`);
+    sectionJsonMessage(section, clinicalJsonResultMessage(stats, parsed));
     return;
   }
   applySectionJsonWithMode(section, "merge");
@@ -8716,6 +8777,9 @@ function applySectionJsonWithMode(section, mode = "merge") {
       sectionJsonMessage(section, "El JSON es válido, pero no contiene medicamentos o insumos compatibles para esta sección.", true);
       return;
     }
+    renderProcedureDraftLists();
+    sectionJsonMessage(section, clinicalJsonResultMessage(stats, parsed, "JSON aplicado solo en esta sección con advertencias"));
+    return;
   }
   if (section === "necropsy") {
     const stats = applyNecropsySectionJson(parsed.necropsia || {}, mode);
