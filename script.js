@@ -3002,16 +3002,133 @@ function duplicateMed(m) {
   fillMed(copy);
   show("m_ok", "Medicamento duplicado. Puedes editar la copia y guardarla como registro independiente.", "success");
 }
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s%]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function flattenSearchValues(value) {
+  if (Array.isArray(value)) return value.flatMap(flattenSearchValues);
+  if (value && typeof value === "object") return Object.values(value).flatMap(flattenSearchValues);
+  return value == null ? [] : [value];
+}
+function getMedicationSearchText(med = {}) {
+  const directFields = [
+    med.brand,
+    med.active,
+    med.nombre,
+    med.name,
+    med.nombre_comercial,
+    med.nombreComercial,
+    med.commercialName,
+    med.medicamento_nombre,
+    med.medicamentoNombre,
+    med.sustancia_activa,
+    med.sustanciaActiva,
+    med.principio_activo,
+    med.principioActivo,
+    med.activeIngredient,
+    med.activo,
+    med.componentes,
+    med.composicion,
+    med["composición"],
+    med.concentracion,
+    med["concentración"],
+    med.concentration,
+    med.presentation,
+    med.presentacion,
+    med["presentación"],
+    med.via,
+    med["vía"],
+    med.via_administracion,
+    med.viaAdministracion,
+    med.route,
+    med.categoria,
+    med["categoría"],
+    med.category,
+    med.observaciones,
+    med.notes,
+    med.ficha_clinica,
+    med.fichaClinica,
+    med.clinical,
+    med.dosificacion,
+    med["dosificación"],
+    med.dosificacion_es,
+    med.dosing,
+    med.speciesDoses,
+    med.dosis_por_especie,
+    med.unit,
+    med.expiry,
+  ];
+  return normalizeText(flattenSearchValues(directFields).join(" "));
+}
+function getFilteredMedications() {
+  const meds = Array.isArray(state.meds) ? state.meds : [];
+  const query = normalizeText($("#m_search")?.value || "");
+  return {
+    query,
+    meds: query ? meds.filter((med) => getMedicationSearchText(med).includes(query)) : meds,
+    total: meds.length,
+  };
+}
+function importMedicationPayload(parsed) {
+  const incoming = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.meds)
+      ? parsed.meds
+      : Array.isArray(parsed?.medicamentos)
+        ? parsed.medicamentos
+        : Array.isArray(parsed?.medications)
+          ? parsed.medications
+          : Array.isArray(parsed?.inventory?.medications)
+            ? parsed.inventory.medications
+            : Array.isArray(parsed?.inventario?.medicamentos)
+              ? parsed.inventario.medicamentos
+              : [];
+  if (!incoming.length) throw new Error("El JSON no contiene medicamentos compatibles para importar.");
+  const existingIds = new Set((state.meds || []).map((med) => med.id));
+  const normalized = incoming.map((med) => ({
+    ...med,
+    id: med.id && !existingIds.has(med.id) ? med.id : uid("med"),
+    brand: med.brand || med.nombre_comercial || med.nombreComercial || med.commercialName || med.medicamento_nombre || med.medicamentoNombre || med.nombre || med.name || "",
+    active: med.active || med.sustancia_activa || med.sustanciaActiva || med.principio_activo || med.principioActivo || med.activeIngredient || med.activo || "",
+    presentation: med.presentation || med.presentacion || med["presentación"] || "",
+    route: med.route || med.via_administracion || med.viaAdministracion || med.via || med["vía"] || "",
+    clinical: med.clinical || {
+      use: med.ficha_clinica || med.fichaClinica || med.observaciones || "",
+      dosing: med.dosificacion || med["dosificación"] || med.dosificacion_es || med.dosing || "",
+    },
+  }));
+  state.meds.unshift(...normalized);
+  saveState();
+  renderAll();
+  return normalized.length;
+}
 function renderMedList() {
   const list = $("#m_list");
   if (!list) return;
   list.innerHTML = "";
+  const filtered = getFilteredMedications();
+  const count = $("#m_count");
+  if (count) count.textContent = filtered.query ? `${filtered.meds.length} resultado${filtered.meds.length === 1 ? "" : "s"}` : String(filtered.total);
   const usage = inventoryUsage();
   const head = document.createElement("div");
   head.className = "item";
-  head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${state.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div></div>`;
+  head.innerHTML = `<div class="kpi-grid"><div class="stat"><b>Medicamentos</b><div>${filtered.total}</div></div><div class="stat"><b>Resultados</b><div>${filtered.meds.length}</div></div><div class="stat"><b>Vacunas</b><div>${state.vaccines.length}</div></div></div>`;
   list.appendChild(head);
-  state.meds.forEach((m) => {
+  if (!filtered.meds.length) {
+    const empty = document.createElement("div");
+    empty.className = "item";
+    empty.innerHTML = filtered.query
+      ? `<div class="help">No se encontraron medicamentos con “${esc($("#m_search")?.value || "")}”. Revisa el nombre comercial, sustancia activa o concentración.</div>`
+      : '<div class="help">No hay medicamentos cargados todavía.</div>';
+    list.appendChild(empty);
+  }
+  filtered.meds.forEach((m) => {
     const item = document.createElement("div");
     item.className = "item";
     item.innerHTML = `<h4>${esc(m.brand)} · ${esc(m.active)}</h4><div class="line"><b>Propiedad:</b> ${esc(medOwnerLabel(m.owner))}</div><div class="line"><b>Tipo:</b> ${esc(m.stockType === "USADO" ? "Usado" : "Nuevo")}</div><div class="line"><b>Modo de cálculo:</b> ${esc(usesStructuredConcentration(m) ? "Con concentración estructurada" : "Solo dosis terapéutica por especie")}</div><div class="line"><b>Contenido por presentación:</b> ${esc(m.contentPerPresentation || "-")} ${esc(m.unit)}</div><div class="line"><b>Número de presentaciones:</b> ${esc(m.packageCount || 1)}</div><div class="line"><b>Existencia total:</b> ${esc(m.totalQty)} ${esc(m.unit)} · <b>Stock disponible:</b> ${medRemaining(m)} ${esc(m.unit)}</div><div class="line"><b>Costo por presentación:</b> ${money(m.cost)} · <b>Costo unitario:</b> ${money(m.unitCost)}</div><div class="line"><b>Vía de administración:</b> ${esc(m.route || "Sin vía de administración registrada")}</div><div class="line"><b>Concentración / equivalencia:</b> ${esc(usesStructuredConcentration(m) ? (medicationConcentrationSummary(m) || "Sin captura") : "No aplica (solo dosis terapéutica)")}</div>${m.stockType === "USADO" ? `<div class="line"><b>Origen usado:</b> ${esc(m.stockMeta?.remainingQty)} de ${esc(m.stockMeta?.originalQty)} ${esc(m.unit)} (costo original ${money(m.stockMeta?.originalCost)})</div>` : ""}<div class="line"><b>Dosis por especie:</b> ${esc((m.speciesDoses || []).map(speciesDoseSummary).join(" · ") || "Sin captura estructurada")}</div><div class="line"><b>Caducidad:</b> ${esc(m.expiry || "Sin fecha de caducidad registrada")}</div><div class="line"><b>Ficha clínica:</b> ${esc(m.clinical?.use || "Sin captura clínica")}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Duplicar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
@@ -3266,6 +3383,36 @@ function bindMeds() {
     e.preventDefault();
     saveMed();
   });
+  $("#m_search")?.addEventListener("input", renderMedList);
+  $("#m_btnExport")?.addEventListener("click", () => {
+    download(
+      `medicamentos_${new Date().toISOString().slice(0, 10)}.json`,
+      JSON.stringify({ meds: state.meds }, null, 2),
+      "application/json",
+    );
+  });
+  $("#m_btnImport")?.addEventListener("click", () => $("#m_importFile")?.click());
+  $("#m_importFile")?.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const importedCount = importMedicationPayload(JSON.parse(reader.result));
+        show("m_ok", `Medicamentos importados: ${importedCount}. El buscador y el total se actualizaron.`, "success");
+      } catch (error) {
+        show("m_err", error.message || "JSON inválido para importar medicamentos.", "error");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  });
+  $("#m_btnExportExcel")?.addEventListener("click", () =>
+    exportExcel(
+      "medicamentos.xls",
+      producerExcelSheets([], [], state.meds, state.vaccines, []),
+    ),
+  );
   $("#btnMedWord")?.addEventListener("click", () =>
     exportWord("medicamentos_vacunas.doc", medSummaryHtml()),
   );
