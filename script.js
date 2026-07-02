@@ -8126,7 +8126,127 @@ function bindLabStandalone() {
   $("#btnLabWord")?.addEventListener("click", () => exportWord("laboratorio.doc", labSummaryHtml()));
   $("#btnLabExcel")?.addEventListener("click", () => exportExcel("laboratorio.xls", producerExcelSheets([], [], [], [], [], [], state.labTests)));
 }
+
+const JSON_SECTION_TYPES = {
+  clinical: "caso_clinico_individual",
+  necropsy: "necropsia",
+  advice: "asesoria",
+  lab: "estudios_laboratorio",
+};
+const BASE_PROCEDURE_KEYS = ["productor", "productora", "producer", "producerId", "fecha", "date", "tipo_procedimiento", "type", "lugar", "place", "comunidad", "modo", "scope", "estado_cobro", "chargeStatus", "notas_generales", "notes", "costo_total", "cobro"];
+state.draft.lastSectionJsonUndo = state.draft.lastSectionJsonUndo || null;
+state.draft.sectionJson = state.draft.sectionJson || { section: null, parsed: null, previewed: false };
+
+function sectionJsonPrompt(section, source = "") {
+  const sourceText = source || (section === "necropsy" ? "[Pegar aquí el texto de necropsia]" : section === "clinical" ? "[Pegar aquí el texto clínico]" : "[Pegar aquí el texto]");
+  const prompts = {
+    clinical: `Analiza el siguiente texto clínico veterinario y conviértelo en JSON válido para llenar únicamente la sección de caso clínico individual de la app.\n\nNo incluyas datos base del procedimiento como productor, fecha, tipo de procedimiento, lugar, modo, estado de cobro ni notas generales.\n\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\n\nNo inventes datos.\nSi un dato no aparece, usa null o string vacío.\n\nUsa la estructura:\n{\n"tipo_carga": "caso_clinico_individual",\n"caso_clinico": {\n"animal_atendido": { "animal_registrado": "", "nombre_identificacion": "", "especie": "", "raza_linea_tipo_cruza": "", "sexo": "", "edad": "", "peso": "", "condicion_corporal": "", "estado_reproductivo": "", "observaciones_generales": "" },\n"evaluacion_clinica": { "motivo_consulta": "", "anamnesis": "", "constantes_fisiologicas": { "fc": "", "fr": "", "temperatura": "", "mucosas": "", "tllc": "", "hidratacion_deshidratacion": "", "otros_signos_relevantes": "" }, "examen_fisico_hallazgos": "", "diagnostico_presuntivo": "", "diagnosticos_diferenciales": "", "pruebas_realizadas": "" },\n"medicacion_insumos_por_dia": []\n}\n}\n\nTexto fuente:\n${sourceText}`,
+    necropsy: `Analiza el siguiente texto de necropsia veterinaria y conviértelo en JSON válido para llenar únicamente el reporte sistemático de necropsia de la app.\n\nNo incluyas datos base del procedimiento.\nNo inventes datos.\nSi un órgano no se menciona, déjalo vacío o como no revisado.\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\n\nUsa la estructura:\n{\n"tipo_carga": "necropsia",\n"necropsia": {\n"datos_generales": {},\n"reporte_sistematico": [{ "sistema": "", "organo": "", "estado": "no revisado", "descripcion_macroscopica": "", "lesiones_encontradas": "", "distribucion": "", "severidad": "", "color": "", "tamano": "", "consistencia": "", "contenido": "", "olor": "", "parasitos": "", "muestras_tomadas": [], "fotos_referencias": [], "observaciones": "" }],\n"muestras": [],\n"diagnosticos_macroscopicos": [],\n"diagnostico_presuntivo": "",\n"causa_probable_muerte": "",\n"recomendaciones": "",\n"observaciones_finales": ""\n}\n}\n\nTexto fuente:\n${sourceText}`,
+    advice: `Analiza el siguiente texto de asesoría veterinaria y conviértelo en JSON válido para llenar únicamente la sección interna de asesoría clínica o técnica.\n\nNo incluyas datos base del procedimiento.\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\nNo inventes datos. Si falta información, usa null o string vacío.\n\nUsa la estructura:\n{\n"tipo_carga": "asesoria",\n"asesoria": {\n"tipo_asesoria": "",\n"descripcion": "",\n"problemas_detectados": [],\n"recomendaciones": [],\n"plan_accion": "",\n"medicamentos_usados": [],\n"vacunas_usadas": [],\n"insumos_usados": [],\n"costo_sugerido": null,\n"costo_final_cobrado": null,\n"observaciones": ""\n}\n}\n\nTexto fuente:\n${sourceText}`,
+    lab: `Analiza el siguiente texto de estudios de laboratorio veterinarios y conviértelo en JSON válido para llenar únicamente estudios de laboratorio vinculados al caso clínico. No incluyas datos base del procedimiento. Devuelve exclusivamente JSON válido.\n{ "tipo_carga": "estudios_laboratorio", "estudios_laboratorio": [{ "nombre_estudio": "", "tipo_muestra": "", "fecha_toma": "", "fecha_resultado": "", "resultado": "", "interpretacion": "", "diagnostico_relacionado": "", "costo_sugerido": null, "costo_final_cobrado": null, "observaciones": "" }] }\n\nTexto fuente:\n${sourceText}`,
+  };
+  return prompts[section] || prompts.clinical;
+}
+
+function installSectionJsonImportUi() {
+  const targets = [
+    ["clinical", document.querySelector('[data-procedure-block="clinical"] .inner')],
+    ["necropsy", document.querySelector('[data-procedure-block="necropsy"] .inner')],
+    ["advice", document.querySelector('[data-procedure-block="zootecnia"] .inner') || document.querySelector('[data-procedure-block="zoo"] .inner')],
+    ["lab", document.querySelector('[data-procedure-block="lab"] .inner') || $("#lab_list")?.parentElement],
+  ];
+  targets.forEach(([section, container]) => {
+    if (!container || container.querySelector(`[data-json-panel="${section}"]`)) return;
+    container.insertAdjacentHTML("afterbegin", `<section class="card section-json-import" data-json-panel="${section}"><h3>Carga rápida por JSON</h3><div class="help">Llenar esta sección desde JSON es opcional, parcial y no modifica Datos base del procedimiento.</div><div class="row"><button class="btn small" type="button" data-json-open="${section}">Llenar esta sección desde JSON</button><button class="btn small ghost" type="button" data-json-undo="${section}">Deshacer última carga JSON</button></div><div class="section-json-body" data-json-body="${section}" hidden><label>Texto fuente opcional</label><textarea data-json-source="${section}"></textarea><div class="row"><button class="btn small" type="button" data-json-prompt="${section}">Generar prompt para ChatGPT</button><button class="btn small ghost" type="button" data-json-copy="${section}">Copiar prompt</button><button class="btn small ghost" type="button" data-json-chatgpt="${section}">Abrir ChatGPT</button></div><textarea data-json-generated="${section}" readonly placeholder="Prompt generado"></textarea><label>JSON devuelto por ChatGPT</label><textarea data-json-input="${section}" placeholder="Pega aquí JSON válido"></textarea><div class="row"><button class="btn small" type="button" data-json-validate="${section}">Validar JSON</button><button class="btn small ghost" type="button" data-json-preview="${section}">Vista previa</button><button class="btn small primary" type="button" data-json-apply="${section}">Aplicar JSON</button><button class="btn small bad" type="button" data-json-cancel="${section}">Cancelar</button></div><div class="help" data-json-msg="${section}"></div><div class="item" data-json-preview-box="${section}"></div></div></section>`);
+  });
+
+  consolidateNecropsySystematicUi();
+  document.querySelectorAll("[data-json-open]").forEach((b) => b.onclick = () => { const body = document.querySelector(`[data-json-body="${b.dataset.jsonOpen}"]`); if (body) body.hidden = !body.hidden; });
+  document.querySelectorAll("[data-json-cancel]").forEach((b) => b.onclick = () => { const body = document.querySelector(`[data-json-body="${b.dataset.jsonCancel}"]`); if (body) body.hidden = true; });
+  document.querySelectorAll("[data-json-prompt]").forEach((b) => b.onclick = () => { const sec = b.dataset.jsonPrompt; const out = document.querySelector(`[data-json-generated="${sec}"]`); if (out) out.value = sectionJsonPrompt(sec, document.querySelector(`[data-json-source="${sec}"]`)?.value); });
+  document.querySelectorAll("[data-json-copy]").forEach((b) => b.onclick = async () => { const sec = b.dataset.jsonCopy; const text = document.querySelector(`[data-json-generated="${sec}"]`)?.value || sectionJsonPrompt(sec); await navigator.clipboard?.writeText?.(text); sectionJsonMessage(sec, "Prompt copiado.", false); });
+  document.querySelectorAll("[data-json-chatgpt]").forEach((b) => b.onclick = () => window.open("https://chatgpt.com/", "_blank"));
+  document.querySelectorAll("[data-json-validate]").forEach((b) => b.onclick = () => validateSectionJson(b.dataset.jsonValidate, true));
+  document.querySelectorAll("[data-json-preview]").forEach((b) => b.onclick = () => previewSectionJson(b.dataset.jsonPreview));
+  document.querySelectorAll("[data-json-apply]").forEach((b) => b.onclick = () => applySectionJsonWithMode(b.dataset.jsonApply));
+  document.querySelectorAll("[data-json-undo]").forEach((b) => b.onclick = undoLastSectionJsonImport);
+}
+function consolidateNecropsySystematicUi() {
+  const nec = document.querySelector('[data-procedure-block="necropsy"] .inner');
+  if (!nec || nec.querySelector('[data-necropsy-consolidated-note]')) return;
+  const firstGrid = nec.querySelector('.grid.cols-4');
+  firstGrid?.insertAdjacentHTML('beforebegin', '<div class="help" data-necropsy-consolidated-note>Necropsia organizada como Datos generales · 16 campos/órganos + Reporte sistemático por aparatos, sistemas y órganos. Los campos repetitivos de órganos se integran en el reporte sistemático para evitar duplicados.</div>');
+  ["p_nec_externalInspection", "p_nec_primaryIncision", "p_nec_secondaryIncision", "p_nec_organExtraction", "p_nec_respiratory", "p_nec_heart", "p_nec_spleen", "p_nec_kidneys", "p_nec_stomach"].forEach((id) => {
+    const field = $("#" + id);
+    const wrapper = field?.closest('.grid') || field?.parentElement;
+    if (wrapper) wrapper.hidden = true;
+  });
+}
+
+function sectionJsonMessage(section, msg, error = false) { const el = document.querySelector(`[data-json-msg="${section}"]`); if (el) { el.textContent = msg; el.className = `help ${error ? "error" : "success"}`; } }
+function parseSectionJsonInput(section) { return JSON.parse(document.querySelector(`[data-json-input="${section}"]`)?.value || "{}"); }
+function hasBaseProcedureData(obj) { const text = JSON.stringify(obj || {}).toLowerCase(); return BASE_PROCEDURE_KEYS.some((k) => text.includes(`"${String(k).toLowerCase()}"`)); }
+function validateSectionJson(section, announce = false) {
+  try {
+    const parsed = parseSectionJsonInput(section);
+    const expected = JSON_SECTION_TYPES[section];
+    if (!parsed || parsed.tipo_carga !== expected) throw new Error("No se encontró ninguna sección compatible.");
+    if (section === "clinical" && !parsed.caso_clinico) throw new Error("No se encontró ninguna sección compatible.");
+    if (section === "necropsy" && !parsed.necropsia) throw new Error("No se encontró ninguna sección compatible.");
+    if (section === "advice" && !parsed.asesoria) throw new Error("No se encontró ninguna sección compatible.");
+    if (section === "lab" && !Array.isArray(parsed.estudios_laboratorio)) throw new Error("Los estudios_laboratorio deben ser un arreglo.");
+    state.draft.sectionJson = { section, parsed, previewed: false, hasBase: hasBaseProcedureData(parsed) };
+    if (announce) sectionJsonMessage(section, hasBaseProcedureData(parsed) ? "Este JSON contiene datos base del procedimiento. No se aplicarán automáticamente." : "JSON válido. Genera la vista previa antes de aplicar.");
+    return parsed;
+  } catch (e) { sectionJsonMessage(section, e instanceof SyntaxError ? "El JSON no es válido." : e.message, true); return null; }
+}
+function previewSectionJson(section) {
+  const parsed = validateSectionJson(section);
+  if (!parsed) return;
+  const items = [];
+  if (section === "clinical") { const c = parsed.caso_clinico || {}; if (c.animal_atendido) items.push("Animal atendido"); if (c.evaluacion_clinica) items.push("Evaluación clínica"); if (Array.isArray(c.medicacion_insumos_por_dia)) items.push(`${c.medicacion_insumos_por_dia.length} día(s) de medicación`); }
+  if (section === "necropsy") { const n = parsed.necropsia || {}; if (n.datos_generales) items.push("Datos generales · 16 campos/órganos"); if (Array.isArray(n.reporte_sistematico)) items.push(`${n.reporte_sistematico.length} órgano(s)/sistema(s)`); if (Array.isArray(n.muestras)) items.push(`${n.muestras.length} muestra(s)`); }
+  if (section === "advice") items.push("Asesoría clínica/técnica");
+  if (section === "lab") items.push(`${parsed.estudios_laboratorio.length} estudio(s) de laboratorio vinculados`);
+  const baseWarning = hasBaseProcedureData(parsed) ? `<p><b>Referencia:</b> El JSON contiene datos base del procedimiento. Esta sección se llena manualmente y no será modificada automáticamente.</p>` : "";
+  const box = document.querySelector(`[data-json-preview-box="${section}"]`);
+  if (box) box.innerHTML = `${baseWarning}<b>Se llenará:</b><ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><b>No se modificará:</b><ul><li>Productor(a)</li><li>Fecha</li><li>Tipo de procedimiento</li><li>Lugar</li><li>Modo del procedimiento</li><li>Estado de cobro</li><li>Notas generales</li></ul>`;
+  state.draft.sectionJson = { section, parsed, previewed: true, hasBase: hasBaseProcedureData(parsed) };
+  sectionJsonMessage(section, "Vista previa generada. Ahora puedes aplicar con confirmación.");
+}
+function snapshotSectionJsonUndo() { state.draft.lastSectionJsonUndo = { fields: {}, clinicalDays: stableClone(state.draft.procedureClinicalDays || []), necropsyFindings: stableClone(state.draft.procedureNecropsyFindings || []), labIds: [...(state.draft.procedureLabIds || [])], labTests: stableClone(state.labTests || []) }; document.querySelectorAll("#procedureForm input, #procedureForm textarea, #procedureForm select").forEach((el) => { if (el.id) state.draft.lastSectionJsonUndo.fields[el.id] = el.value; }); }
+function undoLastSectionJsonImport() { const u = state.draft.lastSectionJsonUndo; if (!u) return show("p_msg", "No hay carga JSON para deshacer.", "warning"); Object.entries(u.fields || {}).forEach(([id, value]) => { if ($("#" + id)) $("#" + id).value = value; }); state.draft.procedureClinicalDays = stableClone(u.clinicalDays || []); state.draft.procedureNecropsyFindings = stableClone(u.necropsyFindings || []); state.draft.procedureLabIds = [...(u.labIds || [])]; state.labTests = stableClone(u.labTests || []); state.draft.lastSectionJsonUndo = null; renderNecropsySystematicList?.(); renderProcedureDraftLists(); show("p_msg", "Se deshizo la última carga JSON parcial.", "success"); }
+function setIfAllowed(id, value, mode) { const el = $("#" + id); if (!el || value == null) return; if (mode === "merge" && String(el.value || "").trim()) return; el.value = value; }
+function applySectionJsonWithMode(section) {
+  if (!state.draft.sectionJson?.previewed || state.draft.sectionJson.section !== section) return sectionJsonMessage(section, "Primero valida y genera la vista previa.", true);
+  const modeText = prompt("Modo de aplicación para esta sección:\n1 = Agregar como nuevo\n2 = Fusionar con campos vacíos\n3 = Reemplazar solo esta sección\n4 = Cancelar", "2");
+  if (!modeText || modeText === "4") return sectionJsonMessage(section, "Aplicación cancelada.");
+  const mode = modeText === "1" ? "add" : modeText === "3" ? "replace" : "merge";
+  snapshotSectionJsonUndo();
+  const parsed = state.draft.sectionJson.parsed;
+  if (section === "clinical") applyClinicalSectionJson(parsed.caso_clinico || {}, mode);
+  if (section === "necropsy") applyNecropsySectionJson(parsed.necropsia || {}, mode);
+  if (section === "advice") applyAdviceSectionJson(parsed.asesoria || {}, mode);
+  if (section === "lab") applyLabSectionJson(parsed.estudios_laboratorio || [], mode);
+  renderProcedureDraftLists();
+  sectionJsonMessage(section, "JSON aplicado solo en esta sección. Datos base del procedimiento no fueron modificados.");
+}
+function applyClinicalSectionJson(c, mode) {
+  if (mode === "replace") ["p_cc_registeredAnimal","p_cc_animalName","p_cc_species","p_cc_breed","p_cc_sex","p_cc_age","p_cc_weight","p_cc_bodyCondition","p_cc_reproductiveStatus","p_cc_animalObservations","p_cc_reason","p_cc_anamnesis","p_cc_fc","p_cc_fr","p_cc_temp","p_cc_mucosa","p_cc_tllc","p_cc_hydration","p_cc_otherSigns","p_cc_exam","p_cc_presumptiveDx","p_cc_differentialDx","p_cc_tests"].forEach((id) => setIfAllowed(id, "", "replace"));
+  const a = c.animal_atendido || {}, e = c.evaluacion_clinica || {}, cf = e.constantes_fisiologicas || {};
+  Object.entries({ p_cc_registeredAnimal:a.animal_registrado, p_cc_animalName:a.nombre_identificacion, p_cc_species:a.especie, p_cc_breed:a.raza_linea_tipo_cruza, p_cc_sex:a.sexo, p_cc_age:a.edad, p_cc_weight:a.peso, p_cc_bodyCondition:a.condicion_corporal, p_cc_reproductiveStatus:a.estado_reproductivo, p_cc_animalObservations:a.observaciones_generales, p_cc_reason:e.motivo_consulta, p_cc_anamnesis:e.anamnesis, p_cc_fc:cf.fc, p_cc_fr:cf.fr, p_cc_temp:cf.temperatura, p_cc_mucosa:cf.mucosas, p_cc_tllc:cf.tllc, p_cc_hydration:cf.hidratacion_deshidratacion, p_cc_otherSigns:cf.otros_signos_relevantes, p_cc_exam:e.examen_fisico_hallazgos, p_cc_presumptiveDx:e.diagnostico_presuntivo, p_cc_differentialDx:e.diagnosticos_diferenciales, p_cc_tests:e.pruebas_realizadas }).forEach(([id, v]) => setIfAllowed(id, v, mode));
+  const days = Array.isArray(c.medicacion_insumos_por_dia) ? c.medicacion_insumos_por_dia : [];
+  if (mode === "replace" && days.length) state.draft.procedureClinicalDays = [];
+  days.forEach((d) => state.draft.procedureClinicalDays.push({ id: uid("ccday"), date: d.fecha || "", hour: d.hora || "", observations: d.observaciones_dia || "", medications: (Array.isArray(d.medicamentos) ? d.medicamentos : []).map(normalizeJsonClinicalMedication), supplies: (Array.isArray(d.insumos) ? d.insumos : []).map(normalizeJsonClinicalSupply) }));
+}
+function normalizeJsonClinicalMedication(m) { const inv = byId(state.meds, m.medicamento_id || "") || state.meds.find((x) => (x.brand || "").toLowerCase() === String(m.medicamento_nombre || "").toLowerCase()); return { id: uid("ccmed"), itemId: inv?.id || "", external: !inv, name: inv?.brand || m.medicamento_nombre || "Uso externo/no inventariado", route: m.via_administracion || inv?.route || "", indicatedDoseQty: m.dosis_estructurada?.cantidad ?? "", indicatedDoseUnit: m.dosis_estructurada?.unidad || "", perKg: m.dosis_estructurada?.por_cada ?? "", unitBase: m.dosis_estructurada?.unidad_base || "", theoreticalQty: m.dosis_total_teorica?.cantidad ?? null, theoreticalUnit: m.dosis_total_teorica?.unidad || "", administeredQty: m.cantidad_administrable?.cantidad ?? m.dosis_total_teorica?.cantidad ?? 0, administeredUnit: m.cantidad_administrable?.unidad || m.dosis_total_teorica?.unidad || inv?.unit || "", doseQty: m.cantidad_administrable?.cantidad ?? 0, doseUnit: m.cantidad_administrable?.unidad || inv?.unit || "", frequency: m.frecuencia || "", duration: m.duracion || "", indication: m.indicacion || "", observations: m.observaciones || "", costSuggested: m.costo_sugerido ?? 0, costCharged: m.costo_final_cobrado ?? m.costo_sugerido ?? 0, priceCharged: m.costo_final_cobrado ?? m.costo_sugerido ?? 0, calculationSummary: m.nota_calculo || (inv ? "Vinculado a inventario" : "Este medicamento no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado."), unitCost: inv ? Number(inv.unitCost || 0) : 0, owner: inv?.owner || "" }; }
+function normalizeJsonClinicalSupply(i) { const inv = byId(state.supplies, i.insumo_id || "") || state.supplies.find((x) => (x.name || "").toLowerCase() === String(i.insumo_nombre || "").toLowerCase()); const qty = Number(i.cantidad_usada || 0); const unitCost = Number(i.costo_unitario ?? (inv ? supplyDisplayCost(inv) : 0)); return { id: uid("ccsup"), itemId: inv?.id || "", external: !inv, name: inv?.name || i.insumo_nombre || "Uso externo/no inventariado", qty, unit: i.unidad_usada || inv?.unit || "", unitCost, costSuggested: i.costo_sugerido ?? qty * unitCost, costCharged: i.costo_final_cobrado ?? i.costo_sugerido ?? qty * unitCost, priceCharged: i.costo_final_cobrado ?? i.costo_sugerido ?? qty * unitCost, observations: i.observaciones || (!inv ? "Este insumo no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : ""), type: inv?.type || "EXTERNAL", owner: inv?.owner || "" }; }
+function applyAdviceSectionJson(a, mode) { Object.entries({ p_zoo_activity:a.tipo_asesoria, p_zoo_evaluation:[a.descripcion, ...(a.problemas_detectados || [])].filter(Boolean).join("\n"), p_zoo_intervention:[...(a.recomendaciones || []), ...(a.medicamentos_usados || []), ...(a.vacunas_usadas || []), ...(a.insumos_usados || [])].filter(Boolean).join("\n"), p_zoo_plan:a.plan_accion, p_zoo_followup:a.observaciones }).forEach(([id, v]) => setIfAllowed(id, v, mode)); }
+function applyNecropsySectionJson(n, mode) { const g = n.datos_generales || {}; Object.entries({ p_nec_idAnimal:g.identificacion_animal, p_nec_species:g.especie, p_nec_breed:g.raza, p_nec_sex:g.sexo, p_nec_age:g.edad, p_nec_weight:g.peso, p_nec_color:g.color, p_nec_birthDate:g.fecha_nacimiento, p_nec_deathDate:g.fecha_muerte, p_nec_timeDeathNec:g.tiempo_post_mortem, p_nec_sender:g.remitente, p_nec_caseNumber:g.numero_caso_necropsia, p_nec_clinicalDx:g.diagnosticos_clinicos_relevantes, p_nec_additionalData:[g.antecedentes, g.datos_adicionales].filter(Boolean).join("\n"), p_nec_samplesTaken:Array.isArray(n.muestras) ? n.muestras.map((m) => [m.tipo_muestra, m.organo_origen, m.prueba_solicitada, m.conservador, m.observaciones].filter(Boolean).join(" · ")).join("\n") : undefined, p_nec_morphDx:Array.isArray(n.diagnosticos_macroscopicos) ? n.diagnosticos_macroscopicos.join("\n") : undefined, p_nec_finalDx:n.diagnostico_presuntivo, p_nec_comments:[n.causa_probable_muerte, n.recomendaciones, n.observaciones_finales].filter(Boolean).join("\n") }).forEach(([id, v]) => setIfAllowed(id, v, mode)); if (mode === "replace") state.draft.procedureNecropsyFindings = mergeNecropsyFindings([]); (Array.isArray(n.reporte_sistematico) ? n.reporte_sistematico : []).forEach((r) => { const section = r.sistema || "Personalizado", organ = r.organo || section; const key = necropsyKey(section, organ); let row = (state.draft.procedureNecropsyFindings || []).find((x) => x.key === key); if (!row) { row = defaultNecropsyFinding(section, organ); row.custom = true; state.draft.procedureNecropsyFindings.push(row); } Object.assign(row, { status: String(r.estado || "no revisado").toUpperCase().replaceAll(" ", "_"), description: r.descripcion_macroscopica || row.description, lesions: r.lesiones_encontradas || row.lesions, distribution: r.distribucion || row.distribution, severity: r.severidad || row.severity, color: r.color || row.color, size: r.tamano || row.size, consistency: r.consistencia || row.consistency, content: r.contenido || row.content, odor: r.olor || row.odor, parasites: r.parasitos || row.parasites, samples: Array.isArray(r.muestras_tomadas) ? r.muestras_tomadas.join(", ") : (r.muestras_tomadas || row.samples), photos: Array.isArray(r.fotos_referencias) ? r.fotos_referencias.join(", ") : (r.fotos_referencias || row.photos), observations: r.observaciones || row.observations }); }); renderNecropsySystematicList?.(); }
+function applyLabSectionJson(rows, mode) { if (mode === "replace") state.draft.procedureLabIds = []; rows.forEach((r) => { const lab = { id: uid("lab"), type: r.nombre_estudio || "Estudio de laboratorio", name: r.nombre_estudio || "", sampleType: r.tipo_muestra || "", sampleDate: r.fecha_toma || "", resultDate: r.fecha_resultado || "", result: r.resultado || "", results: r.resultado || "", interpretation: r.interpretacion || "", relatedTo: r.diagnostico_relacionado || "", costSuggested: r.costo_sugerido ?? 0, costCharged: r.costo_final_cobrado ?? r.costo_sugerido ?? 0, notes: r.observaciones || "", linkedProcedureId: state.editing.procedureId || null, charge: { unitCost: r.costo_sugerido ?? 0, total: r.costo_final_cobrado ?? r.costo_sugerido ?? 0 } }; state.labTests.unshift(lab); state.draft.procedureLabIds.push(lab.id); }); saveState(); }
+
 function bindProcedures() {
+  installSectionJsonImportUi();
   renderProcedureType();
   $("#p_producer")?.addEventListener("change", () => {
     const nextProducerId = $("#p_producer").value || null;
