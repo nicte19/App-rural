@@ -3909,6 +3909,18 @@ function renderProcedureDraftLists() {
   renderProcedureChargeBreakdown(breakdown);
   renderClinicalConsumptionSummary();
 }
+function dedupeChargeRows(rows = [], type = "PRODUCTO") {
+  const seen = new Set();
+  return (rows || []).filter((item) => {
+    if (item?.duplicado_manual || item?.manualDuplicate || item?.aplicacion_separada || item?.separateApplication) return true;
+    const cost = item.costCharged ?? item.priceCharged ?? item.costSuggested ?? item.subtotal ?? "";
+    const key = JSON.stringify([item.applicationDate || item.date || "", type, normalizeJsonName(item.name || item.medicationName || ""), Number(item.chargeableQty ?? item.qty ?? item.inventoryDeductionQty ?? item.animalsApplied ?? 0), item.unit || item.inventoryDeductionUnit || "", cost]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function calculateProcedureChargeBreakdown() {
   const meds = (state.draft.procedureMedUses || []).map((x) => {
     const qty = Number(x.totalUsedQty || x.chargeableQty || x.inventoryDeductionQty || x.qty || 0);
@@ -4228,6 +4240,46 @@ function saveProcedure() {
   resetProcedure();
   show("p_ok", "Procedimiento guardado.", "success");
 }
+function cloneProcedureForDuplicate(procedure = {}) {
+  const copy = JSON.parse(JSON.stringify(procedure || {}));
+  const oldId = copy.id;
+  copy.id = uid("proc");
+  copy.copiedFromId = oldId || "";
+  copy.isDuplicate = true;
+  copy.duplicateStatus = "DRAFT_COPY";
+  copy.notes = [`Copia de ${procedure.type || "caso clínico"}${procedure.date ? ` (${procedure.date})` : ""}`, copy.notes || ""].filter(Boolean).join("\n");
+  if (copy.caseClinical) {
+    copy.caseClinical.animalName = copy.caseClinical.animalName ? `Copia de ${copy.caseClinical.animalName}` : "Copia de caso clínico";
+    copy.caseClinical.medicationDays = (copy.caseClinical.medicationDays || []).map(cloneClinicalDay);
+    copy.caseClinical.followupMedications = (copy.caseClinical.followupMedications || []).map((item) => ({ ...item, id: uid("followmed") }));
+  }
+  copy.animals = (copy.animals || []).map((entry) => ({
+    ...entry,
+    id: uid("pan"),
+    medicationsApplied: (entry.medicationsApplied || []).map((item) => ({ ...item, id: uid("pmed") })),
+    vaccinesApplied: (entry.vaccinesApplied || []).map((item) => ({ ...item, id: uid("pvax") })),
+    suppliesApplied: (entry.suppliesApplied || []).map((item) => ({ ...item, id: uid("psup") })),
+  }));
+  ["meds", "vaccines", "supplies"].forEach((key) => {
+    if (copy.inventory?.[key]) copy.inventory[key] = copy.inventory[key].map((item) => ({ ...item, id: uid(key === "meds" ? "pmed" : key === "vaccines" ? "pvax" : "psup") }));
+  });
+  copy.labIds = (copy.labIds || []).map((labId) => {
+    const lab = byId(state.labTests, labId);
+    if (!lab) return labId;
+    const duplicatedLab = { ...JSON.parse(JSON.stringify(lab)), id: uid("lab"), linkedProcedureId: null, copiedFromId: lab.id };
+    state.labTests.unshift(duplicatedLab);
+    return duplicatedLab.id;
+  });
+  if (copy.charge?.breakdown) copy.charge.breakdown = {};
+  return copy;
+}
+function duplicateClinicalProcedure(procedure) {
+  const copy = cloneProcedureForDuplicate(procedure);
+  fillProcedure(copy);
+  state.editing.procedureId = null;
+  show("p_ok", "Copia editable creada. Revisa y guarda para confirmar; todavía no afecta inventario ni cobros reales.", "success");
+}
+
 function resetProcedure() {
   state.editing.procedureId = null;
   state.editing.procedureLabId = null;
@@ -6739,19 +6791,19 @@ function clinicalInventoryFromDays(days = []) {
   const supplies = [];
   (days || []).forEach((day) => {
     (day.medications || []).forEach((item) => {
-      if (!item.itemId || item.external) return;
-      const med = byId(state.meds, item.itemId);
-      if (!med) return;
-      const applied = resolveMedicationAppliedAmount({ med, qty: item.administeredQty ?? item.doseQty ?? 0, unit: item.administeredUnit || item.doseUnit || med.unit || "" });
+      const med = item.itemId && !item.external ? byId(state.meds, item.itemId) : null;
+      const applied = med
+        ? resolveMedicationAppliedAmount({ med, qty: item.administeredQty ?? item.doseQty ?? 0, unit: item.administeredUnit || item.doseUnit || med.unit || "" })
+        : { qty: Number(item.administeredQty ?? item.doseQty ?? item.qty ?? 0), unit: item.administeredUnit || item.doseUnit || item.unit || "" };
       meds.push({
-        id: item.id || uid("ccmed"), itemId: med.id, name: med.brand, unit: applied.unit || med.unit || "", unitCost: Number(item.unitCost ?? med.unitCost ?? 0), costSuggested: item.costSuggested ?? Number(applied.qty || 0) * Number(item.unitCost ?? med.unitCost ?? 0), costCharged: item.costCharged ?? item.priceCharged ?? item.costSuggested, owner: med.owner || "SERVICIOS", route: med.route || "", theoreticalQty: Number(item.theoreticalQty ?? item.indicatedDoseQty ?? item.doseQty ?? 0), theoreticalUnit: item.theoreticalUnit || item.indicatedDoseUnit || item.doseUnit || med.unit || "", qty: Number(applied.qty || 0), totalUsedQty: Number(applied.qty || 0), inventoryDeductionQty: Number(applied.qty || 0), inventoryDeductionUnit: applied.unit || med.unit || "", chargeableQty: Number(applied.qty || 0), source: "CLINICAL_DAY", applicationDate: day.date, notes: item.observations || "", calculationSummary: item.calculationSummary || item.indication || "Día de medicación / seguimiento",
+        id: item.id || uid("ccmed"), itemId: med?.id || "", external: Boolean(item.external || !med), uso_externo_no_inventariado: Boolean(item.uso_externo_no_inventariado || item.external || !med), name: med?.brand || item.name || "Medicamento", unit: applied.unit || med?.unit || item.unit || "", unitCost: Number(item.unitCost ?? med?.unitCost ?? 0), costSuggested: item.costSuggested ?? (Number(applied.qty || 0) * Number(item.unitCost ?? med?.unitCost ?? 0)), costCharged: item.costCharged ?? item.priceCharged ?? item.costSuggested, owner: med?.owner || item.owner || "SERVICIOS", route: med?.route || item.route || "", theoreticalQty: Number(item.theoreticalQty ?? item.indicatedDoseQty ?? item.doseQty ?? 0), theoreticalUnit: item.theoreticalUnit || item.indicatedDoseUnit || item.doseUnit || med?.unit || "", qty: Number(applied.qty || 0), totalUsedQty: med ? Number(applied.qty || 0) : 0, inventoryDeductionQty: med ? Number(applied.qty || 0) : 0, inventoryDeductionUnit: applied.unit || med?.unit || item.unit || "", chargeableQty: Number(applied.qty || 0), source: "CLINICAL_DAY", applicationDate: day.date, notes: item.observations || "", calculationSummary: item.calculationSummary || item.indication || (med ? "Día de medicación / seguimiento" : "Pendiente de vincular a inventario; no descuenta stock."),
       });
     });
     (day.supplies || []).forEach((item) => {
-      if (!item.itemId || item.external) return;
-      const sup = byId(state.supplies, item.itemId);
-      if (!sup) return;
-      supplies.push({ id: item.id || uid("ccsup"), itemId: sup.id, name: sup.name, qty: Number(item.qty || 0), unit: item.unit || (sup.type === "NON_DISPOSABLE" ? "uso" : "pieza"), notes: item.observations || "", type: sup.type, unitCost: Number(item.unitCost ?? supplyDisplayCost(sup)), costSuggested: item.costSuggested ?? Number(item.qty || 0) * Number(item.unitCost ?? supplyDisplayCost(sup)), costCharged: item.costCharged ?? item.priceCharged ?? item.costSuggested, owner: sup.owner || "SERVICIOS", source: "CLINICAL_DAY", applicationDate: day.date });
+      const sup = item.itemId && !item.external ? byId(state.supplies, item.itemId) : null;
+      const qty = Number(item.qty || 0);
+      const unitCost = Number(item.unitCost ?? (sup ? supplyDisplayCost(sup) : 0));
+      supplies.push({ id: item.id || uid("ccsup"), itemId: sup?.id || "", external: Boolean(item.external || !sup), uso_externo_no_inventariado: Boolean(item.uso_externo_no_inventariado || item.external || !sup), name: sup?.name || item.name || "Insumo", qty, unit: item.unit || (sup?.type === "NON_DISPOSABLE" ? "uso" : "pieza"), notes: item.observations || (!sup ? "Insumo externo/no inventariado: no descuenta inventario." : ""), type: sup?.type || item.type || "EXTERNAL", unitCost, costSuggested: item.costSuggested ?? qty * unitCost, costCharged: item.costCharged ?? item.priceCharged ?? item.costSuggested, owner: sup?.owner || item.owner || "SERVICIOS", source: "CLINICAL_DAY", applicationDate: day.date });
     });
   });
   return { meds, supplies };
@@ -7371,6 +7423,18 @@ function removeProcedureFollowupMedication(id) {
   state.draft.procedureFollowupMedicationEntries = (state.draft.procedureFollowupMedicationEntries || []).filter((item) => item.id !== id);
   renderProcedureDraftLists();
 }
+function dedupeChargeRows(rows = [], type = "PRODUCTO") {
+  const seen = new Set();
+  return (rows || []).filter((item) => {
+    if (item?.duplicado_manual || item?.manualDuplicate || item?.aplicacion_separada || item?.separateApplication) return true;
+    const cost = item.costCharged ?? item.priceCharged ?? item.costSuggested ?? item.subtotal ?? "";
+    const key = JSON.stringify([item.applicationDate || item.date || "", type, normalizeJsonName(item.name || item.medicationName || ""), Number(item.chargeableQty ?? item.qty ?? item.inventoryDeductionQty ?? item.animalsApplied ?? 0), item.unit || item.inventoryDeductionUnit || "", cost]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function calculateProcedureChargeBreakdown() {
   const aggregated = aggregateProcedureInventoryFromAnimals();
   const medsProcedure = (state.draft.procedureAnimalEntries || []).flatMap((entry) => {
@@ -7400,17 +7464,20 @@ function calculateProcedureChargeBreakdown() {
   }));
   const clinicalDayInventory = clinicalInventoryFromDays(state.draft.procedureClinicalDays || []);
   const medsClinicalDays = (clinicalDayInventory.meds || []).map((x) => {
-    const qty = Number(x.inventoryDeductionQty || x.qty || 0);
+    const qty = Number(x.chargeableQty || x.qty || 0);
     const unitCost = Number(x.unitCost || 0);
+    const hasCost = x.costCharged != null || x.priceCharged != null || x.costSuggested != null;
+    const suggested = x.costSuggested ?? (unitCost ? qty * unitCost : null);
     return {
       category: "Medicamento por día clínico",
       name: `${x.applicationDate || ""} · ${x.name || "Medicamento"}`.trim(),
       qty,
       qtyLabel: `${qty.toFixed(2)} ${x.inventoryDeductionUnit || x.unit || ""}`.trim(),
       unitCost,
-      unitCostLabel: money(unitCost),
-      subtotal: x.costCharged ?? x.priceCharged ?? x.costSuggested ?? qty * unitCost,
-      extraLabel: [x.notes || x.calculationSummary || "", `sugerido ${money(x.costSuggested ?? qty * unitCost)}`].filter(Boolean).join(" · "),
+      unitCostLabel: unitCost ? money(unitCost) : "Pendiente",
+      costSuggested: suggested,
+      subtotal: x.costCharged ?? x.priceCharged ?? suggested ?? 0,
+      extraLabel: [x.notes || x.calculationSummary || "", hasCost || suggested != null ? `sugerido ${money(suggested ?? 0)}` : "pendiente de costo", x.external ? "externo/no inventariado" : ""].filter(Boolean).join(" · "),
     };
   });
   const medsFollowup = (state.draft.procedureFollowupMedicationEntries || []).map((x) => {
@@ -7435,7 +7502,7 @@ function calculateProcedureChargeBreakdown() {
     const unitCost = Number(x.unitCost || 0);
     return { category: "Vacuna", name: x.name, qty, qtyLabel: `${qty.toFixed(2)} ${x.inventoryDeductionUnit || x.unit || "dosis/animales"}`.trim(), unitCost, unitCostLabel: money(unitCost), subtotal: x.priceCharged ?? x.costCharged ?? x.costSuggested ?? qty * unitCost, extraLabel: [x.calculationSummary, x.notes, `sugerido ${money(x.costSuggested ?? qty * unitCost)}`].filter(Boolean).join(" · "), removable: x.source === "PROCEDURE_MANUAL", removeType: "manual-product", removeTarget: { useId: x.id } };
   });
-  const supplies = ([...(aggregated.supplies || []), ...(state.draft.procedureSupplyUses || []), ...(state.draft.procedureMedUses || []).filter((item) => item.productType === "INSUMO"), ...(clinicalDayInventory.supplies || [])]).map((x) => {
+  const supplies = dedupeChargeRows([...(aggregated.supplies || []), ...(state.draft.procedureSupplyUses || []), ...(state.draft.procedureMedUses || []).filter((item) => item.productType === "INSUMO"), ...(clinicalDayInventory.supplies || [])], "INSUMO").map((x) => {
     const qty = Number(x.qty || 0);
     const unitCost = Number(x.unitCost || 0);
     return {
@@ -7459,7 +7526,7 @@ function calculateProcedureChargeBreakdown() {
   });
   const base = Number($("#p_costTotal").value || 0);
   const service = base > 0 ? [{ category: "Servicio", name: $("#p_type")?.selectedOptions?.[0]?.textContent || "Servicio", qty: 1, qtyLabel: "1 servicio", unitCost: base, unitCostLabel: money(base), subtotal: base, extraLabel: "Costo base del procedimiento" }] : [];
-  return { medsProcedure: [...medsProcedure, ...medsClinicalDays], medsFollowup, vaccines, supplies, labs, service };
+  return { medsProcedure, medsFollowup: dedupeChargeRows([...medsFollowup, ...medsClinicalDays], "MEDICAMENTO"), vaccines, supplies, labs, service };
 }
 function removeProcedureChargeBreakdownItem(item) {
   if (!item?.removable || !item.removeType) return;
@@ -7548,6 +7615,7 @@ function renderProcedureChargeBreakdown(breakdown = calculateProcedureCharge()) 
     medsFollowup: detail.medsFollowup || [],
     vaccines: detail.vaccines || [],
     supplies: detail.supplies || [],
+    labs: detail.labs || [],
     service: detail.service || [],
   };
   box.querySelectorAll("[data-remove-charge-item]").forEach((btn) => {
@@ -7764,6 +7832,46 @@ function saveProcedure() {
   }
   saveState(); renderAll(); resetProcedure(); show("p_ok", "Procedimiento guardado.", "success");
 }
+function cloneProcedureForDuplicate(procedure = {}) {
+  const copy = JSON.parse(JSON.stringify(procedure || {}));
+  const oldId = copy.id;
+  copy.id = uid("proc");
+  copy.copiedFromId = oldId || "";
+  copy.isDuplicate = true;
+  copy.duplicateStatus = "DRAFT_COPY";
+  copy.notes = [`Copia de ${procedure.type || "caso clínico"}${procedure.date ? ` (${procedure.date})` : ""}`, copy.notes || ""].filter(Boolean).join("\n");
+  if (copy.caseClinical) {
+    copy.caseClinical.animalName = copy.caseClinical.animalName ? `Copia de ${copy.caseClinical.animalName}` : "Copia de caso clínico";
+    copy.caseClinical.medicationDays = (copy.caseClinical.medicationDays || []).map(cloneClinicalDay);
+    copy.caseClinical.followupMedications = (copy.caseClinical.followupMedications || []).map((item) => ({ ...item, id: uid("followmed") }));
+  }
+  copy.animals = (copy.animals || []).map((entry) => ({
+    ...entry,
+    id: uid("pan"),
+    medicationsApplied: (entry.medicationsApplied || []).map((item) => ({ ...item, id: uid("pmed") })),
+    vaccinesApplied: (entry.vaccinesApplied || []).map((item) => ({ ...item, id: uid("pvax") })),
+    suppliesApplied: (entry.suppliesApplied || []).map((item) => ({ ...item, id: uid("psup") })),
+  }));
+  ["meds", "vaccines", "supplies"].forEach((key) => {
+    if (copy.inventory?.[key]) copy.inventory[key] = copy.inventory[key].map((item) => ({ ...item, id: uid(key === "meds" ? "pmed" : key === "vaccines" ? "pvax" : "psup") }));
+  });
+  copy.labIds = (copy.labIds || []).map((labId) => {
+    const lab = byId(state.labTests, labId);
+    if (!lab) return labId;
+    const duplicatedLab = { ...JSON.parse(JSON.stringify(lab)), id: uid("lab"), linkedProcedureId: null, copiedFromId: lab.id };
+    state.labTests.unshift(duplicatedLab);
+    return duplicatedLab.id;
+  });
+  if (copy.charge?.breakdown) copy.charge.breakdown = {};
+  return copy;
+}
+function duplicateClinicalProcedure(procedure) {
+  const copy = cloneProcedureForDuplicate(procedure);
+  fillProcedure(copy);
+  state.editing.procedureId = null;
+  show("p_ok", "Copia editable creada. Revisa y guarda para confirmar; todavía no afecta inventario ni cobros reales.", "success");
+}
+
 function resetProcedure() {
   state.editing.procedureId = null;
   $("#procedureForm").reset();
@@ -7831,9 +7939,15 @@ function renderProcedureList() {
   state.procedures.forEach((p) => {
     const prod = byId(state.producers, p.producerId);
     const item = document.createElement("div"); item.className = "item";
-    item.innerHTML = `<h4>${esc(p.type)} · ${esc(prod?.basic?.name || p.unregisteredClientName || p.producerName || "Sin productor registrado")}</h4><div class="line"><b>Fecha:</b> ${esc(p.date)}</div><div class="line"><b>Modalidad:</b> ${esc(p.scope)} · <b>Animales:</b> ${(p.animals || []).length}</div><div class="line"><b>Detalle:</b> ${esc(procedureAnimalSummaryText(p) || p.identification || "")}</div><div class="line"><b>Medicamentos usados:</b> ${(p.inventory?.meds || []).length}</div><div class="line"><b>Monto calculado:</b> ${money(p.charge?.total)}</div><div class="actions"><button class="btn small">Editar</button><button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
-    const [edit, w, e, del] = item.querySelectorAll("button");
+    item.innerHTML = `<h4>${esc(p.type)} · ${esc(prod?.basic?.name || p.unregisteredClientName || p.producerName || "Sin productor registrado")}</h4><div class="line"><b>Fecha:</b> ${esc(p.date)}</div><div class="line"><b>Modalidad:</b> ${esc(p.scope)} · <b>Animales:</b> ${(p.animals || []).length}</div><div class="line"><b>Detalle:</b> ${esc(procedureAnimalSummaryText(p) || p.identification || "")}</div><div class="line"><b>Medicamentos usados:</b> ${(p.inventory?.meds || []).length}</div><div class="line"><b>Monto calculado:</b> ${money(p.charge?.total)}</div><div class="actions"><button class="btn small">Editar</button>${p.type === "CASO_CLINICO" ? '<button class="btn small ghost">Duplicar caso clínico</button>' : ''}<button class="btn small ghost">Word</button><button class="btn small ghost">Excel</button><button class="btn small bad">Eliminar</button></div>`;
+    const buttons = item.querySelectorAll("button");
+    const edit = buttons[0];
+    const duplicate = p.type === "CASO_CLINICO" ? buttons[1] : null;
+    const w = p.type === "CASO_CLINICO" ? buttons[2] : buttons[1];
+    const e = p.type === "CASO_CLINICO" ? buttons[3] : buttons[2];
+    const del = p.type === "CASO_CLINICO" ? buttons[4] : buttons[3];
     edit.onclick = () => fillProcedure(p);
+    if (duplicate) duplicate.onclick = () => duplicateClinicalProcedure(p);
     w.onclick = () => exportWord(`procedimiento_${slug(p.id)}.doc`, procedureWordHtml(p));
     e.onclick = () => exportExcel(`procedimiento_${slug(p.id)}.xls`, producerExcelSheets([], [], [], [], [], [p], state.labTests.filter((l) => (p.labIds || []).includes(l.id) || l.linkedProcedureId === p.id)));
     del.onclick = () => { state.labTests.forEach((lab) => { if (lab.linkedProcedureId === p.id) lab.linkedProcedureId = null; }); queueDeletedRecord("procedures", p); state.procedures = state.procedures.filter((x) => x.id !== p.id); saveState(); renderAll(); };
@@ -8443,6 +8557,47 @@ function clinicalJsonDayCounts(source = {}) {
     supplies: days.reduce((acc, d) => acc + clinicalJsonSupplyItems(d).length, 0),
   };
 }
+function collectUnknownClinicalJsonSupplies(parsed = {}) {
+  const map = new Map();
+  normalizeClinicalJsonDays(parsed).forEach((day) => clinicalJsonSupplyItems(day).forEach((item) => {
+    const name = jsonValue(item, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
+    if (name && !findSupplyFromJson(item) && !jsonValue(item, ["omitir", "omit"]) && !jsonValue(item, ["uso_externo_no_inventariado", "uso_externo", "externo", "external", "not_in_inventory"])) map.set(normalizeJsonName(name), { name, item });
+  }));
+  return Array.from(map.values());
+}
+function mutateClinicalJsonSupplyByName(parsed, name, updater) {
+  normalizeClinicalJsonDays(parsed).forEach((day) => clinicalJsonSupplyItems(day).forEach((item) => {
+    const current = jsonValue(item, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
+    if (normalizeJsonName(current) === normalizeJsonName(name)) updater(item);
+  }));
+}
+function bindUnknownClinicalJsonSupplyActions(box, parsed, section) {
+  box.querySelectorAll("[data-json-supply-action]").forEach((button) => button.addEventListener("click", () => {
+    const action = button.dataset.jsonSupplyAction;
+    const name = button.dataset.jsonSupplyName || "";
+    if (action === "external") mutateClinicalJsonSupplyByName(parsed, name, (item) => { item.uso_externo_no_inventariado = true; item.external = true; item.observaciones = item.observaciones || "Usado como externo/no inventariado desde JSON."; });
+    if (action === "omit") mutateClinicalJsonSupplyByName(parsed, name, (item) => { item.omitir = true; item.insumo_omitido = true; });
+    if (action === "link") {
+      const choice = window.prompt(`Vincular “${name}” con insumo existente. Escribe el nombre exacto del inventario:\n${state.supplies.map((s) => s.name).join("\n")}`);
+      const supply = state.supplies.find((s) => normalizeJsonName(s.name) === normalizeJsonName(choice));
+      if (!supply) return sectionJsonMessage(section, "No se encontró el insumo seleccionado para vincular.", true);
+      mutateClinicalJsonSupplyByName(parsed, name, (item) => { item.insumo_id = supply.id; item.insumo_nombre = supply.name; item.external = false; item.uso_externo_no_inventariado = false; });
+    }
+    if (action === "add") {
+      const sample = collectUnknownClinicalJsonSupplies(parsed).find((row) => normalizeJsonName(row.name) === normalizeJsonName(name))?.item || {};
+      const qty = Number(jsonValue(sample, ["existencia_inicial", "cantidad_usada", "cantidad", "qty"]) || 0);
+      const unitCost = Number(jsonValue(sample, ["costo_unitario", "unitCost", "unit_cost"]) || 0);
+      const supply = { id: uid("sup"), name, category: window.prompt("Categoría del insumo", "General") || "General", type: "DISPOSABLE", unit: jsonValue(sample, ["unidad_usada", "unidad", "unit"]) || "pieza", qty, unitCost, costUse: unitCost, owner: "SERVICIOS", expiry: "", notes: jsonValue(sample, ["observaciones", "notes"]) || "Creado desde JSON de caso clínico." };
+      state.supplies.unshift(supply);
+      mutateClinicalJsonSupplyByName(parsed, name, (item) => { item.insumo_id = supply.id; item.insumo_nombre = supply.name; item.external = false; item.uso_externo_no_inventariado = false; });
+      saveState();
+    }
+    state.draft.sectionJson = { section, parsed, previewed: true, hasBase: hasBaseProcedureData(parsed) };
+    previewSectionJson(section);
+    sectionJsonMessage(section, "Decisión de insumo JSON conservada. Aplica el JSON para guardar el caso/procedimiento.");
+  }));
+}
+
 function validateSectionJson(section, announce = false) {
   try {
     const parsed = parseSectionJsonInput(section);
@@ -8487,6 +8642,7 @@ function previewSectionJson(section) {
       });
       clinicalJsonSupplyItems(day).forEach((sup) => {
         if (!jsonValue(sup, ["observaciones", "observations", "notes"])) missing.add("Observaciones del insumo");
+        if (!findSupplyFromJson(sup) && jsonValue(sup, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"])) warnings.push(`El insumo “${jsonValue(sup, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"])}” no existe en inventario.`);
       });
     });
     clinicalExtra = `${missing.size ? `<b>Campos sin información:</b><ul>${Array.from(missing).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}${warnings.length ? `<b>Advertencias:</b><ul>${[...new Set(warnings)].map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
@@ -8505,8 +8661,11 @@ function previewSectionJson(section) {
         const supplies = clinicalJsonSupplyItems(day);
         return `<div class="item"><b>${esc(jsonValue(day, ["fecha", "date"]) || "Día sin fecha")}</b><div>Medicamentos: ${meds.length}</div><ul>${meds.map((m) => `<li>${esc(jsonValue(m, ["medicamento_nombre", "nombre_medicamento", "medicationName", "medication_name", "nombre", "name", "medicamento"]) || "Medicamento sin nombre")}</li>`).join("")}</ul><div>Insumos: ${supplies.length}</div><ul>${supplies.map((i) => `<li>${esc(jsonValue(i, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"]) || "Insumo sin nombre")}</li>`).join("")}</ul></div>`;
       }).join("")}`;
+      const unknownSupplies = collectUnknownClinicalJsonSupplies(parsed);
+      if (unknownSupplies.length) detailHtml += `<div class="card"><h4>Insumos no encontrados en inventario</h4>${unknownSupplies.map((row) => `<div class="item"><b>${esc(row.name)}</b><div class="help">El insumo “${esc(row.name)}” no existe en inventario.</div><div class="actions"><button class="btn small" type="button" data-json-supply-action="add" data-json-supply-name="${esc(row.name)}">Agregar insumo al inventario</button><button class="btn small ghost" type="button" data-json-supply-action="link" data-json-supply-name="${esc(row.name)}">Vincular con existente</button><button class="btn small ghost" type="button" data-json-supply-action="external" data-json-supply-name="${esc(row.name)}">Usar externo/no inventariado</button><button class="btn small bad" type="button" data-json-supply-action="omit" data-json-supply-name="${esc(row.name)}">Omitir este insumo</button></div></div>`).join("")}</div>`;
     }
     box.innerHTML = `${baseWarning}<b>Se llenará:</b><ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${detailHtml}${clinicalExtra}<b>No se modificará:</b><ul><li>Productor(a)</li><li>Fecha base del procedimiento</li><li>Tipo de procedimiento</li><li>Lugar / comunidad</li><li>Modo del procedimiento</li><li>Estado de cobro</li><li>Notas generales</li></ul>`;
+    bindUnknownClinicalJsonSupplyActions(box, parsed, section);
   }
   state.draft.sectionJson = { section, parsed, previewed: true, hasBase: hasBaseProcedureData(parsed) };
   sectionJsonMessage(section, "Vista previa generada. Ahora puedes aplicar con confirmación.");
@@ -8621,21 +8780,22 @@ function normalizeJsonClinicalMedication(m) {
   if (!inv && !name && (structured.cantidad || theoretical.cantidad || admin.cantidad)) {
     return null;
   }
-  const externalFlag = jsonValue(m, ["uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
+  const externalFlag = jsonValue(m, ["uso_externo_no_inventariado", "uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
   const noInventoryWarning = !inv ? "Este medicamento no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : "Vinculado a inventario";
   const indicatedDoseQty = jsonValue(structured, ["cantidad", "cantidad_dosis", "dosis_cantidad", "quantity"]) ?? jsonValue(m, ["cantidad", "cantidad_dosis"]);
   const indicatedDoseUnit = jsonValue(structured, ["unidad", "unidad_dosis", "unit"]) ?? jsonValue(m, ["unidad", "unidad_dosis"]);
   const administeredQty = jsonValue(admin, ["cantidad", "quantity"]);
   const administeredUnit = jsonValue(admin, ["unidad", "unit"]);
-  return { id: uid("ccmed"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, name: inv?.brand || name || "Uso externo/no inventariado", route: jsonValue(m, ["via_administracion", "vía_administración", "via", "vía", "ruta", "tipo_administracion", "route"]) || inv?.route || "", indicatedDoseQty, indicatedDoseUnit, perKg: jsonValue(structured, ["por_cada", "cada", "por", "perQuantity", "per_quantity"]) ?? jsonValue(m, ["por_cada", "cada", "por"]), unitBase: jsonValue(structured, ["unidad_base", "base", "unidad_por_cada", "baseUnit", "base_unit"]) ?? jsonValue(m, ["unidad_base", "base", "unidad_por_cada"]), compatibleRule: jsonValue(structured, ["regla_compatible", "regla", "regla_calculo", "compatibleRule", "compatible_rule"]) ?? jsonValue(m, ["regla_compatible", "regla", "regla_calculo"]), theoreticalQty: jsonValue(theoretical, ["cantidad", "quantity"]), theoreticalUnit: jsonValue(theoretical, ["unidad", "unit"]), administeredQty, administeredUnit, doseQty: administeredQty ?? indicatedDoseQty, doseUnit: administeredUnit || indicatedDoseUnit || "", frequency: jsonValue(m, ["frecuencia", "cada_cuanto", "intervalo", "frequency"]) || "", duration: jsonValue(m, ["duracion", "duración", "tiempo_tratamiento", "duration"]) || "", indication: jsonValue(m, ["indicacion", "indicación", "motivo", "uso", "para_que", "indication"]) || "", observations: jsonValue(m, ["observaciones", "observaciones_medicamento", "notas_medicamento", "observations", "notes"]) || "", costSuggested: jsonValue(m, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), calculationSummary: jsonValue(m, ["nota_calculo", "calculo", "explicación_calculo", "explicacion_calculo", "calculation_note", "calculationSummary"]) || noInventoryWarning, unitCost: inv ? Number(inv.unitCost || 0) : "", owner: inv?.owner || "" };
+  return { id: uid("ccmed"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, uso_externo_no_inventariado: Boolean(externalFlag) || !inv, name: inv?.brand || name || "Uso externo/no inventariado", route: jsonValue(m, ["via_administracion", "vía_administración", "via", "vía", "ruta", "tipo_administracion", "route"]) || inv?.route || "", indicatedDoseQty, indicatedDoseUnit, perKg: jsonValue(structured, ["por_cada", "cada", "por", "perQuantity", "per_quantity"]) ?? jsonValue(m, ["por_cada", "cada", "por"]), unitBase: jsonValue(structured, ["unidad_base", "base", "unidad_por_cada", "baseUnit", "base_unit"]) ?? jsonValue(m, ["unidad_base", "base", "unidad_por_cada"]), compatibleRule: jsonValue(structured, ["regla_compatible", "regla", "regla_calculo", "compatibleRule", "compatible_rule"]) ?? jsonValue(m, ["regla_compatible", "regla", "regla_calculo"]), theoreticalQty: jsonValue(theoretical, ["cantidad", "quantity"]), theoreticalUnit: jsonValue(theoretical, ["unidad", "unit"]), administeredQty, administeredUnit, doseQty: administeredQty ?? indicatedDoseQty, doseUnit: administeredUnit || indicatedDoseUnit || "", frequency: jsonValue(m, ["frecuencia", "cada_cuanto", "intervalo", "frequency"]) || "", duration: jsonValue(m, ["duracion", "duración", "tiempo_tratamiento", "duration"]) || "", indication: jsonValue(m, ["indicacion", "indicación", "motivo", "uso", "para_que", "indication"]) || "", observations: jsonValue(m, ["observaciones", "observaciones_medicamento", "notas_medicamento", "observations", "notes"]) || "", costSuggested: jsonValue(m, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), calculationSummary: jsonValue(m, ["nota_calculo", "calculo", "explicación_calculo", "explicacion_calculo", "calculation_note", "calculationSummary"]) || noInventoryWarning, unitCost: inv ? Number(inv.unitCost || 0) : "", owner: inv?.owner || "" };
 }
 function normalizeJsonClinicalSupply(i) {
+  if (jsonValue(i, ["omitir", "omit", "insumo_omitido"])) return null;
   const inv = findSupplyFromJson(i);
   const name = jsonValue(i, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
-  const externalFlag = jsonValue(i, ["uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
+  const externalFlag = jsonValue(i, ["uso_externo_no_inventariado", "uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
   const qty = jsonValue(i, ["cantidad_usada", "cantidad", "cantidad_insumos", "numero", "número", "quantity_used", "qty"]);
   const unitCost = jsonValue(i, ["costo_unitario", "costo_unitario_inventario", "precio_unitario", "unit_cost", "unitCost"]);
-  return { id: uid("ccsup"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, name: inv?.name || name || "Uso externo/no inventariado", qty, unit: jsonValue(i, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]) || inv?.unit || "", unitCost: unitCost ?? (inv ? supplyDisplayCost(inv) : ""), costSuggested: jsonValue(i, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), observations: jsonValue(i, ["observaciones", "notas", "observaciones_insumo", "observations", "notes"]) || (!inv ? "Este insumo no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : ""), type: inv?.type || "EXTERNAL", owner: inv?.owner || "" };
+  return { id: uid("ccsup"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, uso_externo_no_inventariado: Boolean(externalFlag) || !inv, name: inv?.name || name || "Uso externo/no inventariado", qty, unit: jsonValue(i, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]) || inv?.unit || "", unitCost: unitCost ?? (inv ? supplyDisplayCost(inv) : ""), costSuggested: jsonValue(i, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), observations: jsonValue(i, ["observaciones", "notas", "observaciones_insumo", "observations", "notes"]) || (!inv ? "Este insumo no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : ""), type: inv?.type || "EXTERNAL", owner: inv?.owner || "" };
 }
 function applyAdviceSectionJson(a, mode) { Object.entries({ p_zoo_activity:a.tipo_asesoria, p_zoo_evaluation:[a.descripcion, ...(a.problemas_detectados || [])].filter(Boolean).join("\n"), p_zoo_intervention:[...(a.recomendaciones || []), ...(a.medicamentos_usados || []), ...(a.vacunas_usadas || []), ...(a.insumos_usados || [])].filter(Boolean).join("\n"), p_zoo_plan:a.plan_accion, p_zoo_followup:a.observaciones }).forEach(([id, v]) => setIfAllowed(id, v, mode)); }
 function applyNecropsySectionJson(n, mode) {
