@@ -3851,10 +3851,9 @@ function addProcedureSupplyUse() {
   if (s.type === "DISPOSABLE" && qty > supplyRemaining(s)) {
     show(
       "p_msg",
-      "No hay disponibilidad suficiente del insumo desechable.",
-      "error",
+      `El insumo ‘${s.name}’ no tiene existencia suficiente. Se registrarán ${qty} ${s.unit || "piezas"} como usadas, se conservará el costo y la existencia quedará en 0.`,
+      "warning",
     );
-    return;
   }
   state.draft.procedureSupplyUses.push({
     id: uid("psup"),
@@ -6015,16 +6014,7 @@ function validateProcedureAnimalEntries(entries = [], previousProcedure = null) 
       problems.push(`No hay disponibilidad suficiente de ${vaccine.brand}. Disponible: ${available.toFixed(2)} animales. Requerido: ${required.toFixed(2)}.`);
     }
   });
-  (aggregated.supplies || []).forEach((use) => {
-    const supply = byId(state.supplies, use.itemId);
-    if (!supply || supply.type === "NON_DISPOSABLE") return;
-    const previousQty = previousProcedure ? Number((previousProcedure.inventory?.supplies || []).filter((item) => item.itemId === supply.id).reduce((acc, item) => acc + Number(item.qty || 0), 0)) : 0;
-    const available = Number(supplyRemaining(supply) || 0) + previousQty;
-    const required = Number(use.qty || 0);
-    if (required > available + 0.0001) {
-      problems.push(`No hay disponibilidad suficiente de ${supply.name}. Disponible: ${available.toFixed(2)} piezas. Requerido: ${required.toFixed(2)}.`);
-    }
-  });
+  // Los insumos no bloquean el procedimiento por existencia insuficiente; se anotan como consumo con faltante al guardar.
   return problems;
 }
 
@@ -7090,9 +7080,7 @@ function validateProcedureInventoryStock(p, previous) {
   supplyTotals.forEach((required, itemId) => {
     const sup = byId(state.supplies, itemId);
     if (!sup) return problems.push("No se encontró un insumo seleccionado para el procedimiento.");
-    if (sup.type === "NON_DISPOSABLE") return;
-    const available = Number(supplyRemaining(sup) || 0) + previousInventoryQty(previous, "supplies", sup.id);
-    if (required > available + 0.0001) problems.push(`No hay existencia suficiente de ${sup.name}. Disponible: ${available.toFixed(2)} piezas. Requerido: ${required.toFixed(2)}.`);
+    // Existencia insuficiente de insumos no es bloqueante; se registra como consumo con faltante.
   });
   return problems;
 }
@@ -7112,9 +7100,7 @@ function validateClinicalDayInventory(p, previous) {
   supplyTotals.forEach((required, itemId) => {
     const sup = byId(state.supplies, itemId);
     if (!sup) return problems.push(`No se encontró en inventario el insumo de día clínico con ID: ${itemId || "sin ID"}. Puedes agregarlo al inventario, vincularlo con un insumo existente o marcarlo como uso externo/no inventariado.`);
-    if (sup.type === "NON_DISPOSABLE") return;
-    const available = Number(supplyRemaining(sup) || 0) + previousInventoryQty(previous, "supplies", sup.id);
-    if (required > available + 0.0001) problems.push(`No hay existencia suficiente de ${sup.name}. Disponible: ${available.toFixed(2)} piezas. Requerido: ${required.toFixed(2)}.`);
+    // Existencia insuficiente de insumos no es bloqueante; se registra como consumo con faltante.
   });
   return problems;
 }
@@ -7155,6 +7141,41 @@ function procedureDebtRecords(p) {
   });
   return Array.from(grouped.values()).map((item) => ({ ...item, procedureId: p.id, procedureLabel: `${p.date || "Sin fecha"} · ${p.type || "Procedimiento"}`, date: p.date || "", producerName: person, animalName: animal, paymentStatus: "Pendiente" }));
 }
+function annotateSupplyInventoryShortages(p, previous) {
+  const availableBySupply = new Map();
+  const warnings = [];
+  (p.inventory?.supplies || []).forEach((item) => {
+    const supply = byId(state.supplies, item.itemId);
+    if (!supply || supply.type === "NON_DISPOSABLE") return;
+    if (!availableBySupply.has(supply.id)) {
+      availableBySupply.set(supply.id, Number(supplyRemaining(supply) || 0) + previousInventoryQty(previous, "supplies", supply.id));
+    }
+    const availableBefore = Number(availableBySupply.get(supply.id) || 0);
+    const required = Number(item.qty || item.inventoryDeductionQty || 0);
+    const discounted = Math.min(required, Math.max(0, availableBefore));
+    const missing = Math.max(0, required - discounted);
+    const after = Math.max(0, availableBefore - required);
+    availableBySupply.set(supply.id, after);
+    Object.assign(item, {
+      qty: required,
+      unit: item.unit || supply.unit || (item.type === "NON_DISPOSABLE" ? "usos" : "piezas"),
+      inventoryDeductionQty: required,
+      inventoryDiscountedQty: Number(discounted.toFixed(4)),
+      inventoryShortageQty: Number(missing.toFixed(4)),
+      inventoryAvailableBefore: Number(availableBefore.toFixed(4)),
+      inventoryAfter: Number(after.toFixed(4)),
+      existencia_insuficiente: missing > 0,
+      consumo_con_faltante_inventario: missing > 0,
+      movementNote: missing > 0 ? "Consumo registrado con faltante de inventario" : (item.movementNote || ""),
+    });
+    if (missing > 0) {
+      warnings.push(`${supply.name} tenía existencia insuficiente. Disponible: ${Number(availableBefore).toFixed(2)}. Requerido: ${required.toFixed(2)}. Se registró el uso de ${required.toFixed(2)} ${item.unit || supply.unit || "piezas"} y la existencia quedó en 0.`);
+    }
+  });
+  p.inventoryWarnings = [...(p.inventoryWarnings || []), ...warnings];
+  p.advertencias_inventario = p.inventoryWarnings;
+  return warnings;
+}
 function buildProcedureInventoryMovements(p) {
   const movements = [];
   (p.inventory?.meds || []).forEach((item) => {
@@ -7168,7 +7189,7 @@ function buildProcedureInventoryMovements(p) {
   });
   (p.inventory?.supplies || []).forEach((item) => {
     if (!item.itemId || Number(item.qty || item.inventoryDeductionQty || 0) <= 0) return;
-    movements.push({ id: uid("mov"), procedureId: p.id, date: p.date, type: "SALIDA", category: "INSUMO", itemId: item.itemId, itemName: item.name, qty: Number(item.qty || item.inventoryDeductionQty || 0), unit: item.type === "NON_DISPOSABLE" ? "usos" : "pzas", source: item.source || "PROCEDURE" });
+    movements.push({ id: uid("mov"), procedureId: p.id, date: p.date, type: item.consumo_con_faltante_inventario ? "CONSUMO_CON_FALTANTE" : "SALIDA", category: "INSUMO", itemId: item.itemId, itemName: item.name, qty: Number(item.qty || item.inventoryDeductionQty || 0), unit: item.unit || (item.type === "NON_DISPOSABLE" ? "usos" : "pzas"), source: item.source || "PROCEDURE", note: item.movementNote || "", cantidad_requerida: Number(item.qty || item.inventoryDeductionQty || 0), disponible_antes: item.inventoryAvailableBefore ?? "", descontado_real_inventario: item.inventoryDiscountedQty ?? "", faltante_inventario: item.inventoryShortageQty ?? 0, existencia_despues: item.inventoryAfter ?? "" });
   });
   return movements;
 }
@@ -7820,6 +7841,7 @@ function saveProcedure() {
   if (inventoryStockProblems.length) return show("p_err", inventoryStockProblems[0], "error");
   const clinicalStockProblems = validateClinicalDayInventory(p, previous);
   if (clinicalStockProblems.length) return show("p_err", clinicalStockProblems[0], "error");
+  const supplyWarnings = annotateSupplyInventoryShortages(p, previous);
   p.inventoryMovements = buildProcedureInventoryMovements(p);
   if (idx >= 0) state.procedures[idx] = p; else state.procedures.unshift(p);
   reconcileAnaRosaDebtFromProcedures();
@@ -7830,7 +7852,7 @@ function saveProcedure() {
     const alreadyApplied = previous?.type === "NECROPSIA" && previous?.animalId === p.animalId;
     if (animalTarget && !alreadyApplied) animalTarget.quantity = Math.max(0, Number(animalTarget.quantity || 0) - 1);
   }
-  saveState(); renderAll(); resetProcedure(); show("p_ok", "Procedimiento guardado.", "success");
+  saveState(); renderAll(); resetProcedure(); show("p_ok", supplyWarnings.length ? `Procedimiento guardado. ${supplyWarnings[0]}` : "Procedimiento guardado.", supplyWarnings.length ? "warning" : "success");
 }
 function cloneProcedureForDuplicate(procedure = {}) {
   const copy = JSON.parse(JSON.stringify(procedure || {}));
