@@ -8223,7 +8223,109 @@ state.draft.sectionJson = state.draft.sectionJson || { section: null, parsed: nu
 function sectionJsonPrompt(section, source = "") {
   const sourceText = source || (section === "necropsy" ? "[Pegar aquí el texto de necropsia]" : section === "clinical" ? "[Pegar aquí el texto clínico]" : "[Pegar aquí el texto]");
   const prompts = {
-    clinical: `Analiza el siguiente texto clínico veterinario y conviértelo en JSON válido para llenar únicamente la sección de caso clínico individual de la app.\n\nNo incluyas datos base del procedimiento como productor, fecha, tipo de procedimiento, lugar, modo, estado de cobro ni notas generales.\n\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\n\nNo inventes datos.\nSi un dato no aparece, usa null o string vacío.\n\nUsa la estructura:\n{\n"tipo_carga": "caso_clinico_individual",\n"caso_clinico": {\n"animal_atendido": { "animal_registrado": "", "nombre_identificacion": "", "especie": "", "raza_linea_tipo_cruza": "", "sexo": "", "edad": "", "peso": "", "condicion_corporal": "", "estado_reproductivo": "", "observaciones_generales": "" },\n"evaluacion_clinica": { "motivo_consulta": "", "anamnesis": "", "constantes_fisiologicas": { "fc": "", "fr": "", "temperatura": "", "mucosas": "", "tllc": "", "hidratacion_deshidratacion": "", "otros_signos_relevantes": "" }, "examen_fisico_hallazgos": "", "diagnostico_presuntivo": "", "diagnosticos_diferenciales": "", "pruebas_realizadas": "" },\n"medicacion_insumos_por_dia": []\n}\n}\n\nTexto fuente:\n${sourceText}`,
+    clinical: `Analiza el siguiente texto clínico veterinario y conviértelo en JSON válido para llenar únicamente la sección de caso clínico individual de la app.
+
+No incluyas datos base del procedimiento como productor, fecha base del procedimiento, tipo de procedimiento, lugar, modo, estado de cobro ni notas generales.
+
+Devuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.
+
+No inventes datos.
+Si un dato no aparece, usa null o string vacío.
+Si hay medicamentos o insumos, colócalos obligatoriamente dentro de medicacion_insumos_por_dia.
+Si no se menciona fecha de medicación, usa fecha vacía.
+Si no se menciona hora, usa hora vacía.
+Si no se menciona costo, usa null.
+No conviertas medicamentos a texto libre: cada medicamento debe ser un objeto dentro de medicamentos.
+No conviertas insumos a texto libre: cada insumo debe ser un objeto dentro de insumos.
+
+Usa exactamente esta estructura:
+
+{
+"tipo_carga": "caso_clinico_individual",
+"caso_clinico": {
+"animal_atendido": {
+"animal_registrado": "",
+"nombre_identificacion": "",
+"especie": "",
+"raza_linea_tipo_cruza": "",
+"sexo": "",
+"edad": "",
+"peso": "",
+"condicion_corporal": "",
+"estado_reproductivo": "",
+"observaciones_generales": ""
+},
+"evaluacion_clinica": {
+"motivo_consulta": "",
+"anamnesis": "",
+"constantes_fisiologicas": {
+"fc": "",
+"fr": "",
+"temperatura": "",
+"mucosas": "",
+"tllc": "",
+"hidratacion_deshidratacion": "",
+"otros_signos_relevantes": ""
+},
+"examen_fisico_hallazgos": "",
+"diagnostico_presuntivo": "",
+"diagnosticos_diferenciales": "",
+"pruebas_realizadas": ""
+},
+"medicacion_insumos_por_dia": [
+{
+"fecha": "",
+"hora": "",
+"observaciones_dia": "",
+"medicamentos": [
+{
+"medicamento_nombre": "",
+"uso_externo": false,
+"via_administracion": "",
+"indicacion": "",
+"dosis_texto": "",
+"dosis_estructurada": {
+"cantidad": null,
+"unidad": "",
+"por_cada": null,
+"unidad_base": "",
+"regla_compatible": ""
+},
+"dosis_total_teorica": {
+"cantidad": null,
+"unidad": ""
+},
+"cantidad_administrable": {
+"cantidad": null,
+"unidad": ""
+},
+"frecuencia": "",
+"duracion": "",
+"observaciones": "",
+"costo_sugerido": null,
+"costo_final_cobrado": null,
+"nota_calculo": ""
+}
+],
+"insumos": [
+{
+"insumo_nombre": "",
+"uso_externo": false,
+"cantidad_usada": null,
+"unidad_usada": "",
+"costo_unitario": null,
+"costo_sugerido": null,
+"costo_final_cobrado": null,
+"observaciones": ""
+}
+]
+}
+]
+}
+}
+
+Texto fuente:
+${sourceText}`,
     necropsy: `Analiza el siguiente texto de necropsia veterinaria y conviértelo en JSON válido para llenar únicamente el reporte sistemático de necropsia de la app.\n\nNo incluyas datos base del procedimiento.\nNo inventes datos.\nSi un órgano no se menciona, déjalo vacío o como no revisado.\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\n\nUsa la estructura:\n{\n"tipo_carga": "necropsia",\n"necropsia": {\n"datos_generales": {},\n"reporte_sistematico": [{ "sistema": "", "organo": "", "estado": "no revisado", "descripcion_macroscopica": "", "lesiones_encontradas": "", "distribucion": "", "severidad": "", "color": "", "tamano": "", "consistencia": "", "contenido": "", "olor": "", "parasitos": "", "muestras_tomadas": [], "fotos_referencias": [], "observaciones": "" }],\n"muestras": [],\n"diagnosticos_macroscopicos": [],\n"diagnostico_presuntivo": "",\n"causa_probable_muerte": "",\n"recomendaciones": "",\n"observaciones_finales": ""\n}\n}\n\nTexto fuente:\n${sourceText}`,
     advice: `Analiza el siguiente texto de asesoría veterinaria y conviértelo en JSON válido para llenar únicamente la sección interna de asesoría clínica o técnica.\n\nNo incluyas datos base del procedimiento.\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\nNo inventes datos. Si falta información, usa null o string vacío.\n\nUsa la estructura:\n{\n"tipo_carga": "asesoria",\n"asesoria": {\n"tipo_asesoria": "",\n"descripcion": "",\n"problemas_detectados": [],\n"recomendaciones": [],\n"plan_accion": "",\n"medicamentos_usados": [],\n"vacunas_usadas": [],\n"insumos_usados": [],\n"costo_sugerido": null,\n"costo_final_cobrado": null,\n"observaciones": ""\n}\n}\n\nTexto fuente:\n${sourceText}`,
     lab: `Analiza el siguiente texto de estudios de laboratorio veterinarios y conviértelo en JSON válido para llenar únicamente estudios de laboratorio vinculados al caso clínico. No incluyas datos base del procedimiento. Devuelve exclusivamente JSON válido.\n{ "tipo_carga": "estudios_laboratorio", "estudios_laboratorio": [{ "nombre_estudio": "", "tipo_muestra": "", "fecha_toma": "", "fecha_resultado": "", "resultado": "", "interpretacion": "", "diagnostico_relacionado": "", "costo_sugerido": null, "costo_final_cobrado": null, "observaciones": "" }] }\n\nTexto fuente:\n${sourceText}`,
@@ -8240,7 +8342,7 @@ function installSectionJsonImportUi() {
   ];
   targets.forEach(([section, container]) => {
     if (!container || container.querySelector(`[data-json-panel="${section}"]`)) return;
-    container.insertAdjacentHTML("afterbegin", `<section class="card section-json-import" data-json-panel="${section}"><h3>Carga rápida por JSON</h3><div class="help">Llenar esta sección desde JSON es opcional, parcial y no modifica Datos base del procedimiento.</div><div class="row"><button class="btn small" type="button" data-json-open="${section}">Llenar esta sección desde JSON</button><button class="btn small ghost" type="button" data-json-undo="${section}">Deshacer última carga JSON</button></div><div class="section-json-body" data-json-body="${section}" hidden><label>Texto fuente opcional</label><textarea data-json-source="${section}"></textarea><div class="row"><button class="btn small" type="button" data-json-prompt="${section}">Generar prompt para ChatGPT</button><button class="btn small ghost" type="button" data-json-copy="${section}">Copiar prompt</button><button class="btn small ghost" type="button" data-json-chatgpt="${section}">Abrir ChatGPT</button></div><textarea data-json-generated="${section}" readonly placeholder="Prompt generado"></textarea><label>JSON devuelto por ChatGPT</label><textarea data-json-input="${section}" placeholder="Pega aquí JSON válido"></textarea><div class="row"><button class="btn small" type="button" data-json-validate="${section}">Validar JSON</button><button class="btn small ghost" type="button" data-json-preview="${section}">Vista previa</button><button class="btn small primary" type="button" data-json-apply="${section}">Aplicar JSON</button><button class="btn small bad" type="button" data-json-cancel="${section}">Cancelar</button></div><div class="help" data-json-msg="${section}"></div><div class="item" data-json-preview-box="${section}"></div></div></section>`);
+    container.insertAdjacentHTML("afterbegin", `<section class="card section-json-import" data-json-panel="${section}"><h3>Carga rápida por JSON</h3><div class="help">Llenar esta sección desde JSON es opcional, parcial y no modifica Datos base del procedimiento.</div><div class="row"><button class="btn small" type="button" data-json-open="${section}">Llenar esta sección desde JSON</button><button class="btn small ghost" type="button" data-json-undo="${section}">Deshacer última carga JSON</button></div><div class="section-json-body" data-json-body="${section}" hidden><label>Texto fuente opcional</label><textarea data-json-source="${section}"></textarea><div class="row"><button class="btn small" type="button" data-json-prompt="${section}">Generar prompt</button><button class="btn small ghost" type="button" data-json-copy="${section}">Copiar prompt</button></div><textarea data-json-generated="${section}" readonly placeholder="Prompt generado"></textarea><label>Pegar respuesta JSON</label><textarea data-json-input="${section}" placeholder="Pega aquí JSON válido"></textarea><div class="row"><button class="btn small primary" type="button" data-json-apply="${section}">Aplicar JSON</button><button class="btn small bad" type="button" data-json-clear="${section}">Limpiar</button></div><div class="help" data-json-msg="${section}"></div><div class="item" data-json-preview-box="${section}"></div></div></section>`);
   });
 
   consolidateNecropsySystematicUi();
@@ -8248,10 +8350,8 @@ function installSectionJsonImportUi() {
   document.querySelectorAll("[data-json-cancel]").forEach((b) => b.onclick = () => { const body = document.querySelector(`[data-json-body="${b.dataset.jsonCancel}"]`); if (body) body.hidden = true; });
   document.querySelectorAll("[data-json-prompt]").forEach((b) => b.onclick = () => { const sec = b.dataset.jsonPrompt; const out = document.querySelector(`[data-json-generated="${sec}"]`); if (out) out.value = sectionJsonPrompt(sec, document.querySelector(`[data-json-source="${sec}"]`)?.value); });
   document.querySelectorAll("[data-json-copy]").forEach((b) => b.onclick = async () => { const sec = b.dataset.jsonCopy; const text = document.querySelector(`[data-json-generated="${sec}"]`)?.value || sectionJsonPrompt(sec); await navigator.clipboard?.writeText?.(text); sectionJsonMessage(sec, "Prompt copiado.", false); });
-  document.querySelectorAll("[data-json-chatgpt]").forEach((b) => b.onclick = () => window.open("https://chatgpt.com/", "_blank"));
-  document.querySelectorAll("[data-json-validate]").forEach((b) => b.onclick = () => validateSectionJson(b.dataset.jsonValidate, true));
-  document.querySelectorAll("[data-json-preview]").forEach((b) => b.onclick = () => previewSectionJson(b.dataset.jsonPreview));
-  document.querySelectorAll("[data-json-apply]").forEach((b) => b.onclick = () => showSectionJsonModeChooser(b.dataset.jsonApply));
+  document.querySelectorAll("[data-json-clear]").forEach((b) => b.onclick = () => { const sec = b.dataset.jsonClear; const input = document.querySelector(`[data-json-input="${sec}"]`); const msg = document.querySelector(`[data-json-msg="${sec}"]`); const box = document.querySelector(`[data-json-preview-box="${sec}"]`); if (input) input.value = ""; if (msg) msg.textContent = ""; if (box) box.innerHTML = ""; });
+  document.querySelectorAll("[data-json-apply]").forEach((b) => b.onclick = () => applySectionJsonDirect(b.dataset.jsonApply));
   document.querySelectorAll("[data-json-undo]").forEach((b) => b.onclick = undoLastSectionJsonImport);
 }
 function consolidateNecropsySystematicUi() {
@@ -8281,7 +8381,7 @@ function normalizeJsonName(value = "") {
 }
 function findMedicationFromJson(item = {}) {
   const id = jsonValue(item, ["medicamento_id", "medication_id", "id_medicamento", "id"]);
-  const name = jsonValue(item, ["medicamento_nombre", "nombre_medicamento", "medicationName", "medication_name", "nombre", "name", "medicamento"]);
+  const name = jsonValue(item, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
   if (id) {
     const byExactId = byId(state.meds, String(id));
     if (byExactId) return byExactId;
@@ -8296,7 +8396,7 @@ function findMedicationFromJson(item = {}) {
 }
 function findSupplyFromJson(item = {}) {
   const id = jsonValue(item, ["insumo_id", "supply_id", "id_insumo", "id"]);
-  const name = jsonValue(item, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"]);
+  const name = jsonValue(item, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
   if (id) {
     const byExactId = byId(state.supplies, String(id));
     if (byExactId) return byExactId;
@@ -8318,17 +8418,20 @@ function extractClinicalJsonPayload(parsed = {}) {
   return c && typeof c === "object" ? c : {};
 }
 function clinicalJsonMedicationItems(day = {}) {
-  return asJsonArray(jsonValue(day, ["medicamentos", "medicamentos_usados", "medicamentos_del_dia", "medicacion", "medications", "medications_used", "daily_medications"]));
+  return asJsonArray(jsonValue(day, ["medicamentos", "medicamentos_usados", "medicamentos_del_dia", "medicacion", "tratamiento_medicamentoso", "medications", "medications_used", "daily_medications"]));
 }
 function clinicalJsonSupplyItems(day = {}) {
-  return asJsonArray(jsonValue(day, ["insumos", "insumos_usados", "insumos_del_dia", "supplies", "supplies_used", "daily_supplies"]));
+  return asJsonArray(jsonValue(day, ["insumos", "insumos_usados", "insumos_del_dia", "materiales", "material_usado", "supplies", "supplies_used", "daily_supplies"]));
 }
 function normalizeClinicalJsonDays(source = {}) {
   const c = extractClinicalJsonPayload(source);
-  const directDays = jsonValue(c, ["medicacion_insumos_por_dia", "medicacion_por_dia", "medicamentos_insumos_por_dia", "seguimientos", "tratamientos_por_dia", "medication_supplies_by_day", "medications_by_day", "treatments_by_day", "followups"]);
+  const dayKeys = ["medicacion_insumos_por_dia", "medicacion_por_dia", "medicamentos_insumos_por_dia", "seguimientos", "tratamientos_por_dia", "medication_supplies_by_day", "medications_by_day", "treatments_by_day", "followups"];
+  const directDays = jsonValue(c, dayKeys) ?? jsonValue(source, dayKeys);
   if (directDays) return asJsonArray(directDays);
-  const meds = jsonValue(c, ["medicamentos", "medicamentos_usados", "medicamentos_del_dia", "medicacion", "medications", "medications_used"]);
-  const supplies = jsonValue(c, ["insumos", "insumos_usados", "insumos_del_dia", "supplies", "supplies_used"]);
+  const medKeys = ["medicamentos", "medicamentos_usados", "medicamentos_del_dia", "medicacion", "tratamiento_medicamentoso", "medications", "medications_used"];
+  const supplyKeys = ["insumos", "insumos_usados", "insumos_del_dia", "materiales", "material_usado", "supplies", "supplies_used"];
+  const meds = jsonValue(c, medKeys) ?? jsonValue(source, medKeys);
+  const supplies = jsonValue(c, supplyKeys) ?? jsonValue(source, supplyKeys);
   if (meds || supplies) return [{ medicamentos: asJsonArray(meds), insumos: asJsonArray(supplies) }];
   return [];
 }
@@ -8427,12 +8530,29 @@ function showSectionJsonModeChooser(section) {
     };
   });
 }
+function applySectionJsonDirect(section) {
+  const parsed = validateSectionJson(section);
+  if (!parsed) return;
+  state.draft.sectionJson = { section, parsed, previewed: true, hasBase: hasBaseProcedureData(parsed) };
+  snapshotSectionJsonUndo();
+  if (section === "clinical") {
+    const stats = applyClinicalSectionJson(parsed, "merge");
+    if (!stats.loaded && !stats.daysAdded && !stats.medsAdded && !stats.suppliesAdded) {
+      sectionJsonMessage(section, "El JSON es válido, pero no contiene datos compatibles para medicación e insumos por día.", true);
+      return;
+    }
+    renderProcedureDraftLists();
+    sectionJsonMessage(section, `JSON aplicado correctamente. Se fusionó: ${stats.daysAdded} día(s) de medicación, ${stats.medsAdded} medicamento(s), ${stats.suppliesAdded} insumo(s).`);
+    return;
+  }
+  applySectionJsonWithMode(section, "merge");
+}
 function applySectionJsonWithMode(section, mode = "merge") {
   if (!state.draft.sectionJson?.previewed || state.draft.sectionJson.section !== section) return sectionJsonMessage(section, "Primero valida y genera la vista previa.", true);
   snapshotSectionJsonUndo();
   const parsed = state.draft.sectionJson.parsed;
   if (section === "clinical") {
-    const stats = applyClinicalSectionJson(extractClinicalJsonPayload(parsed), mode);
+    const stats = applyClinicalSectionJson(parsed, mode);
     if (!stats.loaded) {
       sectionJsonMessage(section, "El JSON es válido, pero no contiene medicamentos o insumos compatibles para esta sección.", true);
       return;
@@ -8451,61 +8571,71 @@ function applySectionJsonWithMode(section, mode = "merge") {
   sectionJsonMessage(section, "JSON aplicado solo en esta sección. Datos base del procedimiento no fueron modificados.");
 }
 function applyClinicalSectionJson(c, mode) {
-  const a = c.animal_atendido || {}, e = c.evaluacion_clinica || {}, cf = e.constantes_fisiologicas || {};
+  const payload = extractClinicalJsonPayload(c);
+  const a = payload.animal_atendido || {}, e = payload.evaluacion_clinica || {}, cf = e.constantes_fisiologicas || {};
   let fieldCount = 0;
   Object.entries({ p_cc_registeredAnimal:a.animal_registrado, p_cc_animalName:a.nombre_identificacion, p_cc_species:a.especie, p_cc_breed:a.raza_linea_tipo_cruza, p_cc_sex:a.sexo, p_cc_age:a.edad, p_cc_weight:a.peso, p_cc_bodyCondition:a.condicion_corporal, p_cc_reproductiveStatus:a.estado_reproductivo, p_cc_animalObservations:a.observaciones_generales, p_cc_reason:e.motivo_consulta, p_cc_anamnesis:e.anamnesis, p_cc_fc:cf.fc, p_cc_fr:cf.fr, p_cc_temp:cf.temperatura, p_cc_mucosa:cf.mucosas, p_cc_tllc:cf.tllc, p_cc_hydration:cf.hidratacion_deshidratacion, p_cc_otherSigns:cf.otros_signos_relevantes, p_cc_exam:e.examen_fisico_hallazgos, p_cc_presumptiveDx:e.diagnostico_presuntivo, p_cc_differentialDx:e.diagnosticos_diferenciales, p_cc_tests:e.pruebas_realizadas }).forEach(([id, v]) => { if (v !== undefined && v !== null && v !== "") fieldCount += 1; setIfAllowed(id, v, mode === "replace" ? "merge" : mode); });
   const days = normalizeClinicalJsonDays(c);
   if (mode === "replace" && days.length) state.draft.procedureClinicalDays = [];
-  let loaded = 0;
+  let loaded = 0, daysAdded = 0, medsAdded = 0, suppliesAdded = 0;
   days.forEach((d) => {
     const medications = clinicalJsonMedicationItems(d).map(normalizeJsonClinicalMedication).filter(Boolean);
     const supplies = clinicalJsonSupplyItems(d).map(normalizeJsonClinicalSupply).filter(Boolean);
     if (!medications.length && !supplies.length) return;
-    const day = { id: uid("ccday"), date: jsonValue(d, ["fecha", "date"]) || "", hour: jsonValue(d, ["hora", "hour"]) || "", observations: jsonValue(d, ["observaciones_dia", "observaciones", "notas_dia", "notes", "observations"]) || "", medications, supplies };
+    const day = { id: uid("ccday"), date: jsonValue(d, ["fecha", "date", "dia", "día", "fecha_medicacion", "fecha_seguimiento"]) || "", hour: jsonValue(d, ["hora", "time", "hora_aplicacion", "hora_seguimiento", "hour"]) || "", observations: jsonValue(d, ["observaciones_dia", "observaciones", "notas_dia", "notas", "evolución", "evolucion", "notes", "observations"]) || "", medications, supplies };
     if (mode === "merge") {
-      const existing = (state.draft.procedureClinicalDays || []).find((row) => safe(row.date) && safe(row.date) === safe(day.date));
+      const existing = (state.draft.procedureClinicalDays || []).find((row) => safe(row.date) === safe(day.date));
       if (existing) {
         if (!safe(existing.hour) && safe(day.hour)) existing.hour = day.hour;
         if (!safe(existing.observations) && safe(day.observations)) existing.observations = day.observations;
         medications.forEach((med) => {
-          const dup = (existing.medications || []).some((current) => clinicalMedicationDuplicateKey(current) === clinicalMedicationDuplicateKey(med));
-          if (!dup) { existing.medications = existing.medications || []; existing.medications.push(med); loaded += 1; }
+          const dup = (existing.medications || []).find((current) => clinicalMedicationDuplicateKey(current) === clinicalMedicationDuplicateKey(med));
+          if (dup) mergeMissingFields(dup, med);
+          else { existing.medications = existing.medications || []; existing.medications.push(med); loaded += 1; medsAdded += 1; }
         });
         supplies.forEach((supply) => {
-          const dup = (existing.supplies || []).some((current) => clinicalSupplyDuplicateKey(current) === clinicalSupplyDuplicateKey(supply));
-          if (!dup) { existing.supplies = existing.supplies || []; existing.supplies.push(supply); loaded += 1; }
+          const dup = (existing.supplies || []).find((current) => clinicalSupplyDuplicateKey(current) === clinicalSupplyDuplicateKey(supply));
+          if (dup) mergeMissingFields(dup, supply);
+          else { existing.supplies = existing.supplies || []; existing.supplies.push(supply); loaded += 1; suppliesAdded += 1; }
         });
         return;
       }
     }
     const duplicate = (state.draft.procedureClinicalDays || []).some((existing) => clinicalDayDuplicateKey(existing) === clinicalDayDuplicateKey(day));
-    if (!duplicate || mode === "replace") { state.draft.procedureClinicalDays.push(day); loaded += medications.length + supplies.length; }
+    if (!duplicate || mode === "replace") { state.draft.procedureClinicalDays.push(day); loaded += medications.length + supplies.length; daysAdded += 1; medsAdded += medications.length; suppliesAdded += supplies.length; }
   });
-  return { loaded, fieldCount };
+  return { loaded, fieldCount, daysAdded, medsAdded, suppliesAdded };
 }
-function clinicalMedicationDuplicateKey(m = {}) { return JSON.stringify([m.itemId || normalizeJsonName(m.name), m.administeredQty ?? m.doseQty ?? "", m.administeredUnit ?? m.doseUnit ?? "", m.costCharged ?? m.priceCharged ?? m.costSuggested ?? ""]); }
-function clinicalSupplyDuplicateKey(s = {}) { return JSON.stringify([s.itemId || normalizeJsonName(s.name), s.qty ?? "", s.unit ?? "", s.costCharged ?? s.priceCharged ?? s.costSuggested ?? ""]); }
+function mergeMissingFields(target = {}, source = {}) { Object.entries(source || {}).forEach(([k, v]) => { if ((target[k] === undefined || target[k] === null || target[k] === "") && v !== undefined && v !== null && v !== "") target[k] = v; }); }
+function clinicalMedicationDuplicateKey(m = {}) { return JSON.stringify([m.itemId || normalizeJsonName(m.name)]); }
+function clinicalSupplyDuplicateKey(s = {}) { return JSON.stringify([s.itemId || normalizeJsonName(s.name)]); }
 function clinicalDayDuplicateKey(day = {}) { return JSON.stringify({ date: day.date || "", meds: (day.medications || []).map(clinicalMedicationDuplicateKey).sort(), supplies: (day.supplies || []).map(clinicalSupplyDuplicateKey).sort() }); }
 function normalizeJsonClinicalMedication(m) {
   const inv = findMedicationFromJson(m);
-  const name = jsonValue(m, ["medicamento_nombre", "nombre_medicamento", "medicationName", "medication_name", "nombre", "name", "medicamento"]);
-  const structured = m.dosis_estructurada || m.structured_dose || {};
-  const theoretical = m.dosis_total_teorica || m.theoretical_total_dose || {};
-  const admin = m.cantidad_administrable || m.dosis_administrable || m.administered_amount || {};
+  const name = jsonValue(m, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
+  const structured = jsonValue(m, ["dosis_estructurada", "dosis", "dosis_usada", "dosis_manual", "dosis_registrada", "structured_dose"]) || {};
+  const theoreticalRaw = jsonValue(m, ["dosis_total_teorica", "dosis_total", "total_activo", "cantidad_total_teorica", "theoretical_total_dose"]);
+  const adminRaw = jsonValue(m, ["cantidad_administrable", "dosis_administrable", "administrable", "cantidad_real", "cantidad_usada_real", "administered_amount"]);
+  const theoretical = theoreticalRaw && typeof theoreticalRaw === "object" ? theoreticalRaw : { cantidad: theoreticalRaw };
+  const admin = adminRaw && typeof adminRaw === "object" ? adminRaw : { cantidad: adminRaw };
   if (!inv && !name && (structured.cantidad || theoretical.cantidad || admin.cantidad)) {
     return null;
   }
   const externalFlag = jsonValue(m, ["uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
   const noInventoryWarning = !inv ? "Este medicamento no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : "Vinculado a inventario";
-  return { id: uid("ccmed"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, name: inv?.brand || name || "Uso externo/no inventariado", route: jsonValue(m, ["via_administracion", "via", "vía", "route"]) || inv?.route || "", indicatedDoseQty: jsonValue(structured, ["cantidad", "quantity"]), indicatedDoseUnit: jsonValue(structured, ["unidad", "unit"]), perKg: jsonValue(structured, ["por_cada", "perQuantity", "per_quantity"]), unitBase: jsonValue(structured, ["unidad_base", "baseUnit", "base_unit"]), compatibleRule: jsonValue(structured, ["regla_compatible", "compatibleRule", "compatible_rule"]), theoreticalQty: jsonValue(theoretical, ["cantidad", "quantity"]), theoreticalUnit: jsonValue(theoretical, ["unidad", "unit"]), administeredQty: jsonValue(admin, ["cantidad", "quantity"]), administeredUnit: jsonValue(admin, ["unidad", "unit"]), doseQty: jsonValue(admin, ["cantidad", "quantity"]), doseUnit: jsonValue(admin, ["unidad", "unit"]), frequency: jsonValue(m, ["frecuencia", "frequency"]) || "", duration: jsonValue(m, ["duracion", "duración", "duration"]) || "", indication: jsonValue(m, ["indicacion", "indicación", "indication"]) || "", observations: jsonValue(m, ["observaciones", "observations", "notes"]) || "", costSuggested: jsonValue(m, ["costo_sugerido", "suggested_cost", "costSuggested"]), costCharged: jsonValue(m, ["costo_final_cobrado", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(m, ["costo_final_cobrado", "final_charged_cost", "costCharged", "priceCharged"]), calculationSummary: jsonValue(m, ["nota_calculo", "calculation_note", "calculationSummary"]) || noInventoryWarning, unitCost: inv ? Number(inv.unitCost || 0) : "", owner: inv?.owner || "" };
+  const indicatedDoseQty = jsonValue(structured, ["cantidad", "cantidad_dosis", "dosis_cantidad", "quantity"]) ?? jsonValue(m, ["cantidad", "cantidad_dosis"]);
+  const indicatedDoseUnit = jsonValue(structured, ["unidad", "unidad_dosis", "unit"]) ?? jsonValue(m, ["unidad", "unidad_dosis"]);
+  const administeredQty = jsonValue(admin, ["cantidad", "quantity"]);
+  const administeredUnit = jsonValue(admin, ["unidad", "unit"]);
+  return { id: uid("ccmed"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, name: inv?.brand || name || "Uso externo/no inventariado", route: jsonValue(m, ["via_administracion", "vía_administración", "via", "vía", "ruta", "tipo_administracion", "route"]) || inv?.route || "", indicatedDoseQty, indicatedDoseUnit, perKg: jsonValue(structured, ["por_cada", "cada", "por", "perQuantity", "per_quantity"]) ?? jsonValue(m, ["por_cada", "cada", "por"]), unitBase: jsonValue(structured, ["unidad_base", "base", "unidad_por_cada", "baseUnit", "base_unit"]) ?? jsonValue(m, ["unidad_base", "base", "unidad_por_cada"]), compatibleRule: jsonValue(structured, ["regla_compatible", "regla", "regla_calculo", "compatibleRule", "compatible_rule"]) ?? jsonValue(m, ["regla_compatible", "regla", "regla_calculo"]), theoreticalQty: jsonValue(theoretical, ["cantidad", "quantity"]), theoreticalUnit: jsonValue(theoretical, ["unidad", "unit"]), administeredQty, administeredUnit, doseQty: administeredQty ?? indicatedDoseQty, doseUnit: administeredUnit || indicatedDoseUnit || "", frequency: jsonValue(m, ["frecuencia", "cada_cuanto", "intervalo", "frequency"]) || "", duration: jsonValue(m, ["duracion", "duración", "tiempo_tratamiento", "duration"]) || "", indication: jsonValue(m, ["indicacion", "indicación", "motivo", "uso", "para_que", "indication"]) || "", observations: jsonValue(m, ["observaciones", "observaciones_medicamento", "notas_medicamento", "observations", "notes"]) || "", costSuggested: jsonValue(m, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), calculationSummary: jsonValue(m, ["nota_calculo", "calculo", "explicación_calculo", "explicacion_calculo", "calculation_note", "calculationSummary"]) || noInventoryWarning, unitCost: inv ? Number(inv.unitCost || 0) : "", owner: inv?.owner || "" };
 }
 function normalizeJsonClinicalSupply(i) {
   const inv = findSupplyFromJson(i);
-  const name = jsonValue(i, ["insumo_nombre", "nombre_insumo", "supplyName", "supply_name", "nombre", "name", "insumo"]);
+  const name = jsonValue(i, ["insumo_nombre", "insumo", "nombre_insumo", "material", "material_usado", "supplyName", "supply_name", "nombre", "name"]);
   const externalFlag = jsonValue(i, ["uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
-  const qty = jsonValue(i, ["cantidad_usada", "quantity_used", "qty", "cantidad"]);
-  const unitCost = jsonValue(i, ["costo_unitario", "unit_cost", "unitCost"]);
-  return { id: uid("ccsup"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, name: inv?.name || name || "Uso externo/no inventariado", qty, unit: jsonValue(i, ["unidad_usada", "used_unit", "unit", "unidad"]) || inv?.unit || "", unitCost: unitCost ?? (inv ? supplyDisplayCost(inv) : ""), costSuggested: jsonValue(i, ["costo_sugerido", "suggested_cost", "costSuggested"]), costCharged: jsonValue(i, ["costo_final_cobrado", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(i, ["costo_final_cobrado", "final_charged_cost", "costCharged", "priceCharged"]), observations: jsonValue(i, ["observaciones", "observations", "notes"]) || (!inv ? "Este insumo no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : ""), type: inv?.type || "EXTERNAL", owner: inv?.owner || "" };
+  const qty = jsonValue(i, ["cantidad_usada", "cantidad", "cantidad_insumos", "numero", "número", "quantity_used", "qty"]);
+  const unitCost = jsonValue(i, ["costo_unitario", "costo_unitario_inventario", "precio_unitario", "unit_cost", "unitCost"]);
+  return { id: uid("ccsup"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, name: inv?.name || name || "Uso externo/no inventariado", qty, unit: jsonValue(i, ["unidad_usada", "unidad", "presentacion", "presentación", "used_unit", "unit"]) || inv?.unit || "", unitCost: unitCost ?? (inv ? supplyDisplayCost(inv) : ""), costSuggested: jsonValue(i, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(i, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), observations: jsonValue(i, ["observaciones", "notas", "observaciones_insumo", "observations", "notes"]) || (!inv ? "Este insumo no existe en inventario. Vincúlalo manualmente o márcalo como externo/no inventariado." : ""), type: inv?.type || "EXTERNAL", owner: inv?.owner || "" };
 }
 function applyAdviceSectionJson(a, mode) { Object.entries({ p_zoo_activity:a.tipo_asesoria, p_zoo_evaluation:[a.descripcion, ...(a.problemas_detectados || [])].filter(Boolean).join("\n"), p_zoo_intervention:[...(a.recomendaciones || []), ...(a.medicamentos_usados || []), ...(a.vacunas_usadas || []), ...(a.insumos_usados || [])].filter(Boolean).join("\n"), p_zoo_plan:a.plan_accion, p_zoo_followup:a.observaciones }).forEach(([id, v]) => setIfAllowed(id, v, mode)); }
 function applyNecropsySectionJson(n, mode) {
