@@ -8336,6 +8336,14 @@ state.draft.sectionJson = state.draft.sectionJson || { section: null, parsed: nu
 
 function sectionJsonPrompt(section, source = "") {
   const sourceText = source || (section === "necropsy" ? "[Pegar aquí el texto de necropsia]" : section === "clinical" ? "[Pegar aquí el texto clínico]" : "[Pegar aquí el texto]");
+  const inventoryMedicines = medicationInventoryPromptList();
+  const medicationInventoryPromptRules = `
+
+MEDICAMENTOS DISPONIBLES EN INVENTARIO:
+
+${inventoryMedicines}
+
+Usa preferentemente los nombres exactos del inventario. Si el texto clínico menciona un principio activo, marca comercial abreviada o nombre con error ortográfico, intenta vincularlo al medicamento más parecido del inventario. No inventes medicamentos nuevos. Cuando extraigas medicamentos, revisa la lista de medicamentos disponibles en inventario. Si el medicamento mencionado en el texto coincide por nombre comercial, sustancia activa, concentración o nombre parecido con uno del inventario, usa el nombre exacto del inventario en medicamento_nombre, completa sustancia_activa y coincidencia_inventario, y coloca uso_externo: false. Solo usa uso_externo: true si el medicamento no aparece en inventario ni tiene coincidencia razonable o si el texto dice explícitamente que fue externo/no inventariado.`;
   const prompts = {
     clinical: `Analiza el siguiente texto clínico veterinario y conviértelo en JSON válido para llenar únicamente la sección de caso clínico individual de la app.
 
@@ -8350,7 +8358,7 @@ Si no se menciona fecha de medicación, usa fecha vacía.
 Si no se menciona hora, usa hora vacía.
 Si no se menciona costo, usa null.
 No conviertas medicamentos a texto libre: cada medicamento debe ser un objeto dentro de medicamentos.
-No conviertas insumos a texto libre: cada insumo debe ser un objeto dentro de insumos.
+No conviertas insumos a texto libre: cada insumo debe ser un objeto dentro de insumos.${medicationInventoryPromptRules}
 
 Usa exactamente esta estructura:
 
@@ -8394,6 +8402,8 @@ Usa exactamente esta estructura:
 "medicamentos": [
 {
 "medicamento_nombre": "",
+"sustancia_activa": "",
+"coincidencia_inventario": "",
 "uso_externo": false,
 "via_administracion": "",
 "indicacion": "",
@@ -8441,7 +8451,7 @@ Usa exactamente esta estructura:
 Texto fuente:
 ${sourceText}`,
     necropsy: `Analiza el siguiente texto de necropsia veterinaria y conviértelo en JSON válido para llenar únicamente el reporte sistemático de necropsia de la app.\n\nNo incluyas datos base del procedimiento.\nNo inventes datos.\nSi un órgano no se menciona, déjalo vacío o como no revisado.\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\n\nUsa la estructura:\n{\n"tipo_carga": "necropsia",\n"necropsia": {\n"datos_generales": {},\n"reporte_sistematico": [{ "sistema": "", "organo": "", "estado": "no revisado", "descripcion_macroscopica": "", "lesiones_encontradas": "", "distribucion": "", "severidad": "", "color": "", "tamano": "", "consistencia": "", "contenido": "", "olor": "", "parasitos": "", "muestras_tomadas": [], "fotos_referencias": [], "observaciones": "" }],\n"muestras": [],\n"diagnosticos_macroscopicos": [],\n"diagnostico_presuntivo": "",\n"causa_probable_muerte": "",\n"recomendaciones": "",\n"observaciones_finales": ""\n}\n}\n\nTexto fuente:\n${sourceText}`,
-    advice: `Analiza el siguiente texto de asesoría veterinaria y conviértelo en JSON válido para llenar únicamente la sección interna de asesoría clínica o técnica.\n\nNo incluyas datos base del procedimiento.\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\nNo inventes datos. Si falta información, usa null o string vacío.\n\nUsa la estructura:\n{\n"tipo_carga": "asesoria",\n"asesoria": {\n"tipo_asesoria": "",\n"descripcion": "",\n"problemas_detectados": [],\n"recomendaciones": [],\n"plan_accion": "",\n"medicamentos_usados": [],\n"vacunas_usadas": [],\n"insumos_usados": [],\n"costo_sugerido": null,\n"costo_final_cobrado": null,\n"observaciones": ""\n}\n}\n\nTexto fuente:\n${sourceText}`,
+    advice: `Analiza el siguiente texto de asesoría veterinaria y conviértelo en JSON válido para llenar únicamente la sección interna de asesoría clínica o técnica.\n\nNo incluyas datos base del procedimiento.\nDevuelve exclusivamente JSON válido, sin explicación, sin markdown y sin texto adicional.\nNo inventes datos. Si falta información, usa null o string vacío.${medicationInventoryPromptRules}\n\nUsa la estructura:\n{\n"tipo_carga": "asesoria",\n"asesoria": {\n"tipo_asesoria": "",\n"descripcion": "",\n"problemas_detectados": [],\n"recomendaciones": [],\n"plan_accion": "",\n"medicamentos_usados": [],\n"vacunas_usadas": [],\n"insumos_usados": [],\n"costo_sugerido": null,\n"costo_final_cobrado": null,\n"observaciones": ""\n}\n}\n\nTexto fuente:\n${sourceText}`,
     lab: `Analiza el siguiente texto de estudios de laboratorio veterinarios y conviértelo en JSON válido para llenar únicamente estudios de laboratorio vinculados al caso clínico. No incluyas datos base del procedimiento. Devuelve exclusivamente JSON válido.\n{ "tipo_carga": "estudios_laboratorio", "estudios_laboratorio": [{ "nombre_estudio": "", "tipo_muestra": "", "fecha_toma": "", "fecha_resultado": "", "resultado": "", "interpretacion": "", "diagnostico_relacionado": "", "costo_sugerido": null, "costo_final_cobrado": null, "observaciones": "" }] }\n\nTexto fuente:\n${sourceText}`,
   };
   return prompts[section] || prompts.clinical;
@@ -8516,31 +8526,70 @@ function textSimilarity(a = "", b = "") {
   if (!max) return 1;
   return Math.max(0, 1 - (levenshteinDistance(left, right) / max));
 }
+function jsonNameTokens(value = "") {
+  return normalizeJsonName(value).split(" ").filter((token) => token && token.length > 1);
+}
+function tokenOverlapScore(search = "", target = "") {
+  const searchTokens = jsonNameTokens(search);
+  const targetTokens = jsonNameTokens(target);
+  if (!searchTokens.length || !targetTokens.length) return 0;
+  let hits = 0;
+  searchTokens.forEach((token) => {
+    if (targetTokens.some((candidate) => candidate.includes(token) || token.includes(candidate) || textSimilarity(token, candidate) >= 0.82)) hits += 1;
+  });
+  return hits / searchTokens.length;
+}
+function medicationInventoryLabel(m = {}) {
+  return [m.brand, m.active || m.activeIngredient].filter(Boolean).join(" · ") || m.name || "Medicamento sin nombre";
+}
+function medicationInventoryPromptList() {
+  const meds = (state.meds || []).map(medicationInventoryLabel).filter(Boolean);
+  return meds.length ? meds.map((label) => `* ${label}`).join("\n") : "* Sin medicamentos registrados en inventario.";
+}
 function medicationJsonName(item = {}) {
   return jsonValue(item, ["medicamento_nombre", "medicamento", "nombre_medicamento", "producto", "farmaco", "fármaco", "medicamento_administrado", "medicationName", "medication_name", "nombre", "name"]);
 }
 function medicationJsonMatch(item = {}) {
   const id = jsonValue(item, ["medicamento_id", "medication_id", "id_medicamento", "id"]);
   const name = medicationJsonName(item);
+  const rawActive = jsonValue(item, ["principio_activo", "sustancia_activa", "active", "activeIngredient"]);
+  const rawInventoryMatch = jsonValue(item, ["coincidencia_inventario", "inventory_match", "inventario", "inventory"]);
+  const concentrationText = jsonValue(item, ["concentracion", "concentración", "concentration"]) || name || "";
   if (id) {
     const byExactId = byId(state.meds, String(id));
-    if (byExactId) return { med: byExactId, score: 1, level: "exact", reason: "id" };
+    if (byExactId) return { med: byExactId, score: 1, level: "exact", reason: "id", suggestions: [{ med: byExactId, score: 1, reason: "id" }] };
   }
-  if (!name) return { med: null, score: 0, level: "none", suggestions: [] };
-  const exact = state.meds.find((m) => String(m.brand || "") === String(name)) || state.meds.find((m) => normalizeJsonName(m.brand) === normalizeJsonName(name));
-  if (exact) return { med: exact, score: 1, level: "exact", reason: "name" };
-  const concentration = normalizeJsonName(jsonValue(item, ["concentracion", "concentración", "concentration"]) || "");
-  const active = normalizeJsonName(jsonValue(item, ["principio_activo", "sustancia_activa", "active", "activeIngredient"]) || "");
+  const terms = [name, rawActive, rawInventoryMatch].filter(Boolean).map(String);
+  if (!terms.length) return { med: null, score: 0, level: "none", suggestions: [] };
+  const exactTerm = terms.find((term) => (state.meds || []).some((m) => normalizeJsonName(m.brand) === normalizeJsonName(term) || normalizeJsonName(medicationInventoryLabel(m)) === normalizeJsonName(term)));
+  if (exactTerm) {
+    const exact = (state.meds || []).find((m) => normalizeJsonName(m.brand) === normalizeJsonName(exactTerm) || normalizeJsonName(medicationInventoryLabel(m)) === normalizeJsonName(exactTerm));
+    return { med: exact, score: 1, level: "exact", reason: "name", suggestions: [{ med: exact, score: 1, reason: "name" }] };
+  }
+  const activeNorm = normalizeJsonName(rawActive || "");
+  const nameNorm = normalizeJsonName(name || "");
   const scored = (state.meds || []).map((m) => {
-    let score = textSimilarity(name, m.brand || "");
-    if (active && normalizeJsonName(m.active || m.activeIngredient || "").includes(active)) score = Math.min(1, score + 0.08);
-    if (concentration && normalizeJsonName([m.concentration, m.presentation, m.brand].filter(Boolean).join(" ")).includes(concentration)) score = Math.min(1, score + 0.07);
-    return { med: m, score };
+    const brand = m.brand || m.name || "";
+    const medActive = m.active || m.activeIngredient || "";
+    const label = medicationInventoryLabel(m);
+    const inventoryText = [brand, medActive, m.concentration, m.equivalence, m.presentation, m.unit].filter(Boolean).join(" ");
+    const brandScore = Math.max(...terms.map((term) => Math.max(textSimilarity(term, brand), tokenOverlapScore(term, brand))));
+    const activeScore = Math.max(...terms.map((term) => Math.max(textSimilarity(term, medActive), tokenOverlapScore(term, medActive))));
+    const labelScore = Math.max(...terms.map((term) => Math.max(textSimilarity(term, label), tokenOverlapScore(term, label))));
+    let score = Math.max(brandScore, activeScore, labelScore * 0.96);
+    let reason = score === activeScore ? "sustancia activa" : "nombre";
+    if (activeNorm && normalizeJsonName(medActive).includes(activeNorm)) { score = Math.max(score, 0.92); reason = "sustancia activa"; }
+    if (nameNorm && normalizeJsonName(medActive).includes(nameNorm)) { score = Math.max(score, 0.90); reason = "sustancia activa"; }
+    if (tokenOverlapScore(concentrationText, inventoryText) >= 0.5) score = Math.min(1, score + 0.04);
+    return { med: m, score, reason };
   }).sort((a, b) => b.score - a.score).slice(0, 5);
   const best = scored[0];
-  if (best?.score >= 0.85) return { med: best.med, score: best.score, level: "high", suggestions: scored };
-  if (best?.score >= 0.60) return { med: null, score: best.score, level: "medium", suggestions: scored };
-  return { med: null, score: best?.score || 0, level: "low", suggestions: scored };
+  if (!best) return { med: null, score: 0, level: "none", suggestions: [] };
+  const sameHigh = scored.filter((row) => row.score >= 0.85);
+  if (sameHigh.length > 1 && best.reason === "sustancia activa" && Math.abs(sameHigh[0].score - sameHigh[1].score) < 0.08) return { med: null, score: best.score, level: "medium", reason: "multiple_active", suggestions: scored };
+  if (best.score >= 0.85) return { med: best.med, score: best.score, level: "high", reason: best.reason, suggestions: scored };
+  if (best.score >= 0.60) return { med: null, score: best.score, level: "medium", reason: best.reason, suggestions: scored };
+  return { med: null, score: best.score || 0, level: "low", reason: best.reason, suggestions: scored };
 }
 function findMedicationFromJson(item = {}) {
   const match = medicationJsonMatch(item);
@@ -8723,9 +8772,9 @@ function medicationJsonValidationMessages(m = {}, dayIndex = 0, itemIndex = 0) {
   else if (!inv) {
     const dateText = `día ${dayIndex + 1}`;
     const suggestions = (match.suggestions || []).filter((row) => row.score >= 0.45).map((row) => `‘${row.med.brand}’`).join(", ");
-    if (match.level === "medium") messages.push({ item: label, text: `No se encontró exactamente el medicamento ‘${name}’ del ${dateText}. Posibles coincidencias: ${suggestions || "sin coincidencias útiles"}. Elige una opción: agregar nuevo medicamento manualmente, escoger un medicamento existente, marcar como uso externo/no inventariado u omitir este medicamento.`, pending: true });
-    else messages.push({ item: label, text: `No se encontró el medicamento ‘${name}’ en inventario del ${dateText}. Opciones: agregar nuevo medicamento manualmente, escoger medicamento existente, marcar como uso externo/no inventariado u omitir este medicamento.`, pending: true });
-  } else if (match.level === "high") messages.push({ item: label, text: `El medicamento ‘${name}’ no se encontró exactamente, pero se vinculó automáticamente con ‘${inv.brand}’ por coincidencia de nombre (${Math.round(match.score * 100)}%).`, pending: false });
+    if (match.level === "medium") messages.push({ item: label, text: match.reason === "multiple_active" ? `Se encontraron varios medicamentos con ${name}. Selecciona cuál se usó.` : `No se encontró coincidencia exacta para ‘${name}’. Posibles medicamentos en inventario: ${suggestions || "sin coincidencias útiles"}. Selecciona uno, marca como externo/no inventariado o agrega nuevo medicamento.`, pending: true });
+    else messages.push({ item: label, text: `No se encontró en inventario el medicamento ‘${name}’. Puedes agregarlo manualmente, escoger uno existente o marcarlo como uso externo/no inventariado.`, pending: true });
+  } else if (match.level === "high") messages.push({ item: label, text: `Medicamento vinculado: ‘${name}’ → ‘${medicationInventoryLabel(inv)}’. No se encontró coincidencia exacta, pero se vinculó automáticamente por coincidencia de ${match.reason || "nombre"} (${Math.round(match.score * 100)}%).`, pending: false });
   if (!qty && !unit && !hasManualDose) messages.push({ item: label, text: `El medicamento ${label} se cargó, pero no trae dosis estructurada ni dosis manual. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada")}. Puedes completarla manualmente.`, pending: true });
   if (!qty) messages.push({ item: label, text: `El medicamento ${label} no tiene cantidad de dosis. Falta dosis_estructurada.cantidad o cantidad_dosis. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.cantidad")}. Completa “Cantidad”.`, pending: true });
   if (!unit) messages.push({ item: label, text: `El medicamento ${label} no tiene unidad de dosis. Falta dosis_estructurada.unidad. Ruta esperada: ${clinicalJsonPath("med", dayIndex, itemIndex, "dosis_estructurada.unidad")}. Completa “Unidad”.`, pending: true });
@@ -8956,12 +9005,13 @@ function normalizeJsonClinicalMedication(m) {
     return null;
   }
   const externalFlag = jsonValue(m, ["uso_externo_no_inventariado", "uso_externo", "externo", "no_inventariado", "external", "not_in_inventory"]);
-  const noInventoryWarning = !inv ? `No se encontró en inventario el medicamento ‘${name || "sin nombre"}’. Agrega nuevo medicamento manualmente, escoge uno existente, marca como uso externo/no inventariado u omite este medicamento.` : (match.level === "high" ? `El medicamento ‘${name}’ no se encontró exactamente, pero se vinculó automáticamente con ‘${inv.brand}’ por coincidencia de nombre (${Math.round(match.score * 100)}%).` : "Vinculado a inventario");
+  const noInventoryWarning = !inv ? `No se encontró el medicamento ‘${name || "sin nombre"}’ en inventario. Se marcó como uso externo/no inventariado porque no hubo coincidencia suficiente. Puedes agregarlo manualmente, escoger uno existente o marcarlo como uso externo/no inventariado.` : (match.level === "high" ? `Medicamento vinculado: ‘${name}’ → ‘${medicationInventoryLabel(inv)}’. No se encontró coincidencia exacta, pero se vinculó automáticamente por coincidencia de ${match.reason || "nombre"} (${Math.round(match.score * 100)}%).` : `Medicamento vinculado: ‘${name || inv.brand}’ → ‘${medicationInventoryLabel(inv)}’.`);
   const indicatedDoseQty = jsonValue(structured, ["cantidad", "cantidad_dosis", "dosis_cantidad", "quantity"]) ?? jsonValue(m, ["cantidad", "cantidad_dosis"]);
   const indicatedDoseUnit = jsonValue(structured, ["unidad", "unidad_dosis", "unit"]) ?? jsonValue(m, ["unidad", "unidad_dosis"]);
   const administeredQty = jsonValue(admin, ["cantidad", "quantity"]);
   const administeredUnit = jsonValue(admin, ["unidad", "unit"]);
-  return { id: uid("ccmed"), itemId: inv?.id || "", external: Boolean(externalFlag) || !inv, uso_externo_no_inventariado: Boolean(externalFlag) || !inv, name: inv?.brand || name || "Uso externo/no inventariado", route: jsonValue(m, ["via_administracion", "vía_administración", "via", "vía", "ruta", "tipo_administracion", "route"]) || inv?.route || "", indicatedDoseQty, indicatedDoseUnit, perKg: jsonValue(structured, ["por_cada", "cada", "por", "perQuantity", "per_quantity"]) ?? jsonValue(m, ["por_cada", "cada", "por"]), unitBase: jsonValue(structured, ["unidad_base", "base", "unidad_por_cada", "baseUnit", "base_unit"]) ?? jsonValue(m, ["unidad_base", "base", "unidad_por_cada"]), compatibleRule: jsonValue(structured, ["regla_compatible", "regla", "regla_calculo", "compatibleRule", "compatible_rule"]) ?? jsonValue(m, ["regla_compatible", "regla", "regla_calculo"]), theoreticalQty: jsonValue(theoretical, ["cantidad", "quantity"]), theoreticalUnit: jsonValue(theoretical, ["unidad", "unit"]), administeredQty, administeredUnit, doseQty: administeredQty ?? indicatedDoseQty, doseUnit: administeredUnit || indicatedDoseUnit || "", frequency: jsonValue(m, ["frecuencia", "cada_cuanto", "intervalo", "frequency"]) || "", duration: jsonValue(m, ["duracion", "duración", "tiempo_tratamiento", "duration"]) || "", indication: jsonValue(m, ["indicacion", "indicación", "motivo", "uso", "para_que", "indication"]) || "", observations: jsonValue(m, ["observaciones", "observaciones_medicamento", "notas_medicamento", "observations", "notes"]) || "", costSuggested: jsonValue(m, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]), costCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), calculationSummary: jsonValue(m, ["nota_calculo", "calculo", "explicación_calculo", "explicacion_calculo", "calculation_note", "calculationSummary"]) || noInventoryWarning, unitCost: inv ? Number(inv.unitCost || 0) : "", owner: inv?.owner || "" };
+  const calculatedSuggestedCost = inv && Number(administeredQty ?? indicatedDoseQty) > 0 ? Number(administeredQty ?? indicatedDoseQty) * Number(inv.unitCost || 0) : undefined;
+  return { id: uid("ccmed"), itemId: inv?.id || "", external: !inv && Boolean(externalFlag), uso_externo_no_inventariado: !inv && (Boolean(externalFlag) || !inv), name: inv?.brand || name || "Uso externo/no inventariado", route: jsonValue(m, ["via_administracion", "vía_administración", "via", "vía", "ruta", "tipo_administracion", "route"]) || inv?.route || "", indicatedDoseQty, indicatedDoseUnit, perKg: jsonValue(structured, ["por_cada", "cada", "por", "perQuantity", "per_quantity"]) ?? jsonValue(m, ["por_cada", "cada", "por"]), unitBase: jsonValue(structured, ["unidad_base", "base", "unidad_por_cada", "baseUnit", "base_unit"]) ?? jsonValue(m, ["unidad_base", "base", "unidad_por_cada"]), compatibleRule: jsonValue(structured, ["regla_compatible", "regla", "regla_calculo", "compatibleRule", "compatible_rule"]) ?? jsonValue(m, ["regla_compatible", "regla", "regla_calculo"]), theoreticalQty: jsonValue(theoretical, ["cantidad", "quantity"]), theoreticalUnit: jsonValue(theoretical, ["unidad", "unit"]), administeredQty, administeredUnit, doseQty: administeredQty ?? indicatedDoseQty, doseUnit: administeredUnit || indicatedDoseUnit || "", frequency: jsonValue(m, ["frecuencia", "cada_cuanto", "intervalo", "frequency"]) || "", duration: jsonValue(m, ["duracion", "duración", "tiempo_tratamiento", "duration"]) || "", indication: jsonValue(m, ["indicacion", "indicación", "motivo", "uso", "para_que", "indication"]) || "", observations: jsonValue(m, ["observaciones", "observaciones_medicamento", "notas_medicamento", "observations", "notes"]) || "", costSuggested: jsonValue(m, ["costo_sugerido", "costo_automatico", "costo_sugerido_automatico", "suggested_cost", "costSuggested"]) ?? calculatedSuggestedCost, costCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), priceCharged: jsonValue(m, ["costo_final_cobrado", "costo_final", "costo_cobrado", "precio_final", "final_charged_cost", "costCharged", "priceCharged"]), calculationSummary: jsonValue(m, ["nota_calculo", "calculo", "explicación_calculo", "explicacion_calculo", "calculation_note", "calculationSummary"]) || noInventoryWarning, unitCost: inv ? Number(inv.unitCost || 0) : "", owner: inv?.owner || "" };
 }
 function normalizeJsonClinicalSupply(i) {
   if (jsonValue(i, ["omitir", "omit", "insumo_omitido"])) return null;
